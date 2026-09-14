@@ -136,7 +136,7 @@
     position:relative;
     flex:1;
     height:100%;
-    border-radius:var(--radius);
+    border-radius:0;
     overflow:hidden;
     background:var(--surface-2);
     min-height:420px;
@@ -177,25 +177,23 @@
     gap:14px;
   }
   .link-row{
-    background:var(--surface);
-    border:1px solid var(--line);
-    border-radius:16px;
+    background:none;
+    border:none;
     display:flex;
     align-items:center;
-    gap:14px;
-    padding:15px 18px;
-    transition:border-color .2s ease, transform .18s ease;
+    gap:10px;
+    padding:8px 2px;
+    transition:transform .18s ease, opacity .18s ease;
   }
-  .link-row:hover{ border-color:var(--accent); transform:translateX(3px); }
+  .link-row:hover{ transform:translateX(3px); opacity:0.75; }
   .icon-box{
-    width:36px; height:36px;
-    border-radius:10px;
+    width:20px; height:20px;
     display:flex; align-items:center; justify-content:center;
     flex:0 0 auto;
   }
-  .icon-box.yt{ background:#fdeceb; color:#e2645a; }
-  .icon-box.sc{ background:#fdf3e6; color:#e08a2c; }
-  .link-row span{ font-size:13px; font-weight:600; }
+  .icon-box.yt{ color:#FF0000; }
+  .icon-box.sc{ color:#FF7700; }
+  .link-row span{ font-size:12.5px; font-weight:600; color:var(--ink); }
 
   .art-panel{
     flex:1;
@@ -257,11 +255,11 @@
 
   .gallery{
     display:grid;
-    grid-template-columns:repeat(4, 1fr);
+    grid-template-columns:repeat(5, 1fr);
     gap:16px;
   }
   @media (max-width: 900px){
-    .gallery{ grid-template-columns:repeat(2, 1fr); }
+    .gallery{ grid-template-columns:repeat(3, 1fr); }
     .main-grid{ grid-template-columns:1fr; }
   }
   @media (max-width: 560px){
@@ -336,15 +334,11 @@
   }
 
   .gd-title{ font-size:26px; font-weight:800; margin-bottom:14px; }
-  .gd-tags{ display:flex; flex-wrap:wrap; gap:5px 16px; margin-bottom:10px; }
-  .gd-tag{
-    font-size:12.5px; color:#4a4a4a;
-  }
-  .gd-tag b{ color:var(--muted); font-weight:500; margin-right:2px; }
+  .gd-tags{ margin-bottom:16px; }
   .gd-colors{ display:flex; flex-wrap:wrap; gap:5px 16px; margin-bottom:16px; }
   .gd-color-chip{
     display:inline-flex; align-items:center; gap:6px;
-    font-size:12.5px; color:#4a4a4a;
+    font-size:12.5px; margin-right:16px;
   }
   .gd-color-dot{ width:10px; height:10px; border-radius:50%; border:1px solid rgba(0,0,0,0.1); flex:0 0 auto; }
   .gd-intro{ font-size:13.5px; line-height:1.75; color:#4a4a4a; }
@@ -436,8 +430,8 @@
     <button class="nav-btn" data-page="group">GROUP</button>
     <button class="nav-btn" data-page="class">CLASS</button>
     <button class="nav-btn" data-page="club">CLUB</button>
-    <button class="nav-btn" data-page="counsel">상담일지</button>
-    <button class="nav-btn" data-page="agency">기획사</button>
+    <button class="nav-btn" data-page="counsel">학생회</button>
+    <button class="nav-btn" data-page="agency">기숙사</button>
     <button class="nav-btn" data-page="etc">ETC</button>
   </div>
 
@@ -456,21 +450,16 @@
       <div class="side-col">
         <a class="link-row" href="https://youtube.com/@ymkbhighschool" target="_blank" rel="noopener">
           <div class="icon-box yt">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M21.6 7.2s-.2-1.5-.8-2.1c-.8-.8-1.7-.8-2.1-.9C15.9 4 12 4 12 4s-3.9 0-6.7.2c-.4 0-1.3.1-2.1.9-.6.6-.8 2.1-.8 2.1S2.2 9 2.2 10.7v1.6c0 1.7.2 3.5.2 3.5s.2 1.5.8 2.1c.8.8 1.9.8 2.4.9C7.5 19 12 19 12 19s3.9 0 6.7-.2c.4 0 1.3-.1 2.1-.9.6-.6.8-2.1.8-2.1s.2-1.7.2-3.5v-1.6c0-1.7-.2-3.5-.2-3.5zM9.9 14.6V8.9l5.4 2.9-5.4 2.8z"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M21.6 7.2s-.2-1.5-.8-2.1c-.8-.8-1.7-.8-2.1-.9C15.9 4 12 4 12 4s-3.9 0-6.7.2c-.4 0-1.3.1-2.1.9-.6.6-.8 2.1-.8 2.1S2.2 9 2.2 10.7v1.6c0 1.7.2 3.5.2 3.5s.2 1.5.8 2.1c.8.8 1.9.8 2.4.9C7.5 19 12 19 12 19s3.9 0 6.7-.2c.4 0 1.3-.1 2.1-.9.6-.6.8-2.1.8-2.1s.2-1.7.2-3.5v-1.6c0-1.7-.2-3.5-.2-3.5zM9.9 14.6V8.9l5.4 2.9-5.4 2.8z"/></svg>
           </div>
-          <span>YOUTUBE</span>
+          <span>YouTube</span>
         </a>
         <a class="link-row" href="https://soundcloud.com/ymkbofficial" target="_blank" rel="noopener">
           <div class="icon-box sc">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M2 15.5c0 1.9 1.6 3.5 3.5 3.5H18c2.2 0 4-1.8 4-4 0-1.9-1.4-3.5-3.2-3.9-.3-2.8-2.6-5-5.5-5-2 0-3.7 1.1-4.6 2.7-.2 0-.3-.1-.5-.1C6 8.7 4.4 10.2 4.2 12.1 2.9 12.5 2 13.9 2 15.5z"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2 15.5c0 1.9 1.6 3.5 3.5 3.5H18c2.2 0 4-1.8 4-4 0-1.9-1.4-3.5-3.2-3.9-.3-2.8-2.6-5-5.5-5-2 0-3.7 1.1-4.6 2.7-.2 0-.3-.1-.5-.1C6 8.7 4.4 10.2 4.2 12.1 2.9 12.5 2 13.9 2 15.5z"/></svg>
           </div>
-          <span>SOUNDCLOUD</span>
+          <span>Soundcloud</span>
         </a>
-        <div class="art-panel" id="artPanel">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.1" fill="currentColor"/><circle cx="12" cy="8" r="1.1" fill="currentColor"/><circle cx="15.5" cy="10.5" r="1.1" fill="currentColor"/><path d="M8 15c1 1.2 2.4 2 4 2 3 0 5-2 5-4.5 0-.6-.4-1-1-1h-1"/></svg>
-          <h3>Art Work</h3>
-          <p>작업물 · 자료 아카이브</p>
-        </div>
       </div>
     </div>
   </div>
@@ -497,18 +486,18 @@
   </div>
   <div class="page" id="page-counsel">
     <a class="back-link" data-page="main">&#8592; 메인으로</a>
-    <div class="placeholder"><h2>상담일지</h2><p>상담일지 페이지는 준비 중입니다.</p></div>
+    <div class="placeholder"><h2>학생회</h2><p>학생회 페이지는 준비 중입니다.</p></div>
   </div>
   <div class="page" id="page-agency">
     <a class="back-link" data-page="main">&#8592; 메인으로</a>
-    <div class="placeholder"><h2>기획사</h2><p>기획사 소개 페이지는 준비 중입니다.</p></div>
+    <div class="placeholder"><h2>기숙사</h2><p>기숙사 페이지는 준비 중입니다.</p></div>
   </div>
   <div class="page" id="page-etc">
     <a class="back-link" data-page="main">&#8592; 메인으로</a>
     <div class="placeholder"><h2>ETC</h2><p>기타 페이지는 준비 중입니다.</p></div>
   </div>
 
-  <footer>© 유메키보고등학교 — Archive &amp; Backup Site</footer>
+  <footer>© ymkb high school</footer>
 </div>
 
 <!-- ================= GROUP DETAIL MODAL ================= -->
@@ -517,7 +506,6 @@
     <button class="modal-close" id="groupModalClose">&times;</button>
     <h2 class="gd-title" id="gdTitle"></h2>
     <div class="gd-tags" id="gdTags"></div>
-    <div class="gd-colors" id="gdColors"></div>
     <p class="gd-intro" id="gdIntro"></p>
 
     <hr class="soft-divider">
@@ -579,9 +567,7 @@
 
   /* ---------------- CAROUSEL ---------------- */
   const slidesData = [
-    { date:'2026.09.14', title:'2026 하반기 정기 공연 안내', gradient:'linear-gradient(160deg,#7fa0d4,#3f5f96)' },
-    { date:'2026.10.??', title:'신규 팀 라인업 공개', gradient:'linear-gradient(160deg,#8fbf9c,#3f7358)' },
-    { date:'2026.11.??', title:'자료 백업 완료', gradient:'linear-gradient(160deg,#d19fc0,#8a4f7d)' }
+    { date:'', title:'plz wait a little bit of..♡', gradient:'linear-gradient(160deg,#7fa0d4,#3f5f96)' }
   ];
   const stage = document.getElementById('carouselStage');
   const ticksWrap = document.getElementById('carouselTicks');
@@ -591,7 +577,7 @@
     const el = document.createElement('div');
     el.className = 'slide' + (i === 0 ? ' active' : '');
     el.style.background = s.gradient;
-    el.innerHTML = `<div class="slide-overlay"><div class="date">${s.date}</div><div class="title">${s.title}</div></div>`;
+    el.innerHTML = `<div class="slide-overlay">${s.date ? `<div class="date">${s.date}</div>` : ''}<div class="title">${s.title}</div></div>`;
     stage.appendChild(el);
     const tick = document.createElement('div');
     tick.className = 'tick' + (i === 0 ? ' active' : '');
@@ -861,14 +847,17 @@
 
   function openGroupDetail(g){
     document.getElementById('gdTitle').textContent = g.name;
-    const tagPairs = [ ['컨셉', g.concept], ['장르', g.genre], ['팬덤명', g.fandom] ];
-    document.getElementById('gdTags').innerHTML = tagPairs
-      .filter(([, v]) => v)
-      .map(([k, v]) => `<span class="gd-tag"><b>${k}</b> | ${v}</span>`).join('');
-    document.getElementById('gdColors').innerHTML = g.colors.map(c => {
+    const colorsValue = g.colors.map(c => {
       const hex = colorMap[c] || '#cccccc';
-      return `<span class="gd-color-chip"><span class="gd-color-dot" style="background:${hex}"></span>${c}</span>`;
+      const textColor = hex.toLowerCase() === '#ffffff' ? '#a8a69f' : hex;
+      return `<span class="gd-color-chip" style="color:${textColor}"><span class="gd-color-dot" style="background:${hex}"></span>${c}</span>`;
     }).join('');
+    document.getElementById('gdTags').innerHTML = `
+      ${infoRow('컨셉', g.concept)}
+      ${infoRow('장르', g.genre)}
+      ${infoRow('팬덤명', g.fandom)}
+      ${infoRow('대표 컬러', colorsValue)}
+    `;
     const introParts = [];
     introParts.push(`${g.name}는` + (g.concept ? ` ${g.concept}을(를) 컨셉으로 하는` : '') + (g.genre ? ` ${g.genre} 기반` : '') + ` 그룹입니다.`);
     introParts.push(`대표 컬러는 ${g.colors.join(', ')}입니다.`);
@@ -1015,9 +1004,7 @@
 
   function openClassDetail(sec){
     document.getElementById('clTitle').textContent = sec.id;
-    document.getElementById('clTeacherTag').innerHTML = sec.teacher
-      ? `<span class="gd-tag"><b>담당 교사</b> | ${sec.teacher}</span>`
-      : `<span class="gd-tag" style="color:var(--muted);">담당 교사 정보 없음</span>`;
+    document.getElementById('clTeacherTag').innerHTML = infoRow('담당 교사', sec.teacher);
     const gal = document.getElementById('clGallery');
     gal.innerHTML = sec.roster.length
       ? sec.roster.map(rosterCard).join('')
@@ -1156,8 +1143,6 @@
     else if(classModal.classList.contains('active')) classModal.classList.remove('active');
     else if(groupModal.classList.contains('active')) groupModal.classList.remove('active');
   });
-
-  document.getElementById('artPanel').addEventListener('click', () => alert('Art Work 페이지는 준비 중입니다.'));
 </script>
 </body>
 </html>
