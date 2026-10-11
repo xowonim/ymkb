@@ -1,0 +1,176 @@
+[
+  {
+    "name": "Amuse", "colors": ["레드","옐로우","그린","블루","브라운"],
+    "concept": "놀이공원", "genre": "Jazz", "fandom": "Delight",
+    "members": [
+      { "name": "니시 케이쇼", "role": "리더", "color": "레드", "file": "keishyou" },
+      { "name": "아사히나 노조미", "role": null, "color": "옐로우", "file": "nozomi" },
+      { "name": "에나미 큐", "role": null, "color": "블루", "file": "q" },
+      { "name": "타나카 보탄", "role": null, "color": "그린", "file": "botan" },
+      { "name": "하기 유우토", "role": null, "color": "브라운", "file": "yuto" }
+    ],
+    "manager": { "name": "하쿠노 시로", "role": "매니저", "color": null, "file": "shiro" }
+  },
+  {
+    "name": "B-olla", "colors": ["레드","블랙"],
+    "concept": "뱀파이어", "genre": "Rock", "fandom": "",
+    "members": [
+      { "name": "카자마 미로", "role": "리더", "color": null, "file": "mirou" },
+      { "name": "아라키 카이로", "role": null, "color": null, "file": "kairou" },
+      { "name": "나나미 신지", "role": null, "color": null, "file": "shinzi" },
+      { "name": "하야시 미츠루", "role": null, "color": null, "file": "mitsuru" },
+      { "name": "미도리카와 토오루", "role": null, "color": null, "file": "toru" }
+    ],
+    "manager": null
+  },
+  {
+    "name": "DAWN", "colors": ["버밀리온"],
+    "concept": "새벽", "genre": "", "fandom": "",
+    "members": [
+      { "name": "토오노 아야토", "role": "리더", "color": null, "file": "ayato" }
+    ],
+    "manager": null
+  },
+  {
+    "name": "FIEND", "colors": ["그린","블랙"],
+    "concept": "해군", "genre": "House", "fandom": "Navy",
+    "members": [
+      { "name": "사쿠라 시류", "role": "리더", "color": null, "file": "shiryu" },
+      { "name": "이토 레이센", "role": null, "color": null, "file": "reisen" },
+      { "name": "시토 레미", "role": null, "color": null, "file": "remi" }
+    ],
+    "manager": null
+  },
+  {
+    "name": "FLUID", "colors": ["시안","마젠타","옐로우","블랙"],
+    "concept": "", "genre": "POP", "fandom": "PRINT",
+    "members": [
+      { "name": "노하라 켄타", "role": "리더", "color": "마젠타", "file": "kenta" },
+      { "name": "쿠키 코하쿠", "role": null, "color": "옐로우", "file": "kohaku" },
+      { "name": "신도 카이", "role": null, "color": "블랙", "file": "kai" },
+      { "name": "하루이 루키하", "role": null, "color": "시안", "file": "rukiha" },
+      { "name": "에모토 루이", "role": null, "color": "화이트", "file": "rui" }
+    ],
+    "manager": { "name": "니츠카 유이토", "role": "매니저", "color": null, "file": "yuito" }
+  },
+  {
+    "name": "kowiis", "colors": ["틸 그린"],
+    "concept": "플레잉 카드", "genre": "POP", "fandom": "",
+    "members": [
+      { "name": "이자요이 키츠네", "role": "리더", "color": "스페이스", "file": "kitsune" },
+      { "name": "타카자쿠라 리온", "role": null, "color": "하트", "file": "rion" },
+      { "name": "미나모토 시게루", "role": null, "color": "다이아몬드", "file": "sigeru" }
+    ],
+    "manager": { "name": "킨죠 이오리", "role": "매니저", "color": null, "file": "iori" }
+  },
+  {
+    "name": "Line-Out", "colors": ["콘플라워블루","화이트"],
+    "concept": "자유분방", "genre": "POP", "fandom": "",
+    "members": [
+      { "name": "유키무라 카논", "role": "리더", "color": null, "file": "kanon" },
+      { "name": "에나미 타츠로", "role": null, "color": null, "file": "tatsuro" },
+      { "name": "사츠키 레이무", "role": null, "color": null, "file": "reimu" }
+    ],
+    "manager": null
+  },
+  {
+    "name": "Lotus", "colors": ["앰버"],
+    "concept": "연꽃", "genre": "", "fandom": "",
+    "members": [
+      { "name": "시노하라 츄시로", "role": "리더", "color": null, "file": "chyushirou" },
+      { "name": "사츠키 렌", "role": null, "color": null, "file": "ren" }
+    ],
+    "manager": null
+  },
+  {
+    "name": "Reidos", "colors": ["핑크","퍼플"],
+    "concept": "병정", "genre": "Hyperpop", "fandom": "",
+    "members": [
+      { "name": "카나에 히로토", "role": "리더", "color": null, "file": "hiroto" },
+      { "name": "하시모토 소우", "role": null, "color": null, "file": "sou" }
+    ],
+    "manager": null
+  },
+  {
+    "name": "Rosa", "colors": ["레드","그린"],
+    "concept": "장미", "genre": "jazz", "fandom": "",
+    "members": [
+      { "name": "센코 이치고", "role": "리더", "color": null, "file": "ichigo" }
+    ],
+    "manager": { "name": "센코 사쿠라", "role": "매니저", "color": null, "file": "sakura" }
+  },
+  {
+    "name": "Rude", "colors": ["딥 레드","블랙"],
+    "concept": "타락천사", "genre": "", "fandom": "",
+    "members": [
+      { "name": "하츠키 세이시", "role": "리더", "color": null, "file": "seishi" },
+      { "name": "신타니 츠토무", "role": null, "color": null, "file": "tsutomu" },
+      { "name": "나카아키 세츠나", "role": null, "color": null, "file": "setsuna" }
+    ],
+    "manager": null
+  },
+  {
+    "name": "Rute", "colors": ["크림","로지브라운","비스터 브라운"],
+    "concept": "치즈나라에 퐁당 빠진 초코퐁듀", "genre": "Hard Rock", "fandom": "Folk",
+    "members": [
+      { "name": "오카다 아츠시", "role": "리더", "color": null, "file": "atsushi" },
+      { "name": "시오자키 아우라", "role": null, "color": null, "file": "aura" },
+      { "name": "데오다토 아트", "role": null, "color": null, "file": "art" }
+    ],
+    "manager": null
+  },
+  {
+    "name": "Swaneagle", "colors": ["화이트","블랙"],
+    "concept": "새", "genre": "R&B", "fandom": "",
+    "members": [
+      { "name": "스즈키 잇세이", "role": "리더", "color": null, "file": "itsei" },
+      { "name": "이즈미 테이", "role": null, "color": null, "file": "tei" },
+      { "name": "카미하츠 마모루", "role": null, "color": null, "file": "mamoru" },
+      { "name": "하라 세이카", "role": null, "color": null, "file": "seika" }
+    ],
+    "manager": null
+  },
+  {
+    "name": "Tonic", "colors": ["로얄블루","골드","화이트","블랙"],
+    "concept": "Harmony", "genre": "Dubstep, DnB", "fandom": "Cadence (애칭 : K)",
+    "members": [
+      { "name": "아키호 모치", "role": "리더", "color": "골드", "file": "mochi" },
+      { "name": "오모 토시미", "role": null, "color": "화이트", "file": "toshimi" },
+      { "name": "테츠라 유키", "role": null, "color": "로얄블루", "file": "yuki" },
+      { "name": "나카스 헤이지", "role": null, "color": "블랙", "file": "heiji" }
+    ],
+    "manager": null
+  },
+  {
+    "name": "Trip", "colors": ["블랙"],
+    "concept": "흑룡", "genre": "Hiphop", "fandom": "",
+    "members": [
+      { "name": "카게노 히라시", "role": "리더", "color": null, "file": "hirahsi" },
+      { "name": "나미카와 우미", "role": null, "color": null, "file": "umi" },
+      { "name": "나미카와 류", "role": null, "color": null, "file": "ryu" },
+      { "name": "하야시 미츠키", "role": null, "color": null, "file": "mitsuki" }
+    ],
+    "manager": { "name": "원주율", "role": "매니저", "color": null, "file": "juyul" }
+  },
+  {
+    "name": "Tsicro", "colors": ["네이비","블랙"],
+    "concept": "퇴마사", "genre": "Rock", "fandom": "",
+    "members": [
+      { "name": "아오키 켄", "role": "리더", "color": null, "file": "ken" },
+      { "name": "코이즈미 아키라", "role": null, "color": null, "file": "akira" },
+      { "name": "신도 츠바사", "role": null, "color": null, "file": "tsubasa" },
+      { "name": "후쿠오 로나", "role": null, "color": null, "file": "rona" }
+    ],
+    "manager": { "name": "하쿠노 우즈키", "role": "매니저", "color": null, "file": "uzuki" }
+  },
+  {
+    "name": "Velvet", "colors": ["마룬"],
+    "concept": "극단", "genre": "Epic", "fandom": "",
+    "members": [
+      { "name": "히루가미 아스카", "role": "리더", "color": null, "file": "asuka" },
+      { "name": "하이바라 토마", "role": null, "color": null, "file": "toma" },
+      { "name": "미요시 아로마", "role": null, "color": null, "file": "aroma" }
+    ],
+    "manager": { "name": "히루가미 미노리", "role": "매니저", "color": null, "file": "minori" }
+  }
+]
