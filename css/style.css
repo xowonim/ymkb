@@ -448,3 +448,7 @@ textarea.f-input{ resize:vertical; line-height:1.6; }
 .crop-container img{ display:block; max-width:100%; }
 .crop-controls{ display:flex; gap:16px; margin:12px 0 4px; }
 @media (max-width: 520px){ .f-ability{ grid-template-columns:repeat(2, 1fr); } }
+.f-image{ display:flex; gap:16px; align-items:flex-start; margin-bottom:10px; }
+.f-thumb{ width:96px; aspect-ratio:3/4; background:var(--surface-2); border:1px solid var(--line); flex:0 0 auto; overflow:hidden; }
+.f-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+.form-actions .text-btn{ margin-right:12px; }
