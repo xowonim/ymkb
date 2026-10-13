@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>유메키보고등학교</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-<link rel="stylesheet" href="css/style.css?v=1">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
+<link rel="stylesheet" href="css/style.css?v=2">
 </head>
 <body>
 
@@ -26,6 +27,11 @@
     <button class="nav-btn" data-page="counsel">학생회</button>
     <button class="nav-btn" data-page="agency">기숙사</button>
     <button class="nav-btn" data-page="etc">ETC</button>
+  </div>
+
+  <div class="tool-row">
+    <button type="button" class="text-btn" id="addCharBtn">캐릭터 추가</button>
+    <button type="button" class="text-btn" id="settingsBtn">저장 설정</button>
   </div>
 
   <!-- ================= MAIN PAGE ================= -->
@@ -141,6 +147,39 @@
   </div>
 </div>
 
-<script src="js/app.js?v=1"></script>
+<!-- ================= FORM / SETTINGS / CROP MODALS ================= -->
+<div class="modal-overlay layer3" id="formModal">
+  <div class="modal-box">
+    <button class="modal-close" id="formClose">&times;</button>
+    <div id="formBody"></div>
+  </div>
+</div>
+<div class="modal-overlay layer3" id="settingsModal">
+  <div class="modal-box narrow">
+    <button class="modal-close" id="settingsClose">&times;</button>
+    <div id="settingsBody"></div>
+  </div>
+</div>
+<div class="modal-overlay layer4" id="cropModal">
+  <div class="modal-box narrow">
+    <button class="modal-close" id="cropClose">&times;</button>
+    <h2 class="form-title">이미지 자르기</h2>
+    <p class="form-hint">휠이나 손가락으로 확대하고, 드래그해서 위치를 맞춰 주세요.</p>
+    <div class="crop-container"><img id="cropImage" alt=""></div>
+    <div class="crop-controls">
+      <button type="button" class="text-btn" id="cropZoomIn">확대</button>
+      <button type="button" class="text-btn" id="cropZoomOut">축소</button>
+      <button type="button" class="text-btn" id="cropRotate">회전</button>
+      <button type="button" class="text-btn" id="cropReset">초기화</button>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="text-btn" id="cropCancel">취소</button>
+      <button type="button" class="form-submit" id="cropApply">적용</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+<script src="js/app.js?v=2"></script>
 </body>
 </html>
