@@ -180,7 +180,7 @@
         try {
           const r = await fetch(`${f.download_url}?v=${f.sha}`);
           const d = await r.json();
-          d._path = f.path; d._sha = f.sha;
+          d._path = f.path; d._sha = f.sha; d.id = d.id || f.name.replace(/\.json$/, '');
           return d;
         } catch(e){ console.warn('캐릭터 파일을 불러오지 못했어요:', f.name, e); return null; }
       }));
@@ -194,22 +194,33 @@
   }
   const charFiles = await fetchOwnCharacters();
 
-  // 기존 그룹에 없는 캐릭터는 파일의 group 값을 보고 해당 그룹에 추가한다. 이미 있으면 역할/컬러만 덮어쓴다.
+  // 캐릭터 파일의 내용을 그룹 데이터에 반영한다. 기존 캐릭터(groups.json)는 file(영어명) 또는 이름으로 찾아서
+  // 이름·그룹·역할·컬러를 덮어쓰고, 처음 보는 캐릭터는 지정한 그룹에 추가한다. 역할이 '매니저'면 매니저 칸으로 간다.
+  const renames = {};
   Object.values(charFiles).forEach(c => {
-    let found = null;
-    groups.forEach(g => {
-      g.members.forEach(m => { if(m.name === c.name) found = m; });
-      if(g.manager && g.manager.name === c.name) found = g.manager;
+    let gi = -1, mi = -1, wasMgr = false, old = null;
+    groups.forEach((g, i) => {
+      g.members.forEach((m, j) => { if((m.file && m.file === c.id) || m.name === c.name){ gi = i; mi = j; wasMgr = false; old = m; } });
+      if(g.manager && ((g.manager.file && g.manager.file === c.id) || g.manager.name === c.name)){ gi = i; mi = -1; wasMgr = true; old = g.manager; }
     });
-    if(found){
-      if(c.role) found.role = c.role;
-      if(c.color) found.color = c.color;
-      return;
+    const target = groups.find(x => x.name === c.group) || (gi >= 0 ? groups[gi] : null);
+    if(!target) return;
+    const entry = { name:c.name, role:c.role || '', color:c.color || null, file:c.id };
+    const isMgr = entry.role === '매니저' && (!target.manager || target.manager === old);
+    let keepIndex = -1;
+    if(old){
+      if(old.name !== c.name) renames[old.name] = c.name;
+      if(wasMgr) groups[gi].manager = null;
+      else { groups[gi].members.splice(mi, 1); if(groups[gi] === target) keepIndex = mi; }
     }
-    const g = groups.find(x => x.name === c.group);
-    if(!g) return;
-    const entry = { name:c.name, role:c.role || '', color:c.color || '', file:c.file || '' };
-    if(c.isManager) g.manager = entry; else g.members.push(entry);
+    if(isMgr) target.manager = entry;
+    else if(keepIndex >= 0) target.members.splice(keepIndex, 0, entry);
+    else target.members.push(entry);
+  });
+  Object.keys(renames).forEach(oldName => {
+    const nn = renames[oldName];
+    if(characterProfiles[oldName] && !characterProfiles[nn]) characterProfiles[nn] = characterProfiles[oldName];
+    classes.forEach(gr => gr.sections.forEach(sec => sec.roster.forEach(r => { if(r.name === oldName) r.name = nn; })));
   });
 
   function imgSrcFor(name, file){
@@ -331,6 +342,7 @@
     const raw = mergeProfile(mergeProfile(emptyProfile(), characterProfiles[name] || {}), cf.profile || {});
     masterCharacters[name].rawProfile = raw;
     masterCharacters[name].owner = cf.owner || '';
+    masterCharacters[name].id = cf.id || masterCharacters[name].file || '';
     masterCharacters[name].hasFile = !!charFiles[name];
     masterCharacters[name].profile = escDeep(raw);
   });
@@ -504,7 +516,7 @@
       <p class="profile-text">${p.specialNote || '-'}</p>
 
       <div class="profile-actions">
-        ${info.owner ? `<span class="profile-owner">담당 ${esc(info.owner)}</span>` : '<span></span>'}
+        ${info.owner ? `<span class="profile-owner">오너 ${esc(info.owner)}</span>` : '<span></span>'}
         <span>
           <button type="button" class="text-btn" data-act="edit" data-name="${esc(info.name)}">수정</button>
           <button type="button" class="text-btn danger" data-act="delete" data-name="${esc(info.name)}">삭제</button>
@@ -619,16 +631,27 @@
   document.getElementById('settingsBtn').addEventListener('click', openSettings);
   document.getElementById('settingsClose').addEventListener('click', () => settingsModal.classList.remove('active'));
 
-  /* ----- 이미지 자르기 (3:4) ----- */
+  /* ----- 이미지 확대/자르기 (비율 자유, 원본 그대로도 가능) ----- */
+  function extOf(file){
+    const t = (file.type || '').toLowerCase();
+    if(t.includes('png')) return 'png';
+    if(t.includes('webp')) return 'webp';
+    if(t.includes('gif')) return 'gif';
+    return 'jpg';
+  }
   function openCrop(file, onApply){
-    if(typeof Cropper === 'undefined'){ alert('이미지 자르기 도구를 불러오지 못했어요. 네트워크를 확인해 주세요.'); return; }
+    if(typeof Cropper === 'undefined'){
+      // 자르기 도구를 못 불러오면 원본 그대로 쓴다.
+      onApply(file, extOf(file));
+      return;
+    }
     const img = document.getElementById('cropImage');
     const reader = new FileReader();
     reader.onload = () => {
       cropModal.classList.add('active');
       img.onload = () => {
         if(activeCropper) activeCropper.destroy();
-        activeCropper = new Cropper(img, { aspectRatio:3/4, viewMode:1, autoCropArea:1, background:false, responsive:true });
+        activeCropper = new Cropper(img, { viewMode:1, autoCropArea:1, background:false, responsive:true });
       };
       img.src = reader.result;
     };
@@ -640,8 +663,9 @@
     fresh('cropReset').addEventListener('click', () => activeCropper && activeCropper.reset());
     fresh('cropApply').addEventListener('click', () => {
       if(!activeCropper) return;
-      activeCropper.getCroppedCanvas({ width:600, height:800, imageSmoothingQuality:'high' }).toBlob(b => { onApply(b); closeCrop(); }, 'image/png');
+      activeCropper.getCroppedCanvas({ maxWidth:1600, maxHeight:1600, imageSmoothingQuality:'high' }).toBlob(b => { onApply(b, 'png'); closeCrop(); }, 'image/png');
     });
+    fresh('cropOriginal').addEventListener('click', () => { onApply(file, extOf(file)); closeCrop(); });
     fresh('cropCancel').addEventListener('click', closeCrop);
   }
   function closeCrop(){
@@ -650,10 +674,7 @@
   }
   document.getElementById('cropClose').addEventListener('click', closeCrop);
 
-  /* ----- 생성 / 수정 폼 ----- */
-  const TEXT_FIELDS = [
-    ['영어 표기','nameEn'], ['한자 표기','nameKanji'], ['생일','birth'], ['나이','age'], ['키','height']
-  ];
+  /* ----- 생성 / 수정 폼 (프로필 항목 순서 그대로) ----- */
   const SCHOOL_KEYS = ['학급','학과','동아리','학생회','기숙사'];
 
   function fInput(label, path, val, ph){
@@ -665,44 +686,60 @@
 
   function openForm(name){
     const info = name ? masterCharacters[name] : null;
-    const isEdit = !!info;
     const p = info ? info.rawProfile : emptyProfile();
     const cf = (info && charFiles[info.name]) || {};
     pendingImage = null;
 
     const groupOpts = groups.map(g => `<option value="${esc(g.name)}" ${info && info.group === g.name ? 'selected' : ''}>${esc(g.name)}</option>`).join('');
-    const colorOpts = ['<option value="">선택 안 함</option>'].concat(Object.keys(colorMap).map(c => `<option value="${esc(c)}" ${info && info.color === c ? 'selected' : ''}>${esc(c)}</option>`)).join('');
+    const colorOpts = ['<option value="">없음</option>'].concat(Object.keys(colorMap).map(c => `<option value="${esc(c)}" ${info && info.color === c ? 'selected' : ''}>${esc(c)}</option>`)).join('');
     const ownerOpts = ['<option value="">선택 안 함</option>'].concat(OWNERS.map(o => `<option value="${o}" ${(info && info.owner) === o ? 'selected' : ''}>${o}</option>`)).join('');
-    const isMgr = info ? !!(groups.find(g => g.name === info.group && g.manager && g.manager.name === info.name)) : false;
+    const curImg = info ? imgSrcFor(info.name, info.file) : '';
 
     document.getElementById('formBody').innerHTML = `
-      <h2 class="form-title">${isEdit ? '캐릭터 수정' : '캐릭터 추가'}</h2>
-      <p class="form-hint">저장하면 깃허브에 바로 올라가요. 처음이라면 먼저 메인 화면의 저장 설정에서 토큰을 등록해 주세요.</p>
+      <h2 class="form-title">${info ? '캐릭터 수정' : '캐릭터 추가'}</h2>
+      <p class="form-hint">저장하면 깃허브에 바로 올라가요. 처음이라면 먼저 저장 설정에서 토큰을 등록해 주세요.</p>
 
-      <div class="f-group">기본</div>
-      <label class="f-row"><span>이름</span><input class="f-input" id="fName" value="${esc(info ? info.name : '')}" ${isEdit ? 'readonly' : ''}></label>
-      <label class="f-row"><span>파일명용 영어명</span><input class="f-input" id="fFile" value="${esc(info ? info.file : '')}" placeholder="예: keishyou (소문자, 숫자, 하이픈)" ${isEdit && info.file ? 'readonly' : ''}></label>
-      <label class="f-row"><span>그룹</span><select class="f-input" id="fGroup" ${isEdit ? 'disabled' : ''}>${groupOpts}</select></label>
-      <label class="f-row"><span>역할</span><input class="f-input" id="fRole" value="${esc(info ? info.role : '')}" placeholder="예: 리더, 보컬"></label>
-      <label class="f-row"><span>대표 컬러</span><select class="f-input" id="fColor">${colorOpts}</select></label>
-      <label class="f-row"><span>담당자</span><select class="f-input" id="fOwner">${ownerOpts}</select></label>
-      <label class="f-check"><input type="checkbox" id="fMgr" ${isMgr ? 'checked' : ''} ${isEdit ? 'disabled' : ''}> 매니저로 등록</label>
+      <label class="f-row"><span>오너</span><select class="f-input" id="fOwner">${ownerOpts}</select></label>
 
-      <div class="f-group">이미지 (3:4로 잘라서 저장돼요)</div>
-      <div class="f-row"><input type="file" id="fImage" accept="image/*"><span class="f-note" id="fImageNote">${cf.image ? '등록된 이미지가 있어요. 새로 고르면 교체돼요.' : ''}</span></div>
-      <p class="form-hint" id="fOcNote" ${ocOverrides[name || ''] ? '' : 'style="display:none"'}>oc 저장소에 같은 이름의 캐릭터가 있어서, 사이트에서는 oc의 사진이 우선 보여요.</p>
+      <div class="f-group">이미지</div>
+      <div class="f-image">
+        <div class="f-thumb" id="fThumb">${curImg ? `<img src="${esc(curImg)}" alt="" onerror="this.style.display='none'">` : ''}</div>
+        <div>
+          <input type="file" id="fImage" accept="image/*">
+          <p class="form-hint" id="fImageNote">파일을 고르면 확대/자르기 창이 열려요. 자르지 않고 원본 그대로 올릴 수도 있어요.</p>
+          ${info && ocOverrides[info.name] ? '<p class="form-hint">oc 저장소에 같은 이름의 캐릭터가 있어서, 사이트에서는 oc의 사진이 우선 보여요.</p>' : ''}
+        </div>
+      </div>
 
-      <div class="f-group">프로필</div>
-      ${TEXT_FIELDS.map(([l,k]) => fInput(l, k, p[k])).join('')}
-      ${fArea('성격','personality',p.personality)}
-      ${fArea('소개','info',p.info)}
+      <div class="f-group">NAME</div>
+      <label class="f-row"><span>이름</span><input class="f-input" id="fName" value="${esc(info ? info.name : '')}"></label>
+      ${fInput('영어 표기','nameEn',p.nameEn,'새 캐릭터는 이 값으로 사진 파일 이름이 정해져요')}
+      ${fInput('한자 표기','nameKanji',p.nameKanji)}
+
+      <div class="f-group">GROUP</div>
+      <label class="f-row"><span>그룹</span><select class="f-input" id="fGroup">${groupOpts}</select></label>
+      <label class="f-row"><span>역할</span><input class="f-input" id="fRole" value="${esc(info ? info.role : '')}" placeholder="예: 리더, 보컬 (매니저는 '매니저'로 입력)"></label>
+      <label class="f-row"><span>그룹 내 담당 컬러 (선택)</span><select class="f-input" id="fColor">${colorOpts}</select></label>
+
+      <div class="f-group">PROFILE</div>
+      ${fInput('BIRTH','birth',p.birth)}
+      ${fInput('AGE','age',p.age)}
+      ${fInput('HEIGHT','height',p.height)}
+      ${fArea('PERSONALITY','personality',p.personality)}
+      ${fArea('INFO','info',p.info)}
+
+      <div class="f-group">SCHOOL</div>
       ${SCHOOL_KEYS.map(k => fInput(k, 'school.' + k, p.school[k])).join('')}
+
+      <div class="f-group">LIKE / HATE</div>
       ${fInput('좋아하는 음식','like.음식',p.like.음식)}
       ${fInput('좋아하는 사람','like.사람',p.like.사람)}
       ${fInput('싫어하는 음식','hate.음식',p.hate.음식)}
       ${fInput('싫어하는 사람','hate.사람',p.hate.사람)}
       ${fInput('취미','hobby',p.hobby)}
       ${fInput('특기','specialty',p.specialty)}
+
+      <div class="f-group">ETC.</div>
       ${fInput('반려동물','etc.반려동물',p.etc.반려동물)}
       ${fInput('최근 관심사','etc.최근관심사',p.etc.최근관심사)}
       ${fInput('가족 구성','etc.가족구성',p.etc.가족구성)}
@@ -712,7 +749,8 @@
         ${Object.keys(p.ability).map(k => `<label><span>${k}</span><input class="f-input" type="number" min="0" max="5" data-path="ability.${k}" value="${Number(p.ability[k]) || 0}"></label>`).join('')}
       </div>
 
-      ${fArea('SPECIAL NOTE','specialNote',p.specialNote)}
+      <div class="f-group">SPECIAL NOTE</div>
+      ${fArea('','specialNote',p.specialNote)}
 
       <p class="form-error" id="formError"></p>
       <div class="form-actions">
@@ -723,10 +761,10 @@
 
     document.getElementById('fImage').addEventListener('change', (e) => {
       const f = e.target.files[0];
-      pendingImage = null;
       if(!f) return;
-      openCrop(f, (blob) => {
-        pendingImage = { blob };
+      openCrop(f, (blob, ext) => {
+        pendingImage = { blob, ext };
+        document.getElementById('fThumb').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`;
         document.getElementById('fImageNote').textContent = '새 이미지가 준비됐어요. 저장하면 올라가요.';
       });
     });
@@ -744,27 +782,33 @@
     const err = document.getElementById('formError');
     err.textContent = '';
     const name = document.getElementById('fName').value.trim();
-    const file = document.getElementById('fFile').value.trim().toLowerCase();
     if(!name){ err.textContent = '이름을 입력해 주세요.'; return; }
-    if(!/^[a-z0-9-]+$/.test(file)){ err.textContent = '영어명은 소문자, 숫자, 하이픈만 쓸 수 있어요.'; return; }
-    if(!info && masterCharacters[name]){ err.textContent = '같은 이름의 캐릭터가 이미 있어요.'; return; }
+    const same = masterCharacters[name];
+    if(same && (!info || same.name !== info.name)){ err.textContent = '같은 이름의 캐릭터가 이미 있어요.'; return; }
     if(!getToken()){ err.textContent = '먼저 저장 설정에서 토큰을 등록해 주세요.'; return; }
 
     const profile = emptyProfile();
     formModal.querySelectorAll('[data-path]').forEach(el => {
-      const path = el.dataset.path;
       const v = el.type === 'number' ? Math.max(0, Math.min(5, Number(el.value) || 0)) : el.value.trim();
-      setByPath(profile, path, v);
+      setByPath(profile, el.dataset.path, v);
     });
+
+    // 파일 식별자: 기존 캐릭터는 그대로, 새 캐릭터는 영어 표기에서 만들고 없으면 자동 번호.
+    let id = info && info.id ? info.id : '';
+    if(!id){
+      id = (profile.nameEn || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      const used = new Set(Object.values(masterCharacters).map(m => m.id).concat(Object.values(charFiles).map(c => c.id)));
+      if(!id) id = 'char-' + Date.now();
+      else if(used.has(id)) id += '-' + Date.now().toString(36);
+    }
 
     const prev = (info && charFiles[info.name]) || {};
     const data = {
-      name, file,
-      group: info ? info.group : document.getElementById('fGroup').value,
+      id, name, file:id,
+      group: document.getElementById('fGroup').value,
       role: document.getElementById('fRole').value.trim(),
-      color: document.getElementById('fColor').value,
+      color: document.getElementById('fColor').value || null,
       owner: document.getElementById('fOwner').value,
-      isManager: info ? !!prev.isManager || !!(groups.find(g => g.name === info.group && g.manager && g.manager.name === info.name)) : document.getElementById('fMgr').checked,
       image: prev.image || null,
       imageV: prev.imageV || null,
       profile
@@ -774,12 +818,13 @@
     btn.disabled = true; btn.textContent = '저장 중...';
     try {
       if(pendingImage){
-        const imgPath = `ymkb_icon_${file}.png`;
+        const imgPath = `ymkb_icon_${id}.${pendingImage.ext}`;
         await ghPut(imgPath, await blobToBase64(pendingImage.blob), `Update image: ${name}`);
+        if(prev.image && prev.image !== imgPath){ try { await ghDelete(prev.image, `Replace image: ${name}`); } catch(e){} }
         data.image = imgPath;
         data.imageV = Date.now();
       }
-      await ghPut(`${CHAR_DIR}/${file}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `${info ? 'Update' : 'Add'} character: ${name}`);
+      await ghPut(`${CHAR_DIR}/${id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `${info ? 'Update' : 'Add'} character: ${name}`);
       window.location.reload();
     } catch(e){
       btn.disabled = false; btn.textContent = '저장';
