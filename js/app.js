@@ -106,9 +106,18 @@
           }
         })
       );
+      // oc의 세계관 id는 'w_숫자' 형태라서, worlds.json에서 이름이 YMKB인 세계관의 id를 찾아 쓴다.
+      let ymkbWorldIds = ['ymkb'];
+      try {
+        const wr = await fetch(`https://raw.githubusercontent.com/${OC_OWNER}/${OC_REPO}/${OC_BRANCH}/data/worlds.json?t=${Date.now()}`);
+        const wj = await wr.json();
+        const list = Array.isArray(wj) ? wj : (wj.worlds || []);
+        const ids = list.filter((w) => [w.id, w.name, w.shortName].some((v) => String(v || '').toLowerCase() === 'ymkb')).map((w) => w.id);
+        if (ids.length) ymkbWorldIds = ids;
+      } catch (e) { console.warn('oc 세계관 목록을 불러오지 못했어요.', e); }
       const byName = {};
       all.filter(Boolean)
-        .filter((c) => c.world === 'ymkb')
+        .filter((c) => ymkbWorldIds.includes(c.world))
         .forEach((c) => { byName[c.name] = c; });
       return byName;
     } catch (err) {
