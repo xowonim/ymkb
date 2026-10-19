@@ -928,12 +928,14 @@
     const has = !!getToken();
     document.getElementById('settingsBody').innerHTML = `
       <h2 class="form-title">저장 설정</h2>
-      <p class="form-hint">깃허브 토큰을 한 번만 등록하면, 사이트 안에서 바로 캐릭터를 저장할 수 있어요. 토큰은 이 기기의 브라우저에만 보관되고 깃허브에는 올라가지 않아요.</p>
+      <p class="form-hint">토큰은 사이트에서 저장할 때 쓰는 열쇠예요. 이 기기에서 한 번만 등록하면 돼요. 이 브라우저에만 보관되고 깃허브에는 올라가지 않아요.</p>
       <ol class="form-hint steps">
-        <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">여기</a>에서 새 토큰(fine-grained)을 만들어 주세요.</li>
-        <li>Repository access는 ${GH_OWNER}/${GH_REPO} 하나만 선택해 주세요.</li>
-        <li>Permissions의 Contents를 Read and write로 해 주세요.</li>
-        <li>만든 토큰을 아래에 붙여넣고 저장해 주세요.</li>
+        <li>먼저 저장소 주인(호원)에게 ${GH_OWNER}/${GH_REPO} 저장소 초대를 받아 주세요. 메일의 Accept invitation을 눌러 수락하면 돼요.</li>
+        <li><a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">여기</a>를 눌러 새 토큰(classic)을 만들어 주세요.</li>
+        <li>Note에는 ymkb라고 적고, Expiration은 No expiration(또는 90 days)을 골라 주세요.</li>
+        <li>아래 목록에서 public_repo 칸 하나만 체크해 주세요. 저장소가 비공개라면 repo를 체크해 주세요.</li>
+        <li>맨 아래 Generate token을 누르고, 나온 ghp_로 시작하는 글자를 복사해 주세요. 이 화면을 벗어나면 다시 볼 수 없어요.</li>
+        <li>아래 칸에 붙여넣고 저장을 눌러 주세요.</li>
       </ol>
       <input class="f-input" id="tokenInput" type="password" placeholder="${has ? '등록된 토큰이 있어요 (새로 바꾸려면 입력)' : '토큰 붙여넣기'}" autocomplete="off">
       <div class="form-actions">
