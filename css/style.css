@@ -518,3 +518,8 @@ body.edit-mode span.edit-only{ display:inline; }
 body.edit-mode .profile-actions.edit-only{ display:flex; }
 .profile-actions:not(.edit-only):not(:has(.profile-owner)){ display:none; }
 body.edit-mode .profile-actions:not(.edit-only){ display:flex; }
+
+.form-hint:empty{ display:none; }
+.color-add{ margin-top:10px; }
+.color-add input[type=color]{ width:38px; height:34px; padding:2px; border:1px solid var(--line); border-radius:8px; background:#fff; flex:0 0 auto; }
+.color-add .f-input{ flex:1; }
