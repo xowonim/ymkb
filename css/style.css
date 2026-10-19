@@ -4,7 +4,7 @@
   --surface-2: #f7f7f5;
   --ink: #232323;
   --muted: #9a9a9a;
-  --accent: #5b7fb5;
+  --accent: #a28bd8;
   --line: #ececea;
   --radius: 16px;
 }
@@ -440,7 +440,7 @@ textarea.f-input{ resize:vertical; line-height:1.6; }
 .form-error{ color:#d64545; font-size:12px; min-height:16px; margin:14px 0 0; }
 .form-actions{ display:flex; justify-content:space-between; align-items:center; margin-top:14px; }
 .form-submit{
-  background:var(--ink); color:#fff; border:none; border-radius:999px;
+  background:var(--accent); color:#fff; border:none; border-radius:999px;
   padding:10px 26px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit;
 }
 .form-submit:disabled{ opacity:0.5; cursor:default; }
@@ -478,7 +478,7 @@ textarea.f-input{ resize:vertical; line-height:1.6; }
 .rt-edit{ min-height:84px; line-height:1.7; }
 .tpl-tabs{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px; }
 .tpl-tab{ border:1px solid var(--line); background:#fff; border-radius:999px; padding:6px 16px; font-size:12.5px; cursor:pointer; font-family:inherit; }
-.tpl-tab.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+.tpl-tab.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
 .tpl-tools{ display:flex; gap:14px; margin-bottom:14px; }
 .tpl-row{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
 .tpl-label{ flex:1; }
@@ -507,8 +507,11 @@ textarea.f-input{ resize:vertical; line-height:1.6; }
 
 /* ---------- Settings menu / edit mode ---------- */
 .tool-row{ display:none; }
-.menu-fab{ position:fixed; right:18px; bottom:16px; z-index:50; background:none; border:none; font-size:12px; color:var(--muted); cursor:pointer; font-family:inherit; padding:6px 4px; }
-.menu-fab:hover{ color:var(--ink); }
+.fab-group{ position:fixed; right:18px; bottom:18px; z-index:50; display:flex; align-items:center; gap:10px; }
+.menu-fab{ width:46px; height:46px; border-radius:50%; background:#fff; border:1px solid var(--line); box-shadow:0 4px 14px rgba(60,40,110,0.16); color:var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
+.menu-fab:hover{ color:var(--accent); border-color:var(--accent); }
+.edit-pill{ display:none; background:var(--accent); color:#fff; border:none; border-radius:999px; padding:11px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; box-shadow:0 4px 14px rgba(120,90,200,0.35); }
+body.edit-mode .edit-pill{ display:block; }
 .menu-sec{ font-size:11.5px; font-weight:700; letter-spacing:0.06em; color:var(--muted); margin:22px 0 6px; }
 .menu-item{ display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left; background:none; border:none; border-bottom:1px solid var(--line); padding:12px 2px; font-size:13.5px; color:var(--ink); cursor:pointer; font-family:inherit; }
 .menu-item:hover{ color:var(--accent); }
@@ -523,3 +526,40 @@ body.edit-mode .profile-actions:not(.edit-only){ display:flex; }
 .color-add{ margin-top:10px; }
 .color-add input[type=color]{ width:38px; height:34px; padding:2px; border:1px solid var(--line); border-radius:8px; background:#fff; flex:0 0 auto; }
 .color-add .f-input{ flex:1; }
+.color-pick{ user-select:none; }
+.color-del{ margin-left:2px; font-size:14px; line-height:1; color:var(--muted); opacity:0.6; }
+.color-del:hover{ color:#d64545; opacity:1; }
+
+/* ---------- Edit mode banner / pill / drag ---------- */
+.edit-banner{ display:none; position:fixed; top:0; left:0; right:0; height:36px; z-index:60; background:var(--accent); color:#fff; font-size:13px; font-weight:600; align-items:center; justify-content:center; gap:14px; }
+.edit-banner button{ background:rgba(255,255,255,0.22); color:#fff; border:none; border-radius:999px; padding:3px 12px; font-size:12px; font-family:inherit; cursor:pointer; }
+body.edit-mode .edit-banner{ display:flex; }
+body.edit-mode{ padding-top:36px; }
+.menu-item span#editModeState.on{ background:var(--accent); color:#fff; border-radius:999px; padding:3px 12px; font-weight:700; font-size:12px; }
+body.edit-mode #groupGallery .photo-card,
+body.edit-mode #gdCharGallery .photo-card,
+body.edit-mode #clGallery .photo-card,
+body.edit-mode #clubList .photo-card,
+body.edit-mode #clubList .club-title{ cursor:grab; }
+.photo-card img{ -webkit-user-drag:none; user-select:none; }
+.dragging{ opacity:0.45; outline:2px dashed var(--accent); outline-offset:2px; }
+body.sorting{ user-select:none; -webkit-user-select:none; cursor:grabbing; }
+.toast{ position:fixed; left:50%; bottom:78px; transform:translateX(-50%) translateY(10px); background:var(--accent); color:#fff; padding:9px 18px; border-radius:999px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:90; }
+.toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+.tpl-grip{ flex:0 0 auto; width:22px; text-align:center; color:var(--muted); cursor:grab; touch-action:none; user-select:none; letter-spacing:-2px; font-size:16px; line-height:1; }
+.tpl-grip.off{ visibility:hidden; cursor:default; }
+.f-checks{ display:flex; gap:18px; flex-wrap:wrap; padding:4px 0; }
+.f-check{ display:inline-flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; }
+.f-check input{ width:16px; height:16px; accent-color:var(--accent); margin:0; }
+.f-check span{ font-size:13px; font-weight:500; color:var(--ink); }
+.roster-flags{ display:flex; gap:12px; flex:0 0 auto; flex-wrap:wrap; }
+.roster-row .f-input{ min-width:0; }
+.club-block{ margin-bottom:6px; }
+.club-title{ font-size:18px; font-weight:700; margin:6px 0 14px; user-select:none; }
+.char-gallery.cols-8{ grid-template-columns:repeat(8, 1fr); gap:10px; }
+.char-gallery.cols-8 .photo-card.ratio-3x4 .p-name{ font-size:11.5px; }
+.char-gallery.cols-8 .photo-card .p-cat{ font-size:9.5px; }
+@media (max-width: 900px){ .char-gallery.cols-8{ grid-template-columns:repeat(5, 1fr); } }
+@media (max-width: 560px){ .char-gallery.cols-8{ grid-template-columns:repeat(3, 1fr); } .roster-row{ flex-wrap:wrap; } }
+.roster-row .text-btn{ white-space:nowrap; flex:0 0 auto; }
+.roster-row .f-input{ flex:1 1 140px; }
