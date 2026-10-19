@@ -886,6 +886,7 @@
 
   /* ---- 템플릿 항목의 값 결정: ymkb에서 직접 입력한 값 > oc 값 > 예전 프로필(profiles.json) ---- */
   function legacyValue(info, f){
+    if(ocOverrides[info.name]) return undefined; // oc와 연동된 캐릭터는 예전 프로필 값을 쓰지 않는다
     const p = info.rawProfile || emptyProfile();
     const L = {
       '영어 / 한자 이름': () => [p.nameEn, p.nameKanji].filter(Boolean).join(' / '),
@@ -1520,11 +1521,13 @@
 
       <p class="form-error" id="formError"></p>
       <div class="form-actions">
-        <span></span>
+        ${info && charFiles[info.name] ? '<button type="button" class="text-btn danger" id="formReset">내용 초기화</button>' : '<span></span>'}
         <button type="button" class="form-submit" id="formSave">저장</button>
       </div>`;
     formModal.classList.add('active');
     renderDynamic(formTpl, initialValues(info, formTpl));
+    const rs = document.getElementById('formReset');
+    if(rs) rs.addEventListener('click', () => resetCharacter(info));
 
     document.getElementById('fOwner').addEventListener('change', (e) => changeFormTemplate(tplByOwner(e.target.value).id));
     const leader = document.getElementById('fRoleLeader'), mgr = document.getElementById('fRoleManager');
@@ -1619,6 +1622,21 @@
     } catch(e){
       btn.disabled = false; btn.textContent = '저장';
       err.textContent = e.message === 'NO_TOKEN' ? '먼저 저장 설정에서 토큰을 등록해 주세요.' : '저장에 실패했어요: ' + e.message;
+    }
+  }
+
+  // 이 캐릭터의 ymkb 쪽 프로필 내용만 비운다. 이름, 그룹, 오너, 사진은 그대로 두고, oc 연동 캐릭터는 oc 값이 다시 그대로 보인다.
+  async function resetCharacter(info){
+    const cf = charFiles[info.name];
+    if(!cf) return;
+    if(!getToken()){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return; }
+    if(!confirm(`"${info.name}"의 ymkb 프로필 내용을 모두 비울까요?\n이름, 그룹, 오너, 사진은 그대로 남아요.`)) return;
+    const data = { id:cf.id, name:cf.name, file:cf.file || cf.id, group:cf.group || '', role:cf.role || '', color:cf.color || null, owner:cf.owner || '', template:cf.template || '', image:cf.image || null, imageV:cf.imageV || null, fields:{} };
+    try {
+      await ghPut(`${CHAR_DIR}/${cf.id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `Reset profile: ${info.name}`);
+      window.location.reload();
+    } catch(e){
+      document.getElementById('formError').textContent = '초기화에 실패했어요: ' + e.message;
     }
   }
 
