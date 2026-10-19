@@ -501,11 +501,13 @@
   });
 
   function imgSrcFor(name, file){
-    const oc = ocOverrides[name];
-    const ocPath = oc && (oc.image || oc.profileImage);
-    if(ocPath) return ocAssetUrl(ocPath);
     const cf = charFiles[name];
     if(cf && cf.image){ const f = freshImg(cf.image); if(f) return f; }
+    if(!(cf && cf.image)){
+      const oc = ocOverrides[name];
+      const ocPath = oc && (oc.image || oc.profileImage);
+      if(ocPath) return ocAssetUrl(ocPath);
+    }
     if(cf && cf.image) return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${assetPath(cf.image)}?v=${cf.imageV || ''}`;
     return file ? `assets/ymkb_icon_${file}.png` : '';
   }
@@ -882,7 +884,7 @@
       </div>`;
   }
 
-  /* ---- 템플릿 항목의 값 결정: oc 값 > ymkb에서 직접 입력한 값 > 예전 프로필(profiles.json) ---- */
+  /* ---- 템플릿 항목의 값 결정: ymkb에서 직접 입력한 값 > oc 값 > 예전 프로필(profiles.json) ---- */
   function legacyValue(info, f){
     const p = info.rawProfile || emptyProfile();
     const L = {
@@ -918,7 +920,8 @@
     return isEmptyVal(v) || (f.type === 'rating' && !Number(v)) ? undefined : v;
   }
   function valueOf(info, f){
-    for(const fn of [ocValue, ownValue, legacyValue]){
+    if((info.fieldsOwn || {})[f.key] === null) return undefined; // 직접 비운 항목은 oc/예전 값으로 되돌아가지 않고 빈 칸으로 둔다
+    for(const fn of [ownValue, ocValue, legacyValue]){
       const v = fn(info, f);
       if(v !== undefined) return v;
     }
@@ -1434,8 +1437,10 @@
     tpl.fields.forEach(f => {
       if(f.core) return;
       if(!info) return;
+      if((info.fieldsOwn || {})[f.key] === null) return;
       const v = ownValue(info, f);
-      const w = v !== undefined ? v : legacyValue(info, f);
+      const o = v !== undefined ? v : ocValue(info, f);
+      const w = o !== undefined ? o : legacyValue(info, f);
       if(w !== undefined) vals[f.key] = w;
     });
     return vals;
@@ -1485,7 +1490,7 @@
       <h2 class="form-title">${info ? '캐릭터 수정' : '캐릭터 추가'}</h2>
 
       <label class="f-row"><span>오너</span><select class="f-input" id="fOwner">${ownerOpts}</select></label>
-      ${linked ? '<p class="form-hint">oc 저장소에 같은 이름의 캐릭터가 있어서, 사진과 프로필 내용은 oc 값이 우선 보여요. 수정은 oc에서 해 주세요.</p>' : ''}
+      
 
       <div class="f-group">이미지</div>
       <div class="f-image">
@@ -1557,6 +1562,20 @@
     if(!getToken()){ err.textContent = '먼저 저장 설정에서 토큰을 등록해 주세요.'; return; }
 
     const fields = Object.assign({}, (charFiles[info && info.name] || {}).fields || {}, collectFields(formTpl));
+    // oc에서 불러온 값을 그대로 둔 항목은 저장하지 않아서, oc 쪽에서 나중에 바뀌어도 계속 따라간다.
+    // 비워 둔 항목: oc나 예전 값이 있으면 '직접 비움'(null)으로 저장해서 그 값이 다시 나오지 않게 하고, 없으면 저장하지 않는다.
+    formTpl.fields.forEach(f => {
+      if(f.core || !(f.key in fields)) return;
+      const val = fields[f.key];
+      if(info && ocOverrides[info.name]){
+        const ov = ocValue(info, f);
+        if(ov !== undefined && JSON.stringify(ov) === JSON.stringify(val)){ delete fields[f.key]; return; }
+      }
+      const empty = isEmptyVal(val) || (f.type === 'rating' && !Number(val));
+      if(!empty) return;
+      const fallback = info ? (ocValue(info, f) !== undefined || legacyValue(info, f) !== undefined) : false;
+      if(fallback) fields[f.key] = null; else delete fields[f.key];
+    });
 
     // 파일 식별자: 기존 캐릭터는 그대로, 새 캐릭터는 이름 옆의 영어 이름 칸이 있으면 거기서, 없으면 자동 번호.
     let id = info && info.id ? info.id : '';
