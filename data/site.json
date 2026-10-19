@@ -2,11 +2,12 @@
   "title": "유메키보고등학교",
   "subtitle": "YUMEKIBO HIGH SCHOOL",
   "youtube": "https://youtube.com/@ymkbhighschool",
-  "soundcloud": "https://soundcloud.com/ymkbofficial",
+  "soundcloud": "https://soundcloud.com/ymkb-official",
   "footer": "© ymkb high school",
   "logo": null,
   "logoV": null,
   "colors": {},
+  "hiddenColors": [],
   "slides": [
     {
       "id": "s0",
