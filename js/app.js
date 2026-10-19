@@ -111,7 +111,7 @@
   const OWNER_IDS = ['dowon', 'seit', 'haewon', 'howon'];
   const SITE_PATH = 'data/site.json';
   const DEFAULT_SLIDE = { id:'s0', date:'', title:'plz wait a little bit of..♡', image:null };
-  const SLIDE_GRADIENT = 'linear-gradient(160deg,#cbbcee,#9279cc)';
+  const SLIDE_GRADIENT = 'linear-gradient(160deg,#c6b8d4,#9B85AD)';
   const PAGE_KEYS = [['counsel','학생회'], ['agency','기숙사'], ['etc','ETC']];
   const SITE_DEFAULTS = { title:'유메키보고등학교', subtitle:'YUMEKIBO HIGH SCHOOL', youtube:'https://youtube.com/@ymkbhighschool', soundcloud:'https://soundcloud.com/ymkbofficial', footer:'© ymkb high school', logo:null, logoV:null, slides:[DEFAULT_SLIDE], pages:{} };
 
@@ -758,15 +758,36 @@
   });
 
   /* ---------------- CLUB PAGE: 프로필의 '동아리' 항목에서 자동으로 만들어진다 ---------------- */
+  // oc의 동아리 칸에는 "밴드부 (부장 / 드럼)"처럼 괄호로 직책이 함께 적혀 있어서, 괄호 앞만 동아리 이름으로 쓰고
+  // 괄호 안에 '부장'이 있으면 부장으로 본다. 쉼표로 여러 동아리를 적을 수 있고, 괄호 안의 쉼표는 나누지 않는다.
+  function splitOutsideParens(str){
+    const out = []; let depth = 0, cur = '';
+    for(const ch of String(str)){
+      if(ch === '(' || ch === '（') depth++;
+      if(ch === ')' || ch === '）') depth = Math.max(0, depth - 1);
+      if((ch === ',' || ch === '，') && depth === 0){ out.push(cur); cur = ''; } else cur += ch;
+    }
+    out.push(cur);
+    return out;
+  }
+  function parseClub(raw){
+    let t = String(raw).trim(), head = false;
+    const m = t.match(/^(.*?)\s*[\(（](.*)[\)）]\s*$/);
+    if(m){ t = m[1].trim(); head = /부장/.test(m[2]); }
+    if(/\s부장$/.test(t)){ t = t.replace(/\s*부장$/, '').trim(); head = true; }
+    return { name:t, head };
+  }
   function clubNamesOf(info){
     const tpl = templateFor(info);
     const f = tpl && tpl.fields.find(x => x.label === '동아리');
     if(!f) return [];
     const v = valueOf(info, f);
     if(v === undefined) return [];
-    return (Array.isArray(v) ? v : String(v).split(',')).map(x => String(x).trim()).filter(x => x && x !== '-' && x !== '없음');
+    const parts = Array.isArray(v) ? v.map(String) : splitOutsideParens(v);
+    return parts.map(parseClub).filter(c => c.name && c.name !== '-' && c.name !== '없음').map(c => ({ name:c.name, head:c.head || !!info.clubHead }));
   }
-  function clubCard(info){
+  function clubCard(item){
+    const info = item.info;
     const hex = colorMap[info.color] || '#b7b7b7';
     const imgSrc = imgSrcFor(info.name, info.file);
     return `
@@ -775,7 +796,7 @@
           ${imgSrc ? `<img src="${esc(imgSrc)}" alt="${esc(info.name)}" onerror="window.__imgErr(this)">` : ''}
         </div>
         <div class="p-overlay">
-          <div class="p-cat">${info.clubHead ? '부장' : ''}</div>
+          <div class="p-cat">${item.head ? '부장' : ''}</div>
           <div class="p-name">${esc(info.name)}</div>
         </div>
       </div>`;
@@ -784,12 +805,12 @@
     const box = document.getElementById('clubList');
     if(!box) return;
     const map = {};
-    Object.values(masterCharacters).forEach(info => clubNamesOf(info).forEach(c => { (map[c] = map[c] || []).push(info); }));
+    Object.values(masterCharacters).forEach(info => clubNamesOf(info).forEach(c => { const arr = (map[c.name] = map[c.name] || []); if(!arr.some(x => x.info === info)) arr.push({ info, head:c.head }); }));
     const names = applyOrder(Object.keys(map), n => n, 'clubs');
     if(!names.length){ box.innerHTML = '<p style="color:var(--muted);font-size:13px;">동아리 정보가 아직 준비되지 않았습니다.</p>'; return; }
     box.innerHTML = names.map(n => {
-      const list = applyOrder(map[n], i => i.name, 'club:' + n);
-      list.sort((a, b) => (b.clubHead ? 1 : 0) - (a.clubHead ? 1 : 0));
+      const list = applyOrder(map[n], i => i.info.name, 'club:' + n);
+      list.sort((a, b) => (b.head ? 1 : 0) - (a.head ? 1 : 0));
       return `<div class="club-block" data-club="${esc(n)}"><h3 class="club-title">${esc(n)}</h3><div class="char-gallery cols-8" data-club="${esc(n)}">${list.map(clubCard).join('')}</div><hr class="soft-divider"></div>`;
     }).join('');
     makeSortable(box, '.club-block', (items) => saveOrder('clubs', items.map(b => b.dataset.club)), { handle:'.club-title' });
