@@ -16,38 +16,39 @@
   document.getElementById('headerHome').addEventListener('click', () => goPage('main'));
 
   /* ---------------- CAROUSEL ---------------- */
-  const slidesData = [
-    { date:'', title:'plz wait a little bit of..♡', gradient:'linear-gradient(160deg,#7fa0d4,#3f5f96)' }
-  ];
-  const stage = document.getElementById('carouselStage');
-  const ticksWrap = document.getElementById('carouselTicks');
-  let current = 0;
+  function initCarousel(slidesData){
+    const stage = document.getElementById('carouselStage');
+    const ticksWrap = document.getElementById('carouselTicks');
+    let current = 0;
 
-  slidesData.forEach((s, i) => {
-    const el = document.createElement('div');
-    el.className = 'slide' + (i === 0 ? ' active' : '');
-    el.style.background = s.gradient;
-    el.innerHTML = `<div class="slide-overlay">${s.date ? `<div class="date">${s.date}</div>` : ''}<div class="title">${s.title}</div></div>`;
-    stage.appendChild(el);
-    const tick = document.createElement('div');
-    tick.className = 'tick' + (i === 0 ? ' active' : '');
-    tick.addEventListener('click', () => setSlide(i));
-    ticksWrap.appendChild(tick);
-  });
+    slidesData.forEach((s, i) => {
+      const el = document.createElement('div');
+      el.className = 'slide' + (i === 0 ? ' active' : '');
+      el.style.background = s.image ? `url("${s.image}") center / cover no-repeat, ${s.gradient}` : s.gradient;
+      el.innerHTML = `<div class="slide-overlay">${s.date ? `<div class="date">${esc(s.date)}</div>` : ''}<div class="title">${esc(s.title)}</div></div>`;
+      stage.appendChild(el);
+      const tick = document.createElement('div');
+      tick.className = 'tick' + (i === 0 ? ' active' : '');
+      tick.addEventListener('click', () => setSlide(i));
+      ticksWrap.appendChild(tick);
+    });
 
-  function setSlide(i){
-    const slides = stage.querySelectorAll('.slide');
-    const ticks = ticksWrap.querySelectorAll('.tick');
-    current = (i + slides.length) % slides.length;
-    slides.forEach((s, idx) => s.classList.toggle('active', idx === current));
-    ticks.forEach((t, idx) => t.classList.toggle('active', idx === current));
+    function setSlide(i){
+      const slides = stage.querySelectorAll('.slide');
+      const ticks = ticksWrap.querySelectorAll('.tick');
+      current = (i + slides.length) % slides.length;
+      slides.forEach((s, idx) => s.classList.toggle('active', idx === current));
+      ticks.forEach((t, idx) => t.classList.toggle('active', idx === current));
+    }
+    if(slidesData.length < 2){ document.getElementById('bannerPrev').style.visibility = 'hidden'; document.getElementById('bannerNext').style.visibility = 'hidden'; }
+    document.getElementById('bannerPrev').addEventListener('click', () => setSlide(current - 1));
+    document.getElementById('bannerNext').addEventListener('click', () => setSlide(current + 1));
+
+    let autoTimer = setInterval(() => setSlide(current + 1), 5000);
+    stage.addEventListener('mouseenter', () => clearInterval(autoTimer));
+    stage.addEventListener('mouseleave', () => { autoTimer = setInterval(() => setSlide(current + 1), 5000); });
+
   }
-  document.getElementById('bannerPrev').addEventListener('click', () => setSlide(current - 1));
-  document.getElementById('bannerNext').addEventListener('click', () => setSlide(current + 1));
-
-  let autoTimer = setInterval(() => setSlide(current + 1), 5000);
-  stage.addEventListener('mouseenter', () => clearInterval(autoTimer));
-  stage.addEventListener('mouseleave', () => { autoTimer = setInterval(() => setSlide(current + 1), 5000); });
 
   /* ---------------- COLOR HELPERS ---------------- */
   function shade(hex, percent){
@@ -81,6 +82,8 @@
   const OC_REPO = 'oc';
   const OC_BRANCH = 'main';
   let ocOverrides = {};
+  let ocFields = []; // oc의 YMKB 세계관 항목 정의 (키 -> 라벨 대응용)
+  const ocStatus = { error:'', listCount:0, worldFound:false, charCount:0 };
 
   function ocAssetUrl(path) {
     if (!path) return path;
@@ -95,6 +98,7 @@
       const entries = await listRes.json();
       if (!Array.isArray(entries)) throw new Error('oc 캐릭터 목록 형식 오류');
       const jsonFiles = entries.filter((e) => e.type === 'file' && e.name.endsWith('.json') && !e.name.startsWith('_'));
+      ocStatus.listCount = jsonFiles.length;
       const all = await Promise.all(
         jsonFiles.map(async (f) => {
           try {
@@ -113,14 +117,18 @@
         const wj = await wr.json();
         const list = Array.isArray(wj) ? wj : (wj.worlds || []);
         const ids = list.filter((w) => [w.id, w.name, w.shortName].some((v) => String(v || '').toLowerCase() === 'ymkb')).map((w) => w.id);
-        if (ids.length) ymkbWorldIds = ids;
+        if (ids.length){ ymkbWorldIds = ids; ocStatus.worldFound = true; }
+        const yw = list.find((w) => ids.includes(w.id));
+        if (yw) ocFields = yw.fields || [];
       } catch (e) { console.warn('oc 세계관 목록을 불러오지 못했어요.', e); }
       const byName = {};
       all.filter(Boolean)
         .filter((c) => ymkbWorldIds.includes(c.world))
         .forEach((c) => { byName[c.name] = c; });
+      ocStatus.charCount = Object.keys(byName).length;
       return byName;
     } catch (err) {
+      ocStatus.error = String((err && err.message) || err);
       console.warn('oc 연동에 실패해서, ymkb 자체 데이터만 사용합니다.', err);
       return {};
     }
@@ -194,18 +202,158 @@
   }
   const charFiles = await fetchOwnCharacters();
 
+  /* ---------------- 프로필 템플릿 (data/templates.json) ---------------- */
+  const TEMPLATE_PATH = 'data/templates.json';
+  const FIELD_TYPES = { text:'텍스트', tags:'태그', textarea:'긴 글', collapse:'접기 글', rating:'별점' };
+  // oc의 YMKB 세계관 항목을 그대로 가져온 기본 틀. 오너 네 명이 처음에는 똑같은 템플릿을 가진다.
+  const DEFAULT_FIELDS = [{"key": "name", "label": "이름", "type": "text", "core": true}, {"key": "f_1790459852228", "label": "영어 / 한자 이름", "type": "text"}, {"key": "f_1790459909805", "label": "나이", "type": "text"}, {"key": "f_1790485356104", "label": "생일", "type": "text"}, {"key": "f_1790485416027", "label": "신체", "type": "text"}, {"key": "f_1790460026132", "label": "학과", "type": "text"}, {"key": "f_1790460191966", "label": "학년", "type": "text"}, {"key": "f_1790477497994", "label": "학급", "type": "text"}, {"key": "f_1790484073611", "label": "소속", "type": "tags"}, {"key": "f_1790484157581", "label": "동아리", "type": "text"}, {"key": "f_1790484238483", "label": "학생회", "type": "text"}, {"key": "f_1790484328878", "label": "기숙사", "type": "text"}, {"key": "f_1790484388805", "label": "소개", "type": "textarea"}, {"key": "f_1790484546744", "label": "성격", "type": "textarea"}, {"key": "f_1790484621408", "label": "좋아하는 음식", "type": "text"}, {"key": "f_1790484726646", "label": "좋아하는 것", "type": "text"}, {"key": "f_1790484814456", "label": "좋아하는 사람", "type": "text"}, {"key": "f_1790484946547", "label": "싫어하는 음식", "type": "text"}, {"key": "f_1790484951928", "label": "싫어하는 것", "type": "text"}, {"key": "f_1790484957343", "label": "싫어하는 사람", "type": "text"}, {"key": "f_1790484965565", "label": "여담", "type": "textarea"}, {"key": "f_1790490251818", "label": "캐릭터 이야기 1", "type": "collapse"}, {"key": "f_1790490342827", "label": "보컬", "type": "rating"}, {"key": "f_1790492405183", "label": "정신력", "type": "rating"}, {"key": "f_1790492376210", "label": "무용", "type": "rating"}, {"key": "f_1790492415019", "label": "눈치", "type": "rating"}, {"key": "f_1790492385635", "label": "연기", "type": "rating"}, {"key": "f_1790492423525", "label": "성적", "type": "rating"}, {"key": "f_1790492394900", "label": "체력", "type": "rating"}];
+  const OWNER_IDS = ['dowon', 'seit', 'haewon', 'howon'];
+  function defaultTemplates(){
+    return OWNERS.map((o, i) => ({ id:'t_' + OWNER_IDS[i], name:o, fields:JSON.parse(JSON.stringify(DEFAULT_FIELDS)) }));
+  }
+  async function loadTemplates(){
+    const urls = [
+      `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${TEMPLATE_PATH}?t=${Date.now()}`,
+      `${TEMPLATE_PATH}?t=${Date.now()}`
+    ];
+    for(const u of urls){
+      try {
+        const r = await fetch(u, { cache:'no-store' });
+        if(r.ok){ const j = await r.json(); if(Array.isArray(j) && j.length) return j; }
+      } catch(e){}
+    }
+    return defaultTemplates();
+  }
+  let templates = await loadTemplates();
+
+  const RICH_OK = ['b','i','u','strong','em','br','div','p','span'];
+
+  /* ---------------- 사이트 설정 (data/site.json): 제목, 링크, 푸터, 로고, 캐러셀, 빈 페이지 본문 ---------------- */
+  const SITE_PATH = 'data/site.json';
+  const DEFAULT_SLIDE = { id:'s0', date:'', title:'plz wait a little bit of..♡', image:null };
+  const SLIDE_GRADIENT = 'linear-gradient(160deg,#7fa0d4,#3f5f96)';
+  const PAGE_KEYS = [['club','CLUB'], ['counsel','학생회'], ['agency','기숙사'], ['etc','ETC']];
+  const SITE_DEFAULTS = { title:'유메키보고등학교', subtitle:'YUMEKIBO HIGH SCHOOL', youtube:'https://youtube.com/@ymkbhighschool', soundcloud:'https://soundcloud.com/ymkbofficial', footer:'© ymkb high school', logo:null, logoV:null, slides:[DEFAULT_SLIDE], pages:{} };
+  async function loadSite(){
+    const urls = [`https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${SITE_PATH}?t=${Date.now()}`, `${SITE_PATH}?t=${Date.now()}`];
+    for(const u of urls){
+      try { const r = await fetch(u, { cache:'no-store' }); if(r.ok){ const j = await r.json(); if(j && typeof j === 'object') return j; } } catch(e){}
+    }
+    return {};
+  }
+  function rawUrl(path, v){ return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${path}?v=${v || ''}`; }
+  const siteRaw = await loadSite();
+  const site = Object.assign({}, SITE_DEFAULTS, siteRaw);
+  if(!Array.isArray(site.slides) || !site.slides.length) site.slides = [DEFAULT_SLIDE];
+  site.pages = site.pages || {};
+
+  (function applySite(){
+    document.title = site.title;
+    document.querySelector('.title-bar h1').textContent = site.title;
+    document.querySelector('.title-bar span').textContent = site.subtitle;
+    const links = document.querySelectorAll('.link-row');
+    if(links[0]) links[0].href = site.youtube;
+    if(links[1]) links[1].href = site.soundcloud;
+    document.querySelector('footer').textContent = site.footer;
+    if(site.logo) document.querySelector('.logo').innerHTML = `<img src="${esc(rawUrl(site.logo, site.logoV))}" alt="" onerror="this.style.display='none'">`;
+    PAGE_KEYS.forEach(([k, label]) => {
+      const box = document.querySelector(`#page-${k} .placeholder`);
+      const pg = site.pages[k];
+      if(!box || !pg) return;
+      if(pg.title) box.querySelector('h2').textContent = pg.title;
+      if(!isEmptyVal(pg.body)) box.innerHTML = `<h2>${esc(pg.title || label)}</h2><div class="profile-text rich page-body">${toRich(pg.body)}</div>`;
+    });
+    initCarousel(site.slides.map(sl => ({ date:sl.date || '', title:sl.title || '', gradient:SLIDE_GRADIENT, image:sl.image ? rawUrl(sl.image, sl.imageV) : null })));
+  })();
+
+  /* 값 정리용 유틸: 리치 텍스트는 허용한 태그만 남기고 속성은 모두 지운다. */
+  function cleanHtml(html){
+    const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+    const walk = (node) => {
+      let out = '';
+      node.childNodes.forEach(n => {
+        if(n.nodeType === 3) out += esc(n.nodeValue).replace(/&quot;/g, '"');
+        else if(n.nodeType === 1){
+          const t = n.tagName.toLowerCase();
+          if(t === 'script' || t === 'style') return;
+          if(t === 'br') out += '<br>';
+          else if(RICH_OK.includes(t)) out += `<${t}>${walk(n)}</${t}>`;
+          else out += walk(n);
+        }
+      });
+      return out;
+    };
+    return walk(doc.body);
+  }
+  function toRich(v){
+    const str = String(v == null ? '' : v);
+    if(/<\/?[a-z][^>]*>/i.test(str)) return cleanHtml(str);
+    return esc(str).replace(/\n/g, '<br>');
+  }
+  function isEmptyVal(v){
+    if(v === undefined || v === null) return true;
+    if(Array.isArray(v)) return v.length === 0;
+    if(typeof v === 'number') return false;
+    return String(v).replace(/<[^>]*>/g, '').trim() === '';
+  }
+
+  /* ---------------- 그룹 파일 (data/groups/*.json): 기존 그룹을 덮어쓰거나 새 그룹을 추가 ---------------- */
+  const GROUP_DIR = 'data/groups';
+  function slugOf(str){ return String(str || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
+  async function fetchGroupFiles(){
+    try {
+      const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GROUP_DIR}?ref=${GH_BRANCH}`, { headers:{ Accept:'application/vnd.github+json' }, cache:'no-store' });
+      if(!res.ok) return {};
+      const entries = await res.json();
+      if(!Array.isArray(entries)) return {};
+      const files = entries.filter(e => e.type === 'file' && e.name.endsWith('.json') && !e.name.startsWith('_'));
+      const list = await Promise.all(files.map(async f => {
+        try {
+          const d = await (await fetch(`${f.download_url}?v=${f.sha}`)).json();
+          d._path = f.path; d.id = d.id || f.name.replace(/\.json$/, '');
+          return d;
+        } catch(e){ return null; }
+      }));
+      const map = {};
+      list.filter(g => g && g.name).forEach(g => { map[g.id] = g; });
+      return map;
+    } catch(e){ return {}; }
+  }
+  const groupFiles = await fetchGroupFiles();
+  const groupRename = {};
+  groups.forEach(g => { g.id = slugOf(g.name) || ('g-' + Math.random().toString(36).slice(2, 7)); g.base = true; });
+  Object.values(groupFiles).forEach(gf => {
+    if(gf.deleted){ const di = groups.findIndex(x => x.id === gf.id); if(di >= 0) groups.splice(di, 1); return; }
+    const g = groups.find(x => x.id === gf.id);
+    if(g){
+      if(g.name !== gf.name) groupRename[g.name] = gf.name;
+      ['name','concept','genre','fandom','intro','image','imageV'].forEach(k => { if(gf[k] !== undefined) g[k] = gf[k]; });
+      if(Array.isArray(gf.colors) && gf.colors.length) g.colors = gf.colors;
+      g.file = gf;
+    } else {
+      groups.push({ id:gf.id, name:gf.name, colors:Array.isArray(gf.colors) && gf.colors.length ? gf.colors : ['그레이'], concept:gf.concept || '', genre:gf.genre || '', fandom:gf.fandom || '', intro:gf.intro || '', image:gf.image || null, imageV:gf.imageV || null, members:[], manager:null, base:false, file:gf });
+    }
+  });
+
   // 캐릭터 파일의 내용을 그룹 데이터에 반영한다. 기존 캐릭터(groups.json)는 file(영어명) 또는 이름으로 찾아서
   // 이름·그룹·역할·컬러를 덮어쓰고, 처음 보는 캐릭터는 지정한 그룹에 추가한다. 역할이 '매니저'면 매니저 칸으로 간다.
   const renames = {};
+  const deletedNames = new Set();
+  groups.forEach(g => { g.members.forEach(m => { m.base = true; }); if(g.manager) g.manager.base = true; });
   Object.values(charFiles).forEach(c => {
     let gi = -1, mi = -1, wasMgr = false, old = null;
     groups.forEach((g, i) => {
       g.members.forEach((m, j) => { if((m.file && m.file === c.id) || m.name === c.name){ gi = i; mi = j; wasMgr = false; old = m; } });
       if(g.manager && ((g.manager.file && g.manager.file === c.id) || g.manager.name === c.name)){ gi = i; mi = -1; wasMgr = true; old = g.manager; }
     });
-    const target = groups.find(x => x.name === c.group) || (gi >= 0 ? groups[gi] : null);
+    if(c.deleted){
+      if(old){ if(wasMgr) groups[gi].manager = null; else groups[gi].members.splice(mi, 1); deletedNames.add(old.name); }
+      return;
+    }
+    const gname = groupRename[c.group] || c.group;
+    const target = groups.find(x => x.name === gname) || (gi >= 0 ? groups[gi] : null);
     if(!target) return;
-    const entry = { name:c.name, role:c.role || '', color:c.color || null, file:c.id };
+    const entry = { name:c.name, role:c.role || '', color:c.color || null, file:c.id, base:!!(old && old.base) };
     const isMgr = entry.role === '매니저' && (!target.manager || target.manager === old);
     let keepIndex = -1;
     if(old){
@@ -217,6 +365,8 @@
     else if(keepIndex >= 0) target.members.splice(keepIndex, 0, entry);
     else target.members.push(entry);
   });
+  Object.keys(charFiles).forEach(k => { if(charFiles[k].deleted) delete charFiles[k]; });
+  classes.forEach(gr => gr.sections.forEach(sec => { sec.roster = sec.roster.filter(r => !deletedNames.has(r.name)); }));
   Object.keys(renames).forEach(oldName => {
     const nn = renames[oldName];
     if(characterProfiles[oldName] && !characterProfiles[nn]) characterProfiles[nn] = characterProfiles[oldName];
@@ -232,9 +382,15 @@
     return file ? `ymkb_icon_${file}.png` : '';
   }
 
+  const classesBase = JSON.parse(JSON.stringify(classes));
+
   function groupThumbGradient(g){
     const hexes = g.colors.map(c => colorMap[c] || '#cccccc');
     return hexes.length > 1 ? `linear-gradient(135deg, ${hexes.join(', ')})` : hexes[0];
+  }
+
+  function groupImgSrc(g){
+    return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${g.image}?v=${g.imageV || ''}`;
   }
 
   /* ---------------- GROUP LIST ---------------- */
@@ -246,10 +402,10 @@
     card.className = 'photo-card ratio-1x1';
     const meta = [g.concept, g.genre].filter(Boolean).join(' · ');
     card.innerHTML = `
-      <div class="p-thumb" style="background:${groupThumbGradient(g)}"></div>
+      <div class="p-thumb" style="background:${groupThumbGradient(g)}">${g.image ? `<img src="${esc(groupImgSrc(g))}" alt="" onerror="this.style.display='none'">` : ''}</div>
       <div class="p-overlay">
-        <div class="p-cat">${meta}</div>
-        <div class="p-name">${g.name}</div>
+        <div class="p-cat">${esc(meta)}</div>
+        <div class="p-name">${esc(g.name)}</div>
       </div>`;
     card.addEventListener('click', () => openGroupDetail(g));
     gallery.appendChild(card);
@@ -275,7 +431,9 @@
   /* ---------------- GROUP DETAIL MODAL ---------------- */
   const groupModal = document.getElementById('groupModal');
 
+  let currentGroup = null;
   async function openGroupDetail(g){
+    currentGroup = g;
     await ocReadyPromise;
     document.getElementById('gdTitle').textContent = g.name;
     const colorsValue = g.colors.map(c => {
@@ -293,7 +451,7 @@
     introParts.push(`${g.name}는` + (g.concept ? ` ${g.concept}을(를) 컨셉으로 하는` : '') + (g.genre ? ` ${g.genre} 기반` : '') + ` 그룹입니다.`);
     introParts.push(`대표 컬러는 ${g.colors.join(', ')}입니다.`);
     if(g.fandom) introParts.push(`팬덤명은 '${g.fandom}'입니다.`);
-    document.getElementById('gdIntro').textContent = introParts.join(' ');
+    document.getElementById('gdIntro').textContent = g.intro ? g.intro : introParts.join(' ');
     document.getElementById('gdCharGallery').innerHTML = g.members.map(charCard).join('');
     document.getElementById('gdManagerGallery').innerHTML = g.manager
       ? charCard(g.manager)
@@ -309,10 +467,10 @@
   const masterCharacters = {};
   groups.forEach(g => {
     g.members.forEach(m => {
-      masterCharacters[m.name] = { name:m.name, color:m.color, file:m.file, group:g.name, role:m.role };
+      masterCharacters[m.name] = { name:m.name, color:m.color, file:m.file, group:g.name, role:m.role, base:!!m.base };
     });
     if(g.manager){
-      masterCharacters[g.manager.name] = { name:g.manager.name, color:g.manager.color, file:g.manager.file, group:g.name, role:g.manager.role };
+      masterCharacters[g.manager.name] = { name:g.manager.name, color:g.manager.color, file:g.manager.file, group:g.name, role:g.manager.role, base:!!g.manager.base };
     }
   });
 
@@ -344,7 +502,8 @@
     masterCharacters[name].owner = cf.owner || '';
     masterCharacters[name].id = cf.id || masterCharacters[name].file || '';
     masterCharacters[name].hasFile = !!charFiles[name];
-    masterCharacters[name].profile = escDeep(raw);
+    masterCharacters[name].fieldsOwn = cf.fields || {};
+    masterCharacters[name].template = cf.template || '';
   });
 
   /* ---------------- CLASS PAGE RENDER ---------------- */
@@ -395,7 +554,9 @@
   /* ---------------- CLASS DETAIL MODAL ---------------- */
   const classModal = document.getElementById('classModal');
 
+  let currentSection = null;
   async function openClassDetail(sec){
+    currentSection = sec;
     await ocReadyPromise;
     document.getElementById('clTitle').textContent = sec.id;
     document.getElementById('clTeacherTag').innerHTML = infoRow('담당 교사', sec.teacher);
@@ -435,89 +596,109 @@
       </div>`;
   }
 
-  function renderProfile(info){
-    const p = info.profile;
+  /* ---- 템플릿 항목의 값 결정: oc 값 > ymkb에서 직접 입력한 값 > 예전 프로필(profiles.json) ---- */
+  function legacyValue(info, f){
+    const p = info.rawProfile || emptyProfile();
+    const L = {
+      '영어 / 한자 이름': () => [p.nameEn, p.nameKanji].filter(Boolean).join(' / '),
+      '나이': () => p.age, '생일': () => p.birth, '신체': () => p.height, '키': () => p.height,
+      '학과': () => p.school.학과, '학급': () => p.school.학급, '동아리': () => p.school.동아리,
+      '학생회': () => p.school.학생회, '기숙사': () => p.school.기숙사,
+      '소개': () => p.info, '성격': () => p.personality, '여담': () => p.specialNote,
+      '좋아하는 음식': () => p.like.음식, '좋아하는 사람': () => p.like.사람,
+      '싫어하는 음식': () => p.hate.음식, '싫어하는 사람': () => p.hate.사람,
+      '취미': () => p.hobby, '특기': () => p.specialty,
+      '반려동물': () => p.etc.반려동물, '최근 관심사': () => p.etc.최근관심사, '가족 구성': () => p.etc.가족구성
+    };
+    let v;
+    if(L[f.label]) v = L[f.label]();
+    else if(f.type === 'rating' && p.ability && p.ability[f.label] !== undefined) v = p.ability[f.label];
+    if(f.type === 'rating' && !Number(v)) return undefined;
+    return isEmptyVal(v) ? undefined : v;
+  }
+  function ownValue(info, f){
+    const v = (info.fieldsOwn || {})[f.key];
+    return isEmptyVal(v) || (f.type === 'rating' && !Number(v)) ? undefined : v;
+  }
+  function ocValue(info, f){
     const oc = ocOverrides[info.name];
-    const ocAge = oc && oc.fields && oc.fields.age;
+    if(!oc || !oc.fields) return undefined;
+    let v = oc.fields[f.key];
+    if(v === undefined){
+      const of = ocFields.find(x => x.label === f.label);
+      if(of) v = oc.fields[of.key];
+    }
+    if(v === '-') return undefined;
+    return isEmptyVal(v) || (f.type === 'rating' && !Number(v)) ? undefined : v;
+  }
+  function valueOf(info, f){
+    for(const fn of [ocValue, ownValue, legacyValue]){
+      const v = fn(info, f);
+      if(v !== undefined) return v;
+    }
+    return undefined;
+  }
+  function templateFor(info){
+    if(ocOverrides[info.name] && ocFields.length){
+      return { id:'__oc', name:'oc', fields: ocFields.map(f => ({ key:f.key, label:f.label, type:['text','tags','textarea','collapse','rating'].includes(f.type) ? f.type : 'text', core:!!f.core })) };
+    }
+    return templates.find(t => t.id === info.template) || templates.find(t => t.name === info.owner) || templates[0];
+  }
+
+  function renderTemplateBody(info){
+    const tpl = templateFor(info);
+    if(!tpl) return '';
+    const fields = tpl.fields.filter(f => !f.core);
+    const out = [];
+    let rows = [], stars = [];
+    const flush = () => {
+      if(rows.length){
+        out.push(`<div class="profile-rows${rows.length >= 6 ? ' cols2' : ''}">${rows.join('')}</div>`);
+        rows = [];
+      }
+      if(stars.length){
+        const half = Math.ceil(stars.length / 2);
+        out.push(`<div class="profile-two-col profile-stars"><div>${stars.slice(0, half).join('')}</div><div>${stars.slice(half).join('')}</div></div>`);
+        stars = [];
+      }
+    };
+    fields.forEach(f => {
+      const v = valueOf(info, f);
+      if(f.type === 'text' || f.type === 'tags'){
+        if(stars.length) flush();
+        const txt = v === undefined ? '' : (Array.isArray(v) ? v.map(x => esc(typeof x === 'object' ? JSON.stringify(x) : x)).join(', ') : esc(typeof v === 'object' ? JSON.stringify(v) : v));
+        rows.push(infoRow(esc(f.label), txt));
+      } else if(f.type === 'rating'){
+        if(rows.length) flush();
+        stars.push(abilityRow(esc(f.label), v));
+      } else if(f.type === 'textarea'){
+        flush();
+        out.push(`<div class="profile-section-head">${esc(f.label)}</div><div class="profile-text rich">${v === undefined ? '-' : toRich(v)}</div>`);
+      } else if(f.type === 'collapse'){
+        flush();
+        if(v !== undefined) out.push(`<details class="profile-collapse"><summary>${esc(f.label)}</summary><div class="profile-text rich">${toRich(v)}</div></details>`);
+      }
+    });
+    flush();
+    return out.join('');
+  }
+
+  function renderProfile(info){
     const groupTxt = info.group ? `${info.group}${info.role ? ' (' + info.role + ')' : ''}` : '-';
     const classTxt = info.classId ? `${info.classId}${info.officer ? ' (' + info.officer + ')' : ''}` : '-';
     return `
       ${photoBlock(info)}
       <div class="profile-top-info">
-        ${infoRow('NAME', `${info.name} ${[p.nameEn, p.nameKanji].filter(Boolean).join(' / ')}`)}
-        ${infoRow('GROUP', groupTxt)}
-        ${infoRow('CLASS', classTxt)}
-        ${infoRow('BIRTH', p.birth)}
-        ${infoRow('AGE', ocAge || p.age)}
-        ${infoRow('HEIGHT', p.height)}
+        ${infoRow('NAME', esc(info.name))}
+        ${infoRow('GROUP', esc(groupTxt))}
+        ${infoRow('CLASS', esc(classTxt))}
       </div>
 
-      <div class="profile-section-head first">PERSONALITY</div>
-      <p class="profile-text">${p.personality || '-'}</p>
-
-      <div class="profile-section-head">INFO</div>
-      <p class="profile-text">${p.info || '-'}</p>
-
-      <div class="profile-section-head">SCHOOL</div>
-      <div class="profile-two-col">
-        <div>
-          ${infoRow('학급', p.school.학급)}
-          ${infoRow('학과', p.school.학과)}
-          ${infoRow('동아리', p.school.동아리)}
-        </div>
-        <div>
-          ${infoRow('학생회', p.school.학생회)}
-          ${infoRow('기숙사', p.school.기숙사)}
-        </div>
-      </div>
-
-      <div class="profile-two-col" style="margin-top:24px; padding-top:16px; border-top:1px solid var(--line);">
-        <div>
-          <div class="profile-section-head small">LIKE</div>
-          ${infoRow('좋아하는 음식', p.like.음식)}
-          ${infoRow('좋아하는 사람', p.like.사람)}
-          <div class="profile-gap">${infoRow('취미', p.hobby)}</div>
-        </div>
-        <div>
-          <div class="profile-section-head small">HATE</div>
-          ${infoRow('싫어하는 음식', p.hate.음식)}
-          ${infoRow('싫어하는 사람', p.hate.사람)}
-          <div class="profile-gap">${infoRow('특기', p.specialty)}</div>
-        </div>
-      </div>
-
-      <div class="profile-two-col" style="margin-top:24px; padding-top:16px; border-top:1px solid var(--line);">
-        <div>
-          <div class="profile-section-head small">ETC.</div>
-          ${infoRow('반려동물', p.etc.반려동물)}
-          ${infoRow('최근 관심사', p.etc.최근관심사)}
-          ${infoRow('가족 구성', p.etc.가족구성)}
-        </div>
-        <div>
-          <div class="profile-section-head small">ABILITY</div>
-          <div class="profile-two-col" style="gap:2px 16px;">
-            <div>
-              ${abilityRow('음악', p.ability.음악)}
-              ${abilityRow('보컬', p.ability.보컬)}
-              ${abilityRow('무용', p.ability.무용)}
-              ${abilityRow('연기', p.ability.연기)}
-            </div>
-            <div>
-              ${abilityRow('체력', p.ability.체력)}
-              ${abilityRow('정신력', p.ability.정신력)}
-              ${abilityRow('열정', p.ability.열정)}
-              ${abilityRow('눈치', p.ability.눈치)}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="profile-section-head">SPECIAL NOTE</div>
-      <p class="profile-text">${p.specialNote || '-'}</p>
+      ${renderTemplateBody(info)}
 
       <div class="profile-actions">
         ${info.owner ? `<span class="profile-owner">오너 ${esc(info.owner)}</span>` : '<span></span>'}
-        <span>
+        <span class="edit-only">
           <button type="button" class="text-btn" data-act="edit" data-name="${esc(info.name)}">수정</button>
           <button type="button" class="text-btn danger" data-act="delete" data-name="${esc(info.name)}">삭제</button>
         </span>
@@ -545,6 +726,8 @@
   document.addEventListener('keydown', (e) => {
     if(e.key !== 'Escape') return;
     if(cropModal.classList.contains('active')) { closeCrop(); return; }
+    if(menuModal.classList.contains('active')) { menuModal.classList.remove('active'); return; }
+    if(tplModal.classList.contains('active')) { closeTplMgr(); return; }
     if(formModal.classList.contains('active')) { formModal.classList.remove('active'); return; }
     if(settingsModal.classList.contains('active')) { settingsModal.classList.remove('active'); return; }
     if(profileModal.classList.contains('active')) profileModal.classList.remove('active');
@@ -674,32 +857,281 @@
   }
   document.getElementById('cropClose').addEventListener('click', closeCrop);
 
-  /* ----- 생성 / 수정 폼 (프로필 항목 순서 그대로) ----- */
-  const SCHOOL_KEYS = ['학급','학과','동아리','학생회','기숙사'];
+  /* ----- 템플릿 저장 (깃허브의 최신 내용을 다시 받아 이번 변경만 적용 → 동시 작업해도 서로 덮어쓰지 않음) ----- */
+  function b64DecodeUnicode(str){ return decodeURIComponent(escape(atob(String(str).replace(/\n/g, '')))); }
 
-  function fInput(label, path, val, ph){
-    return `<label class="f-row"><span>${label}</span><input class="f-input" data-path="${path}" value="${esc(val)}" ${ph ? `placeholder="${ph}"` : ''}></label>`;
+  async function fetchLiveTemplates(){
+    const token = getToken();
+    const headers = { Accept:'application/vnd.github+json' };
+    if(token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${apiBase}${TEMPLATE_PATH}?ref=${GH_BRANCH}`, { headers, cache:'no-store' });
+    if(res.status === 404) return { data:defaultTemplates(), sha:undefined };
+    if(!res.ok) throw new Error(`템플릿 파일을 불러오지 못했어요 (${res.status})`);
+    const d = await res.json();
+    return { data:JSON.parse(b64DecodeUnicode(d.content)), sha:d.sha };
   }
-  function fArea(label, path, val){
-    return `<label class="f-row"><span>${label}</span><textarea class="f-input" rows="3" data-path="${path}">${esc(val)}</textarea></label>`;
+  async function applyTemplatesChange(mutate){
+    const token = getToken();
+    if(!token){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return false; }
+    for(let attempt = 0; attempt < 5; attempt++){
+      try {
+        const { data, sha } = await fetchLiveTemplates();
+        mutate(data);
+        const res = await fetch(apiBase + TEMPLATE_PATH, {
+          method:'PUT',
+          headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' },
+          body: JSON.stringify({ message:'Update templates.json', content:toBase64Text(JSON.stringify(data, null, 2) + '\n'), branch:GH_BRANCH, ...(sha ? { sha } : {}) })
+        });
+        if(!res.ok){ const b = await res.json().catch(() => ({})); throw new Error(b.message || `저장 실패 (${res.status})`); }
+        templates = data;
+        return true;
+      } catch(err){
+        const conflict = /sha|does not match|expected/i.test(err.message || '');
+        if(!conflict || attempt === 4){ alert('템플릿 저장에 실패했어요: ' + err.message); return false; }
+        await new Promise(r => setTimeout(r, 150 + Math.random() * 250));
+      }
+    }
+    return false;
+  }
+  let tplQueue = Promise.resolve(true);
+  function saveTemplates(mutate){
+    const run = tplQueue.then(() => applyTemplatesChange(mutate));
+    tplQueue = run.catch(() => false);
+    return run;
+  }
+
+  /* ----- 템플릿 관리 창 ----- */
+  const tplModal = document.getElementById('tplModal');
+  let mgrSel = null;
+  let tplOnClose = null;
+
+  function renderTplMgr(){
+    if(!templates.find(t => t.id === mgrSel)) mgrSel = templates[0].id;
+    const t = templates.find(x => x.id === mgrSel);
+    const typeOpts = Object.keys(FIELD_TYPES).map(k => `<option value="${k}">${FIELD_TYPES[k]}</option>`).join('');
+    document.getElementById('tplBody').innerHTML = `
+      <h2 class="form-title">템플릿 관리</h2>
+      <p class="form-hint">템플릿을 추가·삭제하고 이름을 바꿀 수 있어요. 템플릿마다 항목을 추가·삭제하고, 항목 이름과 순서를 바꿀 수 있어요. 바꾸는 즉시 깃허브에 저장돼요.</p>
+      <div class="tpl-tabs">
+        ${templates.map(x => `<button type="button" class="tpl-tab${x.id === mgrSel ? ' active' : ''}" data-tact="sel" data-tid="${esc(x.id)}">${esc(x.name)}</button>`).join('')}
+        <button type="button" class="text-btn" data-tact="addTpl">+ 템플릿 추가</button>
+      </div>
+      <div class="tpl-tools">
+        <button type="button" class="text-btn" data-tact="renameTpl">이름 변경</button>
+        <button type="button" class="text-btn" data-tact="tplLeft">앞으로</button>
+        <button type="button" class="text-btn" data-tact="tplRight">뒤로</button>
+        <button type="button" class="text-btn danger" data-tact="delTpl">템플릿 삭제</button>
+      </div>
+      <div class="tpl-fields">
+        ${t.fields.map(f => `
+          <div class="tpl-row">
+            <input class="f-input tpl-label" data-key="${esc(f.key)}" value="${esc(f.label)}" ${f.core ? 'readonly' : ''}>
+            <span class="tpl-type">${f.core ? '필수' : FIELD_TYPES[f.type] || f.type}</span>
+            <span class="tpl-btns">
+              ${f.core ? '' : `<button type="button" class="text-btn" data-tact="up" data-key="${esc(f.key)}">위로</button>
+              <button type="button" class="text-btn" data-tact="down" data-key="${esc(f.key)}">아래로</button>
+              <button type="button" class="text-btn danger" data-tact="delField" data-key="${esc(f.key)}">삭제</button>`}
+            </span>
+          </div>`).join('')}
+      </div>
+      <div class="tpl-add">
+        <input class="f-input" id="tplNewLabel" placeholder="새 항목 이름">
+        <select class="f-input" id="tplNewType">${typeOpts}</select>
+        <button type="button" class="form-submit" data-tact="addField">항목 추가</button>
+      </div>
+      <p class="form-error" id="tplStatus"></p>`;
+  }
+  function openTplMgr(onClose, startId){
+    mgrSel = startId || (templates[0] && templates[0].id);
+    tplOnClose = onClose || null;
+    renderTplMgr();
+    tplModal.classList.add('active');
+  }
+  function closeTplMgr(){
+    tplModal.classList.remove('active');
+    if(tplOnClose){ const f = tplOnClose; tplOnClose = null; f(); }
+  }
+  document.getElementById('tplClose').addEventListener('click', closeTplMgr);
+
+  async function tplDo(mutate){
+    const st = document.getElementById('tplStatus');
+    if(st) st.textContent = '저장 중...';
+    const ok = await saveTemplates(mutate);
+    renderTplMgr();
+    return ok;
+  }
+  const withTpl = (data) => data.find(x => x.id === mgrSel);
+
+  document.getElementById('tplBody').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-tact]');
+    if(!b) return;
+    const act = b.dataset.tact, key = b.dataset.key;
+    if(act === 'sel'){ mgrSel = b.dataset.tid; renderTplMgr(); return; }
+    if(act === 'addTpl'){
+      const name = prompt('새 템플릿 이름을 입력해 주세요.');
+      if(!name || !name.trim()) return;
+      const copy = confirm('현재 선택한 템플릿의 항목을 그대로 복사할까요?\n(취소를 누르면 이름 항목만 있는 빈 템플릿이 만들어져요)');
+      const cur = templates.find(x => x.id === mgrSel);
+      const id = 't_' + Date.now();
+      const fields = copy && cur ? JSON.parse(JSON.stringify(cur.fields)) : [{ key:'name', label:'이름', type:'text', core:true }];
+      if(await tplDo(d => d.push({ id, name:name.trim(), fields }))) mgrSel = id, renderTplMgr();
+      return;
+    }
+    if(act === 'renameTpl'){
+      const cur = templates.find(x => x.id === mgrSel);
+      const name = prompt('템플릿 이름을 바꿔 주세요.', cur.name);
+      if(!name || !name.trim() || name.trim() === cur.name) return;
+      await tplDo(d => { const t = withTpl(d); if(t) t.name = name.trim(); });
+      return;
+    }
+    if(act === 'tplLeft' || act === 'tplRight'){
+      const dir = act === 'tplLeft' ? -1 : 1;
+      await tplDo(d => { const i = d.findIndex(x => x.id === mgrSel), j = i + dir; if(i < 0 || j < 0 || j >= d.length) return; const [it] = d.splice(i, 1); d.splice(j, 0, it); });
+      return;
+    }
+    if(act === 'delTpl'){
+      if(templates.length <= 1){ alert('템플릿이 하나뿐이라 삭제할 수 없어요.'); return; }
+      const cur = templates.find(x => x.id === mgrSel);
+      if(!confirm(`"${cur.name}" 템플릿을 삭제할까요?\n이 템플릿을 쓰던 캐릭터는 첫 번째 템플릿으로 보여요. 캐릭터의 값은 지워지지 않아요.`)) return;
+      await tplDo(d => { const i = d.findIndex(x => x.id === mgrSel); if(i >= 0) d.splice(i, 1); });
+      return;
+    }
+    if(act === 'addField'){
+      const label = document.getElementById('tplNewLabel').value.trim();
+      const type = document.getElementById('tplNewType').value;
+      if(!label){ document.getElementById('tplStatus').textContent = '항목 이름을 입력해 주세요.'; return; }
+      const nk = 'f_' + Date.now();
+      await tplDo(d => { const t = withTpl(d); if(t) t.fields.push({ key:nk, label, type }); });
+      return;
+    }
+    if(act === 'delField'){
+      if(!confirm('이 항목을 삭제할까요?\n(캐릭터에 저장된 값은 남아 있고 화면에서만 사라져요)')) return;
+      await tplDo(d => { const t = withTpl(d); if(t) t.fields = t.fields.filter(f => f.key !== key); });
+      return;
+    }
+    if(act === 'up' || act === 'down'){
+      const dir = act === 'up' ? -1 : 1;
+      await tplDo(d => { const t = withTpl(d); if(!t) return; const i = t.fields.findIndex(f => f.key === key), j = i + dir; if(i < 0 || j < 1 || j >= t.fields.length) return; [t.fields[i], t.fields[j]] = [t.fields[j], t.fields[i]]; });
+      return;
+    }
+  });
+  document.getElementById('tplBody').addEventListener('change', async (e) => {
+    const inp = e.target.closest('.tpl-label');
+    if(!inp || inp.readOnly) return;
+    const label = inp.value.trim(), key = inp.dataset.key;
+    if(!label){ renderTplMgr(); return; }
+    await tplDo(d => { const t = withTpl(d); const f = t && t.fields.find(x => x.key === key); if(f) f.label = label; });
+  });
+
+  /* ----- 생성 / 수정 폼 ----- */
+  let formTpl = null;      // 폼에서 현재 고른 템플릿
+  let formInfo = null;     // 수정 중인 캐릭터 (새 캐릭터면 null)
+  let tplTouched = false;  // 템플릿을 직접 고른 적이 있는지
+
+  function fInput(label, id, val, ph){
+    return `<label class="f-row"><span>${label}</span><input class="f-input" id="${id}" value="${esc(val)}" ${ph ? `placeholder="${ph}"` : ''}></label>`;
+  }
+
+  function widgetHtml(f, val){
+    const k = esc(f.key);
+    if(f.type === 'text') return `<input class="f-input" data-fkey="${k}" data-ftype="text" value="${esc(val == null ? '' : val)}">`;
+    if(f.type === 'tags') return `<div class="f-tags" data-fkey="${k}" data-ftype="tags"><span class="chips"></span><input class="f-tag-input" placeholder="입력하고 Enter"></div>`;
+    if(f.type === 'rating') return `<div class="f-rating" data-fkey="${k}" data-ftype="rating" data-val="${Number(val) || 0}"></div>`;
+    // textarea / collapse
+    return `<div class="rt-wrap"><div class="rt-toolbar"><button type="button" data-rt="bold"><b>B</b></button><button type="button" data-rt="italic"><i>I</i></button><button type="button" data-rt="underline"><u>U</u></button><button type="button" data-rt="removeFormat">서식 지우기</button></div><div class="rt-edit f-input" contenteditable="true" data-fkey="${k}" data-ftype="rich">${val ? toRich(val) : ''}</div></div>`;
+  }
+
+  function wireWidgets(root, tpl, values){
+    tpl.fields.forEach(f => {
+      if(f.core) return;
+      const el = root.querySelector(`[data-fkey="${f.key}"]`);
+      if(!el) return;
+      const val = values[f.key];
+      if(f.type === 'tags'){
+        el._vals = Array.isArray(val) ? val.slice() : (val ? [String(val)] : []);
+        const chips = el.querySelector('.chips'), inp = el.querySelector('input');
+        const draw = () => { chips.innerHTML = el._vals.map((v, i) => `<span class="chip">${esc(v)}<button type="button" data-i="${i}">&times;</button></span>`).join(''); };
+        const add = () => { const v = inp.value.trim().replace(/,$/, ''); if(v){ el._vals.push(v); inp.value = ''; draw(); } };
+        inp.addEventListener('keydown', ev => { if(ev.key === 'Enter' || ev.key === ','){ ev.preventDefault(); add(); } });
+        inp.addEventListener('blur', add);
+        chips.addEventListener('click', ev => { const b = ev.target.closest('button'); if(b){ el._vals.splice(Number(b.dataset.i), 1); draw(); } });
+        draw();
+      } else if(f.type === 'rating'){
+        const draw = () => {
+          const n = Number(el.dataset.val) || 0;
+          el.innerHTML = [1,2,3,4,5].map(i => `<button type="button" data-n="${i}">${i <= n ? '★' : '☆'}</button>`).join('') + `<button type="button" class="rate-clear" data-n="0">지우기</button>`;
+        };
+        el.addEventListener('click', ev => { const b = ev.target.closest('button'); if(b){ el.dataset.val = b.dataset.n; draw(); } });
+        draw();
+      }
+    });
+    root.querySelectorAll('.rt-toolbar button').forEach(b => {
+      b.addEventListener('mousedown', ev => { ev.preventDefault(); document.execCommand(b.dataset.rt, false, null); });
+    });
+  }
+
+  function collectFields(tpl){
+    const out = {};
+    tpl.fields.forEach(f => {
+      if(f.core) return;
+      const el = document.querySelector(`#fDynamic [data-fkey="${f.key}"]`);
+      if(!el) return;
+      if(f.type === 'tags'){
+        const inp = el.querySelector('input'); const pend = inp && inp.value.trim();
+        out[f.key] = el._vals.concat(pend ? [pend] : []);
+      } else if(f.type === 'rating') out[f.key] = Number(el.dataset.val) || 0;
+      else if(f.type === 'textarea' || f.type === 'collapse') out[f.key] = cleanHtml(el.innerHTML);
+      else out[f.key] = el.value.trim();
+    });
+    return out;
+  }
+
+  // 폼에 미리 채울 값: 직접 입력한 값 > 예전 프로필 값 (oc 값은 보기 전용이라 여기에 넣지 않는다)
+  function initialValues(info, tpl){
+    const vals = {};
+    tpl.fields.forEach(f => {
+      if(f.core) return;
+      if(!info) return;
+      const v = ownValue(info, f);
+      const w = v !== undefined ? v : legacyValue(info, f);
+      if(w !== undefined) vals[f.key] = w;
+    });
+    return vals;
+  }
+
+  function renderDynamic(tpl, values){
+    const box = document.getElementById('fDynamic');
+    box.innerHTML = tpl.fields.filter(f => !f.core).map(f => `<div class="f-row"><span>${esc(f.label)}</span>${widgetHtml(f, values[f.key])}</div>`).join('');
+    wireWidgets(box, tpl, values);
+  }
+
+  function tplOptionsHtml(selectedId){
+    return templates.map(t => `<option value="${esc(t.id)}" ${t.id === selectedId ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
   }
 
   function openForm(name){
     const info = name ? masterCharacters[name] : null;
-    const p = info ? info.rawProfile : emptyProfile();
+    formInfo = info;
     const cf = (info && charFiles[info.name]) || {};
     pendingImage = null;
+    tplTouched = !!cf.template;
+    formTpl = info ? templateFor(info) : templates[0];
 
     const groupOpts = groups.map(g => `<option value="${esc(g.name)}" ${info && info.group === g.name ? 'selected' : ''}>${esc(g.name)}</option>`).join('');
     const colorOpts = ['<option value="">없음</option>'].concat(Object.keys(colorMap).map(c => `<option value="${esc(c)}" ${info && info.color === c ? 'selected' : ''}>${esc(c)}</option>`)).join('');
     const ownerOpts = ['<option value="">선택 안 함</option>'].concat(OWNERS.map(o => `<option value="${o}" ${(info && info.owner) === o ? 'selected' : ''}>${o}</option>`)).join('');
     const curImg = info ? imgSrcFor(info.name, info.file) : '';
+    const linked = info && ocOverrides[info.name];
 
     document.getElementById('formBody').innerHTML = `
       <h2 class="form-title">${info ? '캐릭터 수정' : '캐릭터 추가'}</h2>
       <p class="form-hint">저장하면 깃허브에 바로 올라가요. 처음이라면 먼저 저장 설정에서 토큰을 등록해 주세요.</p>
 
       <label class="f-row"><span>오너</span><select class="f-input" id="fOwner">${ownerOpts}</select></label>
+      <div class="f-row"><span>템플릿</span>
+        <div class="f-inline"><select class="f-input" id="fTpl">${tplOptionsHtml(formTpl && formTpl.id)}</select><button type="button" class="text-btn" id="fTplMgr">템플릿 관리</button></div>
+      </div>
+      ${linked ? '<p class="form-hint">oc 저장소에 같은 이름의 캐릭터가 있어서, 사진과 프로필 내용은 oc 값이 우선 보여요. 수정은 oc에서 해 주세요.</p>' : ''}
 
       <div class="f-group">이미지</div>
       <div class="f-image">
@@ -707,50 +1139,19 @@
         <div>
           <input type="file" id="fImage" accept="image/*">
           <p class="form-hint" id="fImageNote">파일을 고르면 확대/자르기 창이 열려요. 자르지 않고 원본 그대로 올릴 수도 있어요.</p>
-          ${info && ocOverrides[info.name] ? '<p class="form-hint">oc 저장소에 같은 이름의 캐릭터가 있어서, 사이트에서는 oc의 사진이 우선 보여요.</p>' : ''}
         </div>
       </div>
 
       <div class="f-group">NAME</div>
-      <label class="f-row"><span>이름</span><input class="f-input" id="fName" value="${esc(info ? info.name : '')}"></label>
-      ${fInput('영어 표기','nameEn',p.nameEn,'새 캐릭터는 이 값으로 사진 파일 이름이 정해져요')}
-      ${fInput('한자 표기','nameKanji',p.nameKanji)}
+      ${fInput('이름', 'fName', info ? info.name : '')}
 
       <div class="f-group">GROUP</div>
       <label class="f-row"><span>그룹</span><select class="f-input" id="fGroup">${groupOpts}</select></label>
-      <label class="f-row"><span>역할</span><input class="f-input" id="fRole" value="${esc(info ? info.role : '')}" placeholder="예: 리더, 보컬 (매니저는 '매니저'로 입력)"></label>
+      ${fInput('역할', 'fRole', info ? info.role : '', "예: 리더, 보컬 (매니저는 '매니저'로 입력)")}
       <label class="f-row"><span>그룹 내 담당 컬러 (선택)</span><select class="f-input" id="fColor">${colorOpts}</select></label>
 
       <div class="f-group">PROFILE</div>
-      ${fInput('BIRTH','birth',p.birth)}
-      ${fInput('AGE','age',p.age)}
-      ${fInput('HEIGHT','height',p.height)}
-      ${fArea('PERSONALITY','personality',p.personality)}
-      ${fArea('INFO','info',p.info)}
-
-      <div class="f-group">SCHOOL</div>
-      ${SCHOOL_KEYS.map(k => fInput(k, 'school.' + k, p.school[k])).join('')}
-
-      <div class="f-group">LIKE / HATE</div>
-      ${fInput('좋아하는 음식','like.음식',p.like.음식)}
-      ${fInput('좋아하는 사람','like.사람',p.like.사람)}
-      ${fInput('싫어하는 음식','hate.음식',p.hate.음식)}
-      ${fInput('싫어하는 사람','hate.사람',p.hate.사람)}
-      ${fInput('취미','hobby',p.hobby)}
-      ${fInput('특기','specialty',p.specialty)}
-
-      <div class="f-group">ETC.</div>
-      ${fInput('반려동물','etc.반려동물',p.etc.반려동물)}
-      ${fInput('최근 관심사','etc.최근관심사',p.etc.최근관심사)}
-      ${fInput('가족 구성','etc.가족구성',p.etc.가족구성)}
-
-      <div class="f-group">ABILITY (0~5)</div>
-      <div class="f-ability">
-        ${Object.keys(p.ability).map(k => `<label><span>${k}</span><input class="f-input" type="number" min="0" max="5" data-path="ability.${k}" value="${Number(p.ability[k]) || 0}"></label>`).join('')}
-      </div>
-
-      <div class="f-group">SPECIAL NOTE</div>
-      ${fArea('','specialNote',p.specialNote)}
+      <div id="fDynamic"></div>
 
       <p class="form-error" id="formError"></p>
       <div class="form-actions">
@@ -758,7 +1159,22 @@
         <button type="button" class="form-submit" id="formSave">저장</button>
       </div>`;
     formModal.classList.add('active');
+    renderDynamic(formTpl, initialValues(info, formTpl));
 
+    document.getElementById('fOwner').addEventListener('change', (e) => {
+      if(tplTouched) return;
+      const t = templates.find(x => x.name === e.target.value);
+      if(t) changeFormTemplate(t.id);
+    });
+    document.getElementById('fTpl').addEventListener('change', (e) => { tplTouched = true; changeFormTemplate(e.target.value); });
+    document.getElementById('fTplMgr').addEventListener('click', () => {
+      const snap = collectFields(formTpl);
+      openTplMgr(() => {
+        formTpl = templates.find(t => t.id === formTpl.id) || templates[0];
+        document.getElementById('fTpl').innerHTML = tplOptionsHtml(formTpl.id);
+        renderDynamic(formTpl, Object.assign(initialValues(formInfo, formTpl), snap));
+      }, formTpl.id);
+    });
     document.getElementById('fImage').addEventListener('change', (e) => {
       const f = e.target.files[0];
       if(!f) return;
@@ -771,11 +1187,11 @@
     document.getElementById('formSave').addEventListener('click', () => submitForm(info));
   }
 
-  function setByPath(obj, path, val){
-    const parts = path.split('.');
-    let o = obj;
-    for(let i = 0; i < parts.length - 1; i++) o = o[parts[i]];
-    o[parts[parts.length - 1]] = val;
+  function changeFormTemplate(id){
+    const snap = collectFields(formTpl);
+    formTpl = templates.find(t => t.id === id) || templates[0];
+    document.getElementById('fTpl').value = formTpl.id;
+    renderDynamic(formTpl, Object.assign(initialValues(formInfo, formTpl), snap));
   }
 
   async function submitForm(info){
@@ -787,16 +1203,14 @@
     if(same && (!info || same.name !== info.name)){ err.textContent = '같은 이름의 캐릭터가 이미 있어요.'; return; }
     if(!getToken()){ err.textContent = '먼저 저장 설정에서 토큰을 등록해 주세요.'; return; }
 
-    const profile = emptyProfile();
-    formModal.querySelectorAll('[data-path]').forEach(el => {
-      const v = el.type === 'number' ? Math.max(0, Math.min(5, Number(el.value) || 0)) : el.value.trim();
-      setByPath(profile, el.dataset.path, v);
-    });
+    const fields = Object.assign({}, (charFiles[info && info.name] || {}).fields || {}, collectFields(formTpl));
 
-    // 파일 식별자: 기존 캐릭터는 그대로, 새 캐릭터는 영어 표기에서 만들고 없으면 자동 번호.
+    // 파일 식별자: 기존 캐릭터는 그대로, 새 캐릭터는 이름 옆의 영어 이름 칸이 있으면 거기서, 없으면 자동 번호.
     let id = info && info.id ? info.id : '';
     if(!id){
-      id = (profile.nameEn || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      const enField = formTpl.fields.find(f => /영어/.test(f.label) && !f.core);
+      const en = enField ? String(fields[enField.key] || '').split('/')[0] : '';
+      id = en.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
       const used = new Set(Object.values(masterCharacters).map(m => m.id).concat(Object.values(charFiles).map(c => c.id)));
       if(!id) id = 'char-' + Date.now();
       else if(used.has(id)) id += '-' + Date.now().toString(36);
@@ -809,10 +1223,12 @@
       role: document.getElementById('fRole').value.trim(),
       color: document.getElementById('fColor').value || null,
       owner: document.getElementById('fOwner').value,
+      template: formTpl.id,
       image: prev.image || null,
       imageV: prev.imageV || null,
-      profile
+      fields
     };
+    if(prev.profile) data.profile = prev.profile; // 예전 형식 값은 그대로 보존
 
     const btn = document.getElementById('formSave');
     btn.disabled = true; btn.textContent = '저장 중...';
@@ -836,22 +1252,374 @@
     const info = masterCharacters[name];
     if(!info) return;
     const cf = charFiles[name];
-    if(!cf){
-      alert('이 캐릭터는 기본 데이터(groups.json)에 들어 있어서 사이트에서 바로 지울 수 없어요. 수정으로 내용은 바꿀 수 있어요.');
-      return;
-    }
     if(!getToken()){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return; }
-    if(!confirm(`"${name}" 캐릭터의 저장된 데이터를 삭제할까요?\n되돌릴 수 없어요.`)) return;
+    if(!confirm(`"${name}" 캐릭터를 삭제할까요?\n사이트에서 보이지 않게 돼요.`)) return;
     try {
-      await ghDelete(cf._path, `Delete character: ${name}`);
-      if(cf.image) { try { await ghDelete(cf.image, `Delete image: ${name}`); } catch(e){} }
+      const id = info.id || info.file;
+      if(info.base){
+        if(!id){ alert('이 캐릭터는 파일 이름이 없어서 지울 수 없어요.'); return; }
+        await ghPut(`${CHAR_DIR}/${id}.json`, toBase64Text(JSON.stringify({ id, name, file:id, deleted:true }, null, 2) + '\n'), `Delete character: ${name}`);
+      } else if(cf){
+        await ghDelete(cf._path, `Delete character: ${name}`);
+        if(cf.image){ try { await ghDelete(cf.image, `Delete image: ${name}`); } catch(e){} }
+      } else { alert('지울 데이터를 찾지 못했어요.'); return; }
       window.location.reload();
     } catch(e){
       alert('삭제에 실패했어요: ' + e.message);
     }
   }
 
+
+  /* ----- 그룹 추가 / 수정 / 삭제 ----- */
+  function openGroupForm(g){
+    pendingImage = null;
+    const isEdit = !!g;
+    let sel = g ? g.colors.slice() : [];
+    const chipHtml = () => Object.keys(colorMap).map(c => {
+      const on = sel.includes(c);
+      return `<button type="button" class="color-pick${on ? ' on' : ''}" data-c="${esc(c)}"><span class="gd-color-dot" style="background:${colorMap[c]}"></span>${esc(c)}</button>`;
+    }).join('');
+    document.getElementById('formBody').innerHTML = `
+      <h2 class="form-title">${isEdit ? '그룹 수정' : '그룹 추가'}</h2>
+      <p class="form-hint">저장하면 깃허브에 바로 올라가요. 처음이라면 먼저 저장 설정에서 토큰을 등록해 주세요.</p>
+      ${fInput('이름', 'gName', g ? g.name : '')}
+      ${fInput('컨셉', 'gConcept', g ? g.concept : '')}
+      ${fInput('장르', 'gGenre', g ? g.genre : '')}
+      ${fInput('팬덤명', 'gFandom', g ? g.fandom : '')}
+      <div class="f-row"><span>대표 컬러 (누른 순서대로 들어가요)</span><div class="color-picks" id="gColors">${chipHtml()}</div></div>
+      <div class="f-row"><span>소개 (비워 두면 자동으로 만들어져요)</span><textarea class="f-input" rows="3" id="gIntro">${esc(g ? g.intro : '')}</textarea></div>
+      <div class="f-group">이미지</div>
+      <div class="f-image">
+        <div class="f-thumb square" id="fThumb">${g && g.image ? `<img src="${esc(groupImgSrc(g))}" alt="" onerror="this.style.display='none'">` : ''}</div>
+        <div>
+          <input type="file" id="fImage" accept="image/*">
+          <p class="form-hint" id="fImageNote">파일을 고르면 확대/자르기 창이 열려요. 그룹 카드는 정사각형(1:1)으로 보여요.</p>
+        </div>
+      </div>
+      <p class="form-error" id="formError"></p>
+      <div class="form-actions"><span></span><button type="button" class="form-submit" id="formSave">저장</button></div>`;
+    formModal.classList.add('active');
+    document.getElementById('gColors').addEventListener('click', (e) => {
+      const b = e.target.closest('.color-pick'); if(!b) return;
+      const c = b.dataset.c;
+      sel = sel.includes(c) ? sel.filter(x => x !== c) : sel.concat([c]);
+      document.getElementById('gColors').innerHTML = chipHtml();
+    });
+    document.getElementById('fImage').addEventListener('change', (e) => {
+      const f = e.target.files[0]; if(!f) return;
+      openCrop(f, (blob, ext) => {
+        pendingImage = { blob, ext };
+        document.getElementById('fThumb').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`;
+        document.getElementById('fImageNote').textContent = '새 이미지가 준비됐어요. 저장하면 올라가요.';
+      });
+    });
+    document.getElementById('formSave').addEventListener('click', () => submitGroupForm(g, () => sel));
+  }
+
+  async function submitGroupForm(g, getSel){
+    const err = document.getElementById('formError');
+    err.textContent = '';
+    const name = document.getElementById('gName').value.trim();
+    if(!name){ err.textContent = '이름을 입력해 주세요.'; return; }
+    if(groups.some(x => x.name === name && (!g || x.id !== g.id))){ err.textContent = '같은 이름의 그룹이 이미 있어요.'; return; }
+    if(!getToken()){ err.textContent = '먼저 저장 설정에서 토큰을 등록해 주세요.'; return; }
+    const colors = getSel();
+    const id = g ? g.id : (slugOf(name) && !groups.some(x => x.id === slugOf(name)) ? slugOf(name) : 'group-' + Date.now());
+    const data = {
+      id, name,
+      concept: document.getElementById('gConcept').value.trim(),
+      genre: document.getElementById('gGenre').value.trim(),
+      fandom: document.getElementById('gFandom').value.trim(),
+      colors: colors.length ? colors : (g ? g.colors : ['그레이']),
+      intro: document.getElementById('gIntro').value.trim(),
+      image: g ? g.image || null : null,
+      imageV: g ? g.imageV || null : null
+    };
+    const btn = document.getElementById('formSave');
+    btn.disabled = true; btn.textContent = '저장 중...';
+    try {
+      if(pendingImage){
+        const imgPath = `ymkb_group_${id}.${pendingImage.ext}`;
+        await ghPut(imgPath, await blobToBase64(pendingImage.blob), `Update group image: ${name}`);
+        if(data.image && data.image !== imgPath){ try { await ghDelete(data.image, `Replace group image: ${name}`); } catch(e){} }
+        data.image = imgPath; data.imageV = Date.now();
+      }
+      await ghPut(`${GROUP_DIR}/${id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `${g ? 'Update' : 'Add'} group: ${name}`);
+      window.location.reload();
+    } catch(e){
+      btn.disabled = false; btn.textContent = '저장';
+      err.textContent = e.message === 'NO_TOKEN' ? '먼저 저장 설정에서 토큰을 등록해 주세요.' : '저장에 실패했어요: ' + e.message;
+    }
+  }
+
+  async function deleteGroup(g){
+    if(!getToken()){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return; }
+    const n = g.members.length + (g.manager ? 1 : 0);
+    if(!confirm(`"${g.name}" 그룹을 삭제할까요?${n ? `\n소속된 캐릭터 ${n}명도 이 그룹과 함께 보이지 않게 돼요.` : ''}`)) return;
+    try {
+      if(g.base){
+        await ghPut(`${GROUP_DIR}/${g.id}.json`, toBase64Text(JSON.stringify({ id:g.id, name:g.name, deleted:true }, null, 2) + '\n'), `Delete group: ${g.name}`);
+      } else if(g.file){
+        await ghDelete(g.file._path, `Delete group: ${g.name}`);
+        if(g.file.image){ try { await ghDelete(g.file.image, `Delete group image: ${g.name}`); } catch(e){} }
+      }
+      window.location.reload();
+    } catch(e){ alert('삭제에 실패했어요: ' + e.message); }
+  }
+
+  document.getElementById('addGroupBtn').addEventListener('click', () => openGroupForm(null));
+  document.getElementById('gdEdit').addEventListener('click', () => { if(currentGroup) openGroupForm(currentGroup); });
+  document.getElementById('gdDelete').addEventListener('click', () => { if(currentGroup) deleteGroup(currentGroup); });
+
+
+  /* ----- JSON 파일 한 개를 안전하게 고치기 (최신 내용을 다시 받아 이번 변경만 적용, 충돌이면 재시도) ----- */
+  async function jsonChange(path, fallbackFn, mutate, message){
+    const token = getToken();
+    if(!token){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return false; }
+    for(let attempt = 0; attempt < 5; attempt++){
+      try {
+        const res = await fetch(`${apiBase}${path}?ref=${GH_BRANCH}`, { headers:{ Accept:'application/vnd.github+json', Authorization:`Bearer ${token}` }, cache:'no-store' });
+        let data, sha;
+        if(res.status === 404){ data = fallbackFn(); }
+        else if(!res.ok) throw new Error(`파일을 불러오지 못했어요 (${res.status})`);
+        else { const d = await res.json(); data = JSON.parse(b64DecodeUnicode(d.content)); sha = d.sha; }
+        mutate(data);
+        const put = await fetch(apiBase + path, {
+          method:'PUT',
+          headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' },
+          body: JSON.stringify({ message, content:toBase64Text(JSON.stringify(data, null, 2) + '\n'), branch:GH_BRANCH, ...(sha ? { sha } : {}) })
+        });
+        if(!put.ok){ const b = await put.json().catch(() => ({})); throw new Error(b.message || `저장 실패 (${put.status})`); }
+        return true;
+      } catch(err){
+        const conflict = /sha|does not match|expected/i.test(err.message || '');
+        if(!conflict || attempt === 4){ alert('저장에 실패했어요: ' + err.message); return false; }
+        await new Promise(r => setTimeout(r, 150 + Math.random() * 250));
+      }
+    }
+    return false;
+  }
+
+  /* ----- 학급 추가 / 수정 / 삭제 (data/classes.json) ----- */
+  function rosterRowHtml(r){
+    return `<div class="tpl-row"><input class="f-input" list="charNames" data-r="name" placeholder="학생 이름" value="${esc(r.name || '')}"><input class="f-input roster-officer" data-r="officer" placeholder="직책 (선택)" value="${esc(r.officer || '')}"><button type="button" class="text-btn danger" data-rdel>삭제</button></div>`;
+  }
+  function openClassForm(sec){
+    const grade = sec ? classes.find(g => g.sections.includes(sec)).grade : (classes[0] ? classes[0].grade : '');
+    document.getElementById('formBody').innerHTML = `
+      <h2 class="form-title">${sec ? '학급 수정' : '학급 추가'}</h2>
+      <p class="form-hint">저장하면 깃허브에 바로 올라가요. 처음이라면 먼저 저장 설정에서 토큰을 등록해 주세요.</p>
+      <label class="f-row"><span>학년</span><input class="f-input" id="cGrade" list="gradeNames" value="${esc(grade)}" placeholder="예: 3학년"></label>
+      <datalist id="gradeNames">${classes.map(g => `<option value="${esc(g.grade)}">`).join('')}</datalist>
+      ${fInput('학급 이름', 'cId', sec ? sec.id : '', '예: 3-A')}
+      ${fInput('담당 교사', 'cTeacher', sec ? sec.teacher : '')}
+      <div class="f-group">학생 명단</div>
+      <datalist id="charNames">${Object.keys(masterCharacters).map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+      <div id="cRoster">${(sec ? sec.roster : []).map(rosterRowHtml).join('')}</div>
+      <button type="button" class="text-btn" id="cAddRow">+ 학생 추가</button>
+      <p class="form-error" id="formError"></p>
+      <div class="form-actions"><span></span><button type="button" class="form-submit" id="formSave">저장</button></div>`;
+    formModal.classList.add('active');
+    document.getElementById('cAddRow').addEventListener('click', () => document.getElementById('cRoster').insertAdjacentHTML('beforeend', rosterRowHtml({})));
+    document.getElementById('cRoster').addEventListener('click', (e) => { const b = e.target.closest('[data-rdel]'); if(b) b.closest('.tpl-row').remove(); });
+    document.getElementById('formSave').addEventListener('click', async () => {
+      const err = document.getElementById('formError'); err.textContent = '';
+      const g = document.getElementById('cGrade').value.trim();
+      const id = document.getElementById('cId').value.trim();
+      const teacher = document.getElementById('cTeacher').value.trim();
+      if(!g || !id){ err.textContent = '학년과 학급 이름을 입력해 주세요.'; return; }
+      if(classes.some(x => x.sections.some(s => s.id === id && s !== sec))){ err.textContent = '같은 이름의 학급이 이미 있어요.'; return; }
+      const roster = [...document.querySelectorAll('#cRoster .tpl-row')].map(row => {
+        const n = row.querySelector('[data-r=name]').value.trim(), o = row.querySelector('[data-r=officer]').value.trim();
+        return n ? (o ? { name:n, officer:o } : { name:n }) : null;
+      }).filter(Boolean);
+      const btn = document.getElementById('formSave'); btn.disabled = true; btn.textContent = '저장 중...';
+      const origId = sec ? sec.id : null;
+      const ok = await jsonChange('data/classes.json', () => JSON.parse(JSON.stringify(classesBase)), (data) => {
+        let found = null, fg = null;
+        data.forEach(gr => gr.sections.forEach(s => { if(origId && s.id === origId){ found = s; fg = gr; } }));
+        let tg = data.find(gr => gr.grade === g);
+        if(!tg){ tg = { grade:g, sections:[] }; data.push(tg); }
+        const entry = { id, teacher, roster };
+        if(found){
+          if(fg !== tg){ fg.sections = fg.sections.filter(s => s !== found); tg.sections.push(found); }
+          Object.assign(found, entry);
+          for(let i = data.length - 1; i >= 0; i--) if(!data[i].sections.length && data[i] !== tg) data.splice(i, 1);
+        } else tg.sections.push(entry);
+      }, `${sec ? 'Update' : 'Add'} class: ${id}`);
+      if(ok) window.location.reload(); else { btn.disabled = false; btn.textContent = '저장'; }
+    });
+  }
+  async function deleteClass(sec){
+    if(!getToken()){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return; }
+    if(!confirm(`"${sec.id}" 학급을 삭제할까요?\n캐릭터는 지워지지 않고, 학급 명단만 사라져요.`)) return;
+    const ok = await jsonChange('data/classes.json', () => JSON.parse(JSON.stringify(classesBase)), (data) => {
+      data.forEach(gr => { gr.sections = gr.sections.filter(s => s.id !== sec.id); });
+      for(let i = data.length - 1; i >= 0; i--) if(!data[i].sections.length) data.splice(i, 1);
+    }, `Delete class: ${sec.id}`);
+    if(ok) window.location.reload();
+  }
+  document.getElementById('addClassBtn').addEventListener('click', () => openClassForm(null));
+  document.getElementById('clEdit').addEventListener('click', () => { if(currentSection) openClassForm(currentSection); });
+  document.getElementById('clDelete').addEventListener('click', () => { if(currentSection) deleteClass(currentSection); });
+
+  /* ----- 사이트 설정: 제목, 링크, 푸터, 로고, 캐러셀, 빈 페이지 본문 ----- */
+  function openSiteForm(){
+    pendingImage = null;
+    let pendingLogo = null;
+    let slides = site.slides.map(x => Object.assign({}, x));
+    const slideHtml = (sl, i) => `<div class="slide-row" data-i="${i}">
+      <div class="f-thumb wide">${sl.pendingUrl ? `<img src="${sl.pendingUrl}" alt="">` : (sl.image ? `<img src="${esc(rawUrl(sl.image, sl.imageV))}" alt="" onerror="this.style.display='none'">` : '')}</div>
+      <div class="slide-fields">
+        <input class="f-input" data-s="title" placeholder="슬라이드 제목" value="${esc(sl.title || '')}">
+        <input class="f-input" data-s="date" placeholder="날짜 (선택)" value="${esc(sl.date || '')}">
+        <div class="f-inline"><input type="file" data-s="file" accept="image/*"><button type="button" class="text-btn danger" data-sdel>슬라이드 삭제</button></div>
+      </div></div>`;
+    const syncSlides = () => {
+      document.querySelectorAll('#sSlides .slide-row').forEach(row => {
+        const sl = slides[Number(row.dataset.i)]; if(!sl) return;
+        sl.title = row.querySelector('[data-s=title]').value.trim();
+        sl.date = row.querySelector('[data-s=date]').value.trim();
+      });
+    };
+    const drawSlides = () => {
+      const box = document.getElementById('sSlides');
+      box.innerHTML = slides.map(slideHtml).join('');
+      box.querySelectorAll('.slide-row').forEach(row => {
+        const i = Number(row.dataset.i);
+        row.querySelector('[data-s=file]').addEventListener('change', (e) => {
+          const f = e.target.files[0]; if(!f) return;
+          openCrop(f, (blob, ext) => { syncSlides(); slides[i].pending = { blob, ext }; slides[i].pendingUrl = URL.createObjectURL(blob); drawSlides(); });
+        });
+      });
+    };
+    document.getElementById('formBody').innerHTML = `
+      <h2 class="form-title">사이트 설정</h2>
+      <p class="form-hint">저장하면 깃허브에 바로 올라가요. 처음이라면 먼저 저장 설정에서 토큰을 등록해 주세요.</p>
+      <div class="f-group">기본</div>
+      ${fInput('제목', 'sTitle', site.title)}
+      ${fInput('부제', 'sSub', site.subtitle)}
+      ${fInput('YouTube 링크', 'sYt', site.youtube)}
+      ${fInput('Soundcloud 링크', 'sSc', site.soundcloud)}
+      ${fInput('맨 아래 문구', 'sFoot', site.footer)}
+      <div class="f-row"><span>로고 이미지 (비워 두면 그대로예요)</span>
+        <div class="f-image"><div class="f-thumb square" id="sLogoThumb">${site.logo ? `<img src="${esc(rawUrl(site.logo, site.logoV))}" alt="" onerror="this.style.display='none'">` : ''}</div><input type="file" id="sLogo" accept="image/*"></div>
+      </div>
+      <div class="f-group">메인 슬라이드</div>
+      <div id="sSlides"></div>
+      <button type="button" class="text-btn" id="sAddSlide">+ 슬라이드 추가</button>
+      <div class="f-group">빈 페이지 내용</div>
+      ${PAGE_KEYS.map(([k, label]) => {
+        const pg = site.pages[k] || {};
+        return `<div class="f-row"><span>${label} 페이지 제목</span><input class="f-input" id="pt_${k}" value="${esc(pg.title || '')}" placeholder="${label}"></div>
+        <div class="f-row"><span>${label} 페이지 본문</span>${widgetHtml({ key:'page_' + k, type:'textarea' }, pg.body || '')}</div>`;
+      }).join('')}
+      <p class="form-error" id="formError"></p>
+      <div class="form-actions"><span></span><button type="button" class="form-submit" id="formSave">저장</button></div>`;
+    formModal.classList.add('active');
+    wireWidgets(document.getElementById('formBody'), { fields:[] }, {});
+    drawSlides();
+    document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ id:'s' + Date.now(), title:'', date:'', image:null }); drawSlides(); });
+    document.getElementById('sSlides').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-sdel]'); if(!b) return;
+      syncSlides(); slides.splice(Number(b.closest('.slide-row').dataset.i), 1); drawSlides();
+    });
+    document.getElementById('sLogo').addEventListener('change', (e) => {
+      const f = e.target.files[0]; if(!f) return;
+      openCrop(f, (blob, ext) => { pendingLogo = { blob, ext }; document.getElementById('sLogoThumb').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`; });
+    });
+    document.getElementById('formSave').addEventListener('click', async () => {
+      const err = document.getElementById('formError'); err.textContent = '';
+      if(!getToken()){ err.textContent = '먼저 저장 설정에서 토큰을 등록해 주세요.'; return; }
+      syncSlides();
+      const btn = document.getElementById('formSave'); btn.disabled = true; btn.textContent = '저장 중...';
+      try {
+        const next = {
+          title: document.getElementById('sTitle').value.trim() || SITE_DEFAULTS.title,
+          subtitle: document.getElementById('sSub').value.trim(),
+          youtube: document.getElementById('sYt').value.trim(),
+          soundcloud: document.getElementById('sSc').value.trim(),
+          footer: document.getElementById('sFoot').value.trim(),
+          logo: site.logo || null, logoV: site.logoV || null,
+          slides: [], pages: {}
+        };
+        if(pendingLogo){
+          const lp = `ymkb_logo.${pendingLogo.ext}`;
+          await ghPut(lp, await blobToBase64(pendingLogo.blob), 'Update logo');
+          next.logo = lp; next.logoV = Date.now();
+        }
+        for(let i = 0; i < slides.length; i++){
+          const sl = slides[i];
+          const out = { id:sl.id || ('s' + Date.now() + i), title:sl.title || '', date:sl.date || '', image:sl.image || null, imageV:sl.imageV || null };
+          if(sl.pending){
+            const ip = `ymkb_slide_${out.id}.${sl.pending.ext}`;
+            await ghPut(ip, await blobToBase64(sl.pending.blob), `Update slide image: ${out.title}`);
+            out.image = ip; out.imageV = Date.now();
+          }
+          next.slides.push(out);
+        }
+        PAGE_KEYS.forEach(([k]) => {
+          const t = document.getElementById('pt_' + k).value.trim();
+          const body = cleanHtml(document.querySelector(`[data-fkey="page_${k}"]`).innerHTML);
+          if(t || !isEmptyVal(body)) next.pages[k] = { title:t, body:isEmptyVal(body) ? '' : body };
+        });
+        const ok = await jsonChange(SITE_PATH, () => ({}), (d) => { Object.keys(d).forEach(key => delete d[key]); Object.assign(d, next); }, 'Update site settings');
+        if(ok) window.location.reload(); else { btn.disabled = false; btn.textContent = '저장'; }
+      } catch(e){
+        btn.disabled = false; btn.textContent = '저장';
+        err.textContent = '저장에 실패했어요: ' + e.message;
+      }
+    });
+  }
+  document.getElementById('siteBtn').addEventListener('click', openSiteForm);
+
+
+  /* ----- 설정 메뉴 (모든 관리 기능을 여기에 모아 둠) / 편집 모드 ----- */
+  const menuModal = document.getElementById('menuModal');
+  function editModeOn(){ try { return localStorage.getItem('ymkb_edit') === '1'; } catch(e){ return false; } }
+  function applyEditMode(){
+    document.body.classList.toggle('edit-mode', editModeOn());
+    const st = document.getElementById('editModeState');
+    if(st) st.textContent = editModeOn() ? '켜짐' : '꺼짐';
+  }
+  applyEditMode();
+  document.getElementById('menuBtn').addEventListener('click', () => { applyEditMode(); menuModal.classList.add('active'); });
+  document.getElementById('menuClose').addEventListener('click', () => menuModal.classList.remove('active'));
+  menuModal.addEventListener('click', (e) => {
+    if(e.target === menuModal){ menuModal.classList.remove('active'); return; }
+    const b = e.target.closest('.menu-item');
+    if(!b) return;
+    if(b.id === 'editModeBtn'){
+      try { localStorage.setItem('ymkb_edit', editModeOn() ? '0' : '1'); } catch(err){}
+      applyEditMode();
+      return;
+    }
+    menuModal.classList.remove('active');
+  });
+
+  function showOcStatus(){
+    const matched = Object.keys(ocOverrides).filter(n => masterCharacters[n]);
+    const unmatched = Object.keys(ocOverrides).filter(n => !masterCharacters[n]);
+    const rows = matched.map(n => {
+      const info = masterCharacters[n];
+      const tpl = templateFor(info);
+      const filled = tpl.fields.filter(f => !f.core && ocValue(info, f) !== undefined).length;
+      return `<div class="spec-row"><span class="spec-label" style="min-width:110px">${esc(n)}</span><span class="spec-sep">|</span><span class="spec-value">oc 값이 있는 항목 ${filled}개 / 전체 ${tpl.fields.filter(f => !f.core).length}개</span></div>`;
+    }).join('') || '<p class="form-hint">연결된 캐릭터가 없어요.</p>';
+    document.getElementById('formBody').innerHTML = `
+      <h2 class="form-title">oc 연동 상태</h2>
+      <div class="spec-row"><span class="spec-label" style="min-width:110px">oc 캐릭터 목록</span><span class="spec-sep">|</span><span class="spec-value">${ocStatus.error ? '불러오지 못했어요 (' + esc(ocStatus.error) + ')' : ocStatus.listCount + '개 파일'}</span></div>
+      <div class="spec-row"><span class="spec-label" style="min-width:110px">YMKB 세계관</span><span class="spec-sep">|</span><span class="spec-value">${ocStatus.worldFound ? '찾았어요 (항목 ' + ocFields.length + '개)' : '찾지 못했어요'}</span></div>
+      <div class="spec-row"><span class="spec-label" style="min-width:110px">YMKB 캐릭터</span><span class="spec-sep">|</span><span class="spec-value">${Object.keys(ocOverrides).length}명</span></div>
+      <div class="f-group">ymkb와 이름이 같아 연결된 캐릭터</div>
+      ${rows}
+      ${unmatched.length ? `<div class="f-group">oc에는 있지만 ymkb에서 이름이 맞지 않는 캐릭터</div><p class="form-hint">${unmatched.map(esc).join(', ')}<br>ymkb의 이름을 oc와 똑같이 맞춰 주세요.</p>` : ''}`;
+    formModal.classList.add('active');
+  }
+  document.getElementById('ocStatusBtn').addEventListener('click', showOcStatus);
+
   document.getElementById('addCharBtn').addEventListener('click', () => openForm(null));
+  document.getElementById('tplBtn').addEventListener('click', () => openTplMgr(null));
   document.getElementById('formClose').addEventListener('click', () => formModal.classList.remove('active'));
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-act]');
