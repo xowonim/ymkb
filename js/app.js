@@ -127,6 +127,7 @@
   }
   // 방금 올린 이미지는 깃허브에 퍼지기까지 몇 초 걸릴 수 있어서, 올린 직후에는 내 브라우저가 가진 사본을 먼저 보여준다.
   function freshImg(path){
+    path = assetPath(path);
     try { const j = JSON.parse(sessionStorage.getItem('ymkb_img_' + path)); if(j && Date.now() - j.t < 600000) return j.u; } catch(e){}
     return null;
   }
@@ -135,12 +136,16 @@
     const mime = ext === 'jpg' ? 'image/jpeg' : 'image/' + ext;
     try { sessionStorage.setItem('ymkb_img_' + path, JSON.stringify({ t:Date.now(), u:`data:${mime};base64,${base64}` })); } catch(e){}
   }
-  // 이미지가 바로 안 뜨면 숨기지 않고 몇 번 다시 불러본다.
+  // 이미지는 항상 assets 폴더 안에서만 찾는다.
+  function assetPath(p){ return p ? (String(p).startsWith('assets/') ? String(p) : 'assets/' + String(p).replace(/^\/+/, '')) : p; }
+  // 이미지가 안 뜨면 깨진 그림은 숨기고, 같은 주소를 몇 번 다시 불러본다.
   window.__imgErr = function(img){
     const n = (+img.dataset.try || 0) + 1; img.dataset.try = n;
+    img.style.visibility = 'hidden';
     if(n > 4){ img.style.display = 'none'; return; }
-    if(!img.dataset.base) img.dataset.base = img.src;
-    setTimeout(() => { img.src = img.dataset.base + (img.dataset.base.includes('?') ? '&' : '?') + 'r=' + n; }, 1500 * n);
+    if(!img.dataset.base){ img.dataset.base = img.getAttribute('src'); img.onload = () => { img.style.visibility = ''; }; }
+    const base = img.dataset.base;
+    setTimeout(() => { img.src = base + (base.includes('?') ? '&' : '?') + 'r=' + n; }, 1000 * n);
   };
   function cacheGet(k){ try { return JSON.parse(localStorage.getItem('ymkb_cache_' + k)); } catch(e){ return null; } }
   function cacheSet(k, v){ try { localStorage.setItem('ymkb_cache_' + k, JSON.stringify(v)); } catch(e){} }
@@ -343,7 +348,7 @@
       throw new Error('site');
     }).then(v => v || {});
   }
-  function rawUrl(path, v){ const f = freshImg(path); if(f) return f; return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${path}?v=${v || ''}`; }
+  function rawUrl(path, v){ const f = freshImg(path); if(f) return f; return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${assetPath(path)}?v=${v || ''}`; }
   const siteRaw = await remoteP.site;
   const site = Object.assign({}, SITE_DEFAULTS, siteRaw);
   Object.assign(colorMap, site.colors || {});
@@ -481,8 +486,8 @@
     if(ocPath) return ocAssetUrl(ocPath);
     const cf = charFiles[name];
     if(cf && cf.image){ const f = freshImg(cf.image); if(f) return f; }
-    if(cf && cf.image) return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${cf.image}?v=${cf.imageV || ''}`;
-    return file ? `ymkb_icon_${file}.png` : '';
+    if(cf && cf.image) return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${assetPath(cf.image)}?v=${cf.imageV || ''}`;
+    return file ? `assets/ymkb_icon_${file}.png` : '';
   }
 
   const classesBase = JSON.parse(JSON.stringify(classes));
@@ -495,7 +500,7 @@
 
   function groupImgSrc(g){
     const f = freshImg(g.image); if(f) return f;
-    return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${g.image}?v=${g.imageV || ''}`;
+    return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${assetPath(g.image)}?v=${g.imageV || ''}`;
   }
 
   /* ---------------- GROUP LIST ---------------- */
@@ -604,7 +609,7 @@
     const cf = charFiles[name] || {};
     const raw = mergeProfile(mergeProfile(emptyProfile(), characterProfiles[name] || {}), cf.profile || {});
     masterCharacters[name].rawProfile = raw;
-    masterCharacters[name].owner = cf.owner || '';
+    masterCharacters[name].owner = cf.owner || (ocOverrides[name] ? '호원' : '');
     masterCharacters[name].id = cf.id || masterCharacters[name].file || '';
     masterCharacters[name].hasFile = !!charFiles[name];
     masterCharacters[name].fieldsOwn = cf.fields || {};
@@ -1278,7 +1283,7 @@
     const cf = (info && charFiles[info.name]) || {};
     pendingImage = null;
     tplTouched = !!cf.template;
-    formTpl = info ? templateFor(info) : templates[0];
+    formTpl = info ? (templates.find(t => t.id === cf.template) || templates.find(t => t.name === info.owner) || templateFor(info)) : templates[0];
 
     const groupOpts = groups.map(g => `<option value="${esc(g.name)}" ${info && info.group === g.name ? 'selected' : ''}>${esc(g.name)}</option>`).join('');
     const colorOpts = ['<option value="">없음</option>'].concat(pickableColors(info && info.color ? [info.color] : []).map(c => `<option value="${esc(c)}" ${info && info.color === c ? 'selected' : ''}>${esc(c)}</option>`)).join('');
