@@ -1,0 +1,15 @@
+{
+  "id": "minori",
+  "name": "히루가미 미노리",
+  "file": "minori",
+  "group": "Velvet",
+  "role": "매니저",
+  "color": null,
+  "owner": "호원",
+  "template": "t_howon",
+  "clubHead": false,
+  "classFlags": [],
+  "image": null,
+  "imageV": null,
+  "fields": {}
+}
