@@ -6,7 +6,7 @@
 <title>유메키보고등학교</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
-<link rel="stylesheet" href="css/style.css?v=9">
+<link rel="stylesheet" href="css/style.css?v=10">
 </head>
 <body>
 
@@ -76,7 +76,8 @@
   </div>
   <div class="page" id="page-club">
     <a class="back-link" data-page="main">&#8592; 메인으로</a>
-    <div class="placeholder"><h2>CLUB</h2><p>동아리 페이지는 준비 중입니다.</p></div>
+    <h2 class="class-page-title">CLUB</h2>
+    <div id="clubList"></div>
   </div>
   <div class="page" id="page-counsel">
     <a class="back-link" data-page="main">&#8592; 메인으로</a>
@@ -161,14 +162,20 @@
 </div>
 
 <!-- ================= SETTINGS MENU ================= -->
-<button type="button" class="menu-fab" id="menuBtn">설정</button>
+<div class="edit-banner" id="editBanner"><span>현재 편집 모드입니다</span><button type="button" id="editBannerOff">끄기</button></div>
+<div class="fab-group">
+  <button type="button" class="edit-pill" id="editPill">편집 모드 ON</button>
+  <button type="button" class="menu-fab" id="menuBtn" aria-label="설정" title="설정">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+</div>
 <div class="modal-overlay" id="menuModal">
   <div class="modal-box narrow">
     <button class="modal-close" id="menuClose">&times;</button>
     <h2 class="form-title">설정</h2>
     <div class="menu-sec">편집</div>
     <button type="button" class="menu-item" id="editModeBtn"><span>편집 모드</span><span id="editModeState">꺼짐</span></button>
-    <p class="form-hint">켜면 캐릭터, 그룹, 학급 창에 수정과 삭제 버튼이 보여요.</p>
+    
     <div class="menu-sec">추가</div>
     <button type="button" class="menu-item" id="addGroupBtn">그룹 추가</button>
     <button type="button" class="menu-item" id="addCharBtn">캐릭터 추가</button>
@@ -224,6 +231,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
-<script src="js/app.js?v=9"></script>
+<script src="js/app.js?v=10"></script>
 </body>
 </html>
