@@ -1950,6 +1950,22 @@
       }).filter(Boolean);
       const btn = document.getElementById('formSave'); btn.disabled = true; btn.textContent = '저장 중...';
       const origId = sec ? sec.id : null;
+      // 명단에 처음 보는 이름이 있으면, 그 캐릭터의 프로필도 함께 만든다. (학급 칸에는 이 학급 이름을 넣어 둔다)
+      try {
+        const clsField = (templates.find(t => t.fields.some(f => f.label === '학급')) || { fields:[] }).fields.find(f => f.label === '학급');
+        const made = new Set();
+        for(const r of roster){
+          if(masterCharacters[r.name] || made.has(r.name)) continue;
+          made.add(r.name);
+          const cid = 'char-' + Date.now().toString(36) + '-' + made.size;
+          const cdata = { id:cid, name:r.name, file:cid, group:'', role:'', color:null, owner:'', template:'', clubHead:false, classFlags:[], image:null, imageV:null, fields: clsField ? { [clsField.key]: id } : {} };
+          await ghPut(`${CHAR_DIR}/${cid}.json`, toBase64Text(JSON.stringify(cdata, null, 2) + '\n'), `Add character: ${r.name}`);
+        }
+      } catch(e){
+        btn.disabled = false; btn.textContent = '저장';
+        err.textContent = e.message === 'NO_TOKEN' ? '먼저 저장 설정에서 토큰을 등록해 주세요.' : '캐릭터 프로필을 만들지 못했어요: ' + e.message;
+        return;
+      }
       const ok = await jsonChange('data/classes.json', () => JSON.parse(JSON.stringify(classesBase)), (data) => {
         let found = null, fg = null;
         data.forEach(gr => gr.sections.forEach(s => { if(origId && s.id === origId){ found = s; fg = gr; } }));
