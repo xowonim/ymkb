@@ -452,3 +452,55 @@ textarea.f-input{ resize:vertical; line-height:1.6; }
 .f-thumb{ width:96px; aspect-ratio:3/4; background:var(--surface-2); border:1px solid var(--line); flex:0 0 auto; overflow:hidden; }
 .f-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
 .form-actions .text-btn{ margin-right:12px; }
+
+/* ---------- Template-driven profile / editor ---------- */
+.modal-overlay.layer3b{ z-index:450; background:rgba(15,15,15,0.6); }
+.profile-rows{ margin-top:16px; }
+.profile-rows.cols2{ column-count:2; column-gap:28px; }
+.profile-rows.cols2 .spec-row{ break-inside:avoid; }
+.profile-stars{ margin-top:18px; padding-top:14px; border-top:1px solid var(--line); gap:2px 16px; }
+.profile-text.rich{ white-space:normal; }
+.profile-collapse{ margin-top:22px; padding-top:14px; border-top:1px solid var(--line); }
+.profile-collapse summary{ cursor:pointer; font-size:12px; font-weight:700; letter-spacing:0.08em; }
+.profile-collapse .profile-text{ margin-top:12px; }
+.f-inline{ display:flex; align-items:center; gap:14px; }
+.f-inline .f-input{ flex:1; }
+.f-tags{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:6px 8px; border:1px solid var(--line); border-radius:10px; }
+.f-tags .chips{ display:contents; }
+.chip{ display:inline-flex; align-items:center; gap:4px; background:var(--surface-2); border-radius:999px; padding:3px 6px 3px 10px; font-size:12px; }
+.chip button{ background:none; border:none; color:var(--muted); cursor:pointer; font-size:14px; line-height:1; }
+.f-tag-input{ flex:1; min-width:120px; border:none; outline:none; font-size:13px; font-family:inherit; padding:4px; }
+.f-rating{ display:flex; align-items:center; gap:2px; }
+.f-rating button{ background:none; border:none; cursor:pointer; font-size:18px; color:var(--accent); padding:0 2px; }
+.f-rating .rate-clear{ font-size:11.5px; color:var(--muted); margin-left:8px; }
+.rt-toolbar{ display:flex; gap:6px; margin-bottom:6px; }
+.rt-toolbar button{ border:1px solid var(--line); background:#fff; border-radius:8px; font-size:12px; padding:3px 9px; cursor:pointer; font-family:inherit; }
+.rt-edit{ min-height:84px; line-height:1.7; }
+.tpl-tabs{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px; }
+.tpl-tab{ border:1px solid var(--line); background:#fff; border-radius:999px; padding:6px 16px; font-size:12.5px; cursor:pointer; font-family:inherit; }
+.tpl-tab.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+.tpl-tools{ display:flex; gap:14px; margin-bottom:14px; }
+.tpl-row{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+.tpl-label{ flex:1; }
+.tpl-type{ font-size:11.5px; color:var(--muted); width:56px; flex:0 0 auto; }
+.tpl-btns{ display:flex; gap:10px; flex:0 0 auto; width:130px; justify-content:flex-end; }
+.tpl-add{ display:flex; gap:8px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
+.tpl-add .f-input:first-child{ flex:1; }
+.tpl-add select{ width:110px; flex:0 0 auto; }
+@media (max-width: 560px){ .profile-rows.cols2{ column-count:1; } .tpl-row{ flex-wrap:wrap; } }
+
+/* ---------- Group editor ---------- */
+.f-thumb.square{ aspect-ratio:1 / 1; }
+.color-picks{ display:flex; flex-wrap:wrap; gap:6px; }
+.color-pick{ display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:#fff; border-radius:999px; padding:4px 11px; font-size:12px; cursor:pointer; font-family:inherit; color:var(--muted); }
+.color-pick.on{ border-color:var(--ink); color:var(--ink); }
+
+/* ---------- Site / class editor ---------- */
+.logo{ overflow:hidden; }
+.logo img{ width:100%; height:100%; object-fit:cover; display:block; }
+.page-body{ text-align:left; max-width:640px; margin:12px auto 0; }
+.f-thumb.wide{ width:120px; aspect-ratio:16 / 9; }
+.slide-row{ display:flex; gap:14px; align-items:flex-start; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--line); }
+.slide-fields{ flex:1; display:flex; flex-direction:column; gap:6px; }
+.roster-officer{ width:140px; flex:0 0 auto; }
+.tool-row{ flex-wrap:wrap; }
