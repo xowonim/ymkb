@@ -111,8 +111,8 @@
   const OWNER_IDS = ['dowon', 'seit', 'haewon', 'howon'];
   const SITE_PATH = 'data/site.json';
   const DEFAULT_SLIDE = { id:'s0', date:'', title:'plz wait a little bit of..♡', image:null };
-  const SLIDE_GRADIENT = 'linear-gradient(160deg,#7fa0d4,#3f5f96)';
-  const PAGE_KEYS = [['club','CLUB'], ['counsel','학생회'], ['agency','기숙사'], ['etc','ETC']];
+  const SLIDE_GRADIENT = 'linear-gradient(160deg,#cbbcee,#9279cc)';
+  const PAGE_KEYS = [['counsel','학생회'], ['agency','기숙사'], ['etc','ETC']];
   const SITE_DEFAULTS = { title:'유메키보고등학교', subtitle:'YUMEKIBO HIGH SCHOOL', youtube:'https://youtube.com/@ymkbhighschool', soundcloud:'https://soundcloud.com/ymkbofficial', footer:'© ymkb high school', logo:null, logoV:null, slides:[DEFAULT_SLIDE], pages:{} };
 
   const GROUP_DIR = 'data/groups';
@@ -305,6 +305,7 @@
     if(document.hidden){ hiddenAt = Date.now(); return; }
     if(hiddenAt && Date.now() - hiddenAt > 60000 && canAutoReload()) window.location.reload();
   });
+  let ownersReady = false;
   const ocCached = cacheGet('oc');
   const ocLive = fetchOcYmkbCharacters().then((map) => { ocOverrides = map; return map; });
   if(ocCached && ocCached.byName){
@@ -313,7 +314,8 @@
   }
   const ocBefore = ocCached ? stripSha(ocCached.byName) : null;
   const ocReadyPromise = (ocCached && ocCached.byName ? Promise.resolve() : ocLive.then(() => {}));
-  ocLive.then((map) => { if(ocBefore !== null && !ocStatus.error && stripSha(map) !== ocBefore && canAutoReload()) window.location.reload(); });
+  ocLive.then((map) => { if(ownersReady) filterOcByOwner();
+    if(ocBefore !== null && !ocStatus.error && stripSha(map) !== ocBefore && canAutoReload()) window.location.reload(); });
 
   /* ---------------- 데이터 불러오기 (groups / classes / profiles) ----------------
      예전에는 이 셋이 코드 안에 통째로 박혀있었는데, 이제 data 폴더의 JSON 파일로 분리했다.
@@ -352,6 +354,17 @@
   const siteRaw = await remoteP.site;
   const site = Object.assign({}, SITE_DEFAULTS, siteRaw);
   Object.assign(colorMap, site.colors || {});
+  const orderMap = (site.order && typeof site.order === 'object') ? JSON.parse(JSON.stringify(site.order)) : {};
+  function applyOrder(list, keyFn, key){
+    const ord = orderMap[key];
+    if(!Array.isArray(ord) || !ord.length) return list;
+    const idx = new Map(ord.map((k, i) => [k, i]));
+    return list.map((x, i) => [x, i]).sort((a, b) => {
+      const ia = idx.has(keyFn(a[0])) ? idx.get(keyFn(a[0])) : 1e6 + a[1];
+      const ib = idx.has(keyFn(b[0])) ? idx.get(keyFn(b[0])) : 1e6 + b[1];
+      return ia - ib;
+    }).map(x => x[0]);
+  }
   const hiddenColors = new Set(Array.isArray(site.hiddenColors) ? site.hiddenColors : []);
   // 무지개 순서(빨강 → 주황 → 노랑 → 초록 → 파랑 → 보라 → 분홍)로 정렬하고, 무채색(화이트/그레이/블랙)은 맨 뒤로 보낸다.
   function colorSortKey(name){
@@ -442,6 +455,8 @@
     }
   });
 
+  groups.splice(0, groups.length, ...applyOrder(groups, g => g.id, 'groups'));
+
   // 캐릭터 파일의 내용을 그룹 데이터에 반영한다. 기존 캐릭터(groups.json)는 file(영어명) 또는 이름으로 찾아서
   // 이름·그룹·역할·컬러를 덮어쓰고, 처음 보는 캐릭터는 지정한 그룹에 추가한다. 역할이 '매니저'면 매니저 칸으로 간다.
   const renames = {};
@@ -503,6 +518,72 @@
     return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${assetPath(g.image)}?v=${g.imageV || ''}`;
   }
 
+  /* ---------------- 알림 / 드래그로 순서 바꾸기 ---------------- */
+  function showToast(msg){
+    let t = document.getElementById('toast');
+    if(!t){ t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; document.body.appendChild(t); }
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(showToast._t); showToast._t = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+  let dragSuppress = false;
+  document.addEventListener('click', (e) => { if(dragSuppress){ e.stopPropagation(); e.preventDefault(); dragSuppress = false; } }, true);
+  // container 안의 itemSel 요소들을 끌어서 순서를 바꾼다. 편집 모드에서만 동작하고(always가 아니면),
+  // 손가락은 잠깐 꾹 눌러야 끌리게 해서 스크롤과 겹치지 않게 한다. handleSel이 있으면 그 부분만 끌린다.
+  function makeSortable(container, itemSel, onDone, opts){
+    opts = opts || {};
+    container._sortCb = onDone;
+    if(container._sortBound) return;
+    container._sortBound = true;
+    let st = null;
+    const start = () => { st.active = true; st.item.classList.add('dragging'); document.body.classList.add('sorting'); };
+    container.addEventListener('dragstart', (e) => { if(opts.always || document.body.classList.contains('edit-mode')) e.preventDefault(); });
+    container.addEventListener('pointerdown', (e) => {
+      if(!opts.always && !document.body.classList.contains('edit-mode')) return;
+      if(e.pointerType === 'mouse' && e.button !== 0) return;
+      if(opts.handle && !e.target.closest(opts.handle)) return;
+      if(!opts.handle && e.target.closest('input,select,textarea,button,a')) return;
+      const item = e.target.closest(itemSel);
+      if(!item || !container.contains(item)) return;
+      st = { item, x:e.clientX, y:e.clientY, active:false, id:e.pointerId, timer:null, touch:e.pointerType === 'touch' && !opts.handle };
+      if(st.touch) st.timer = setTimeout(() => { if(st) start(); }, 280);
+    });
+    window.addEventListener('pointermove', (e) => {
+      if(!st || e.pointerId !== st.id || st.item.closest('body') === null) return;
+      if(!st.active){
+        if(Math.hypot(e.clientX - st.x, e.clientY - st.y) > 6){
+          if(st.touch){ clearTimeout(st.timer); st = null; return; }
+          start();
+        } else return;
+      }
+      e.preventDefault();
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const over = el && el.closest(itemSel);
+      if(over && over !== st.item && over.parentElement === st.item.parentElement){
+        const kids = [...st.item.parentElement.children];
+        if(kids.indexOf(st.item) < kids.indexOf(over)) over.after(st.item); else over.before(st.item);
+      }
+    }, { passive:false });
+    container.addEventListener('touchmove', (e) => { if(st && st.active) e.preventDefault(); }, { passive:false });
+    const finish = () => {
+      if(!st) return;
+      clearTimeout(st.timer);
+      const was = st;
+      st = null;
+      if(!was.active) return;
+      was.item.classList.remove('dragging');
+      document.body.classList.remove('sorting');
+      dragSuppress = true; setTimeout(() => { dragSuppress = false; }, 60);
+      container._sortCb([...was.item.parentElement.children].filter(c => c.matches(itemSel)));
+    };
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
+  }
+  function saveOrder(key, arr){
+    orderMap[key] = arr;
+    if(!getToken()){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return; }
+    jsonChange(SITE_PATH, () => ({}), (d) => { d.order = d.order || {}; d.order[key] = arr; }, 'Update order').then(ok => { if(ok) showToast('순서를 저장했어요.'); });
+  }
+
   /* ---------------- GROUP LIST ---------------- */
   const gallery = document.getElementById('groupGallery');
   document.getElementById('groupCountLabel').textContent = '';
@@ -517,9 +598,11 @@
         <div class="p-cat">${esc(meta)}</div>
         <div class="p-name">${esc(g.name)}</div>
       </div>`;
+    card.dataset.gid = g.id;
     card.addEventListener('click', () => openGroupDetail(g));
     gallery.appendChild(card);
   });
+  makeSortable(gallery, '.photo-card', (items) => saveOrder('groups', items.map(c => c.dataset.gid)));
 
   /* ---------------- CHARACTER CARD (shared style with group cards) ---------------- */
   function charCard(member){
@@ -562,12 +645,14 @@
     const introEl = document.getElementById('gdIntro');
     introEl.textContent = g.intro || '';
     introEl.style.display = g.intro ? '' : 'none';
+    g.members = applyOrder(g.members, m => m.name, 'members:' + g.id);
     document.getElementById('gdCharGallery').innerHTML = g.members.map(charCard).join('');
     document.getElementById('gdMembersSec').style.display = g.members.length ? '' : 'none';
     document.getElementById('gdManagerGallery').innerHTML = g.manager ? charCard(g.manager) : '';
     document.getElementById('gdManagerSec').style.display = g.manager ? '' : 'none';
     groupModal.classList.add('active');
   }
+  makeSortable(document.getElementById('gdCharGallery'), '.photo-card', (items) => { if(currentGroup) saveOrder('members:' + currentGroup.id, items.map(c => c.dataset.name)); });
   document.getElementById('groupModalClose').addEventListener('click', () => groupModal.classList.remove('active'));
   groupModal.addEventListener('click', (e) => { if(e.target === groupModal) groupModal.classList.remove('active'); });
 
@@ -582,6 +667,12 @@
     if(g.manager){
       masterCharacters[g.manager.name] = { name:g.manager.name, color:g.manager.color, file:g.manager.file, group:g.name, role:g.manager.role, base:!!g.manager.base };
     }
+  });
+
+  // 그룹이 없거나 그룹명이 맞지 않는 캐릭터도 사라지지 않게 함께 등록한다.
+  Object.values(charFiles).forEach(c => {
+    if(c.deleted || !c.name || masterCharacters[c.name]) return;
+    masterCharacters[c.name] = { name:c.name, color:c.color, file:c.id, group:c.group || '', role:c.role || '', base:false };
   });
 
   // 학급/직책 정보를 마스터 캐릭터 정보에도 합쳐서, 프로필에서 함께 보여줄 수 있게 합니다.
@@ -604,6 +695,7 @@
       specialNote:''
     };
   }
+  await ocReadyPromise;
   // 아직 정보를 받지 못한 캐릭터도 전부 같은 틀을 갖도록, 빈 프로필로 기본값을 채워둡니다.
   Object.keys(masterCharacters).forEach(name => {
     const cf = charFiles[name] || {};
@@ -614,7 +706,18 @@
     masterCharacters[name].hasFile = !!charFiles[name];
     masterCharacters[name].fieldsOwn = cf.fields || {};
     masterCharacters[name].template = cf.template || '';
+    masterCharacters[name].clubHead = !!cf.clubHead;
   });
+  // oc 저장소에서 자동으로 불러오는 것은 오너가 호원인 캐릭터만 해당한다.
+  const ocSkipped = [];
+  function filterOcByOwner(){
+    Object.keys(ocOverrides).forEach(n => {
+      const m = masterCharacters[n];
+      if(m && m.owner !== '호원'){ ocSkipped.push(n); delete ocOverrides[n]; }
+    });
+  }
+  filterOcByOwner();
+  ownersReady = true;
 
   /* ---------------- CLASS PAGE RENDER ---------------- */
   const classListEl = document.getElementById('classList');
@@ -642,6 +745,45 @@
       if(sec) openClassDetail(sec);
     });
   });
+
+  /* ---------------- CLUB PAGE: 프로필의 '동아리' 항목에서 자동으로 만들어진다 ---------------- */
+  function clubNamesOf(info){
+    const tpl = templateFor(info);
+    const f = tpl && tpl.fields.find(x => x.label === '동아리');
+    if(!f) return [];
+    const v = valueOf(info, f);
+    if(v === undefined) return [];
+    return (Array.isArray(v) ? v : String(v).split(',')).map(x => String(x).trim()).filter(x => x && x !== '-' && x !== '없음');
+  }
+  function clubCard(info){
+    const hex = colorMap[info.color] || '#b7b7b7';
+    const imgSrc = imgSrcFor(info.name, info.file);
+    return `
+      <div class="photo-card ratio-3x4" data-name="${esc(info.name)}">
+        <div class="p-thumb" style="background:${colorGradient(hex)}">
+          ${imgSrc ? `<img src="${esc(imgSrc)}" alt="${esc(info.name)}" onerror="window.__imgErr(this)">` : ''}
+        </div>
+        <div class="p-overlay">
+          <div class="p-cat">${info.clubHead ? '부장' : ''}</div>
+          <div class="p-name">${esc(info.name)}</div>
+        </div>
+      </div>`;
+  }
+  (function renderClubs(){
+    const box = document.getElementById('clubList');
+    if(!box) return;
+    const map = {};
+    Object.values(masterCharacters).forEach(info => clubNamesOf(info).forEach(c => { (map[c] = map[c] || []).push(info); }));
+    const names = applyOrder(Object.keys(map), n => n, 'clubs');
+    if(!names.length){ box.innerHTML = '<p style="color:var(--muted);font-size:13px;">동아리 정보가 아직 준비되지 않았습니다.</p>'; return; }
+    box.innerHTML = names.map(n => {
+      const list = applyOrder(map[n], i => i.name, 'club:' + n);
+      list.sort((a, b) => (b.clubHead ? 1 : 0) - (a.clubHead ? 1 : 0));
+      return `<div class="club-block" data-club="${esc(n)}"><h3 class="club-title">${esc(n)}</h3><div class="char-gallery cols-8" data-club="${esc(n)}">${list.map(clubCard).join('')}</div><hr class="soft-divider"></div>`;
+    }).join('');
+    makeSortable(box, '.club-block', (items) => saveOrder('clubs', items.map(b => b.dataset.club)), { handle:'.club-title' });
+    box.querySelectorAll('.char-gallery').forEach(g => makeSortable(g, '.photo-card', (items) => saveOrder('club:' + g.dataset.club, items.map(c => c.dataset.name))));
+  })();
 
   /* ---------------- ROSTER CARD (class gallery, shares style with charCard) ---------------- */
   function rosterCard(r){
@@ -671,11 +813,13 @@
     document.getElementById('clTitle').textContent = sec.id;
     document.getElementById('clTeacherTag').innerHTML = infoRow('담당 교사', sec.teacher);
     const gal = document.getElementById('clGallery');
+    sec.roster = applyOrder(sec.roster, r => r.name, 'class:' + sec.id);
     gal.innerHTML = sec.roster.length
       ? sec.roster.map(rosterCard).join('')
       : `<p style="color:var(--muted);font-size:12px;">학급 정보가 아직 준비되지 않았습니다.</p>`;
     classModal.classList.add('active');
   }
+  makeSortable(document.getElementById('clGallery'), '.photo-card', (items) => { if(currentSection) saveOrder('class:' + currentSection.id, items.map(c => c.dataset.name)); });
   document.getElementById('classModalClose').addEventListener('click', () => classModal.classList.remove('active'));
   classModal.addEventListener('click', (e) => { if(e.target === classModal) classModal.classList.remove('active'); });
 
@@ -752,7 +896,7 @@
     if(ocOverrides[info.name] && ocFields.length){
       return { id:'__oc', name:'oc', fields: ocFields.map(f => ({ key:f.key, label:f.label, type:['text','tags','textarea','collapse','rating'].includes(f.type) ? f.type : 'text', core:!!f.core })) };
     }
-    return templates.find(t => t.id === info.template) || templates.find(t => t.name === info.owner) || templates[0];
+    return templates.find(t => t.name === info.owner) || templates.find(t => t.id === info.template) || templates[0];
   }
 
   function renderTemplateBody(info){
@@ -1079,7 +1223,7 @@
     const typeOpts = Object.keys(FIELD_TYPES).map(k => `<option value="${k}">${FIELD_TYPES[k]}</option>`).join('');
     document.getElementById('tplBody').innerHTML = `
       <h2 class="form-title">템플릿 관리</h2>
-      <p class="form-hint">템플릿을 추가·삭제하고 이름을 바꿀 수 있어요. 템플릿마다 항목을 추가·삭제하고, 항목 이름과 순서를 바꿀 수 있어요. 바꾸는 즉시 깃허브에 저장돼요.</p>
+      <p class="form-hint">프로필 템플릿을 자유롭게 수정하세요.</p>
       <div class="tpl-tabs">
         ${templates.map(x => `<button type="button" class="tpl-tab${x.id === mgrSel ? ' active' : ''}" data-tact="sel" data-tid="${esc(x.id)}">${esc(x.name)}</button>`).join('')}
         <button type="button" class="text-btn" data-tact="addTpl">+ 템플릿 추가</button>
@@ -1092,13 +1236,12 @@
       </div>
       <div class="tpl-fields">
         ${t.fields.map(f => `
-          <div class="tpl-row">
+          <div class="tpl-row" data-rkey="${esc(f.key)}">
+            ${f.core ? '<span class="tpl-grip off"></span>' : '<span class="tpl-grip" title="끌어서 순서 변경">&#8942;&#8942;</span>'}
             <input class="f-input tpl-label" data-key="${esc(f.key)}" value="${esc(f.label)}" ${f.core ? 'readonly' : ''}>
             <span class="tpl-type">${f.core ? '필수' : FIELD_TYPES[f.type] || f.type}</span>
             <span class="tpl-btns">
-              ${f.core ? '' : `<button type="button" class="text-btn" data-tact="up" data-key="${esc(f.key)}">위로</button>
-              <button type="button" class="text-btn" data-tact="down" data-key="${esc(f.key)}">아래로</button>
-              <button type="button" class="text-btn danger" data-tact="delField" data-key="${esc(f.key)}">삭제</button>`}
+              ${f.core ? '' : `<button type="button" class="text-btn danger" data-tact="delField" data-key="${esc(f.key)}">삭제</button>`}
             </span>
           </div>`).join('')}
       </div>
@@ -1108,6 +1251,11 @@
         <button type="button" class="form-submit" data-tact="addField">항목 추가</button>
       </div>
       <p class="form-error" id="tplStatus"></p>`;
+    const fieldsBox = document.querySelector('#tplBody .tpl-fields');
+    if(fieldsBox) makeSortable(fieldsBox, '.tpl-row', (rows) => {
+      const keys = rows.map(r => r.dataset.rkey);
+      tplDo(d => { const tt = withTpl(d); if(!tt) return; const core = tt.fields.filter(f => f.core); const rest = keys.map(k => tt.fields.find(f => f.key === k)).filter(f => f && !f.core); const left = tt.fields.filter(f => !f.core && !keys.includes(f.key)); tt.fields = core.concat(rest, left); });
+    }, { always:true, handle:'.tpl-grip:not(.off)' });
   }
   function openTplMgr(onClose, startId){
     mgrSel = startId || (templates[0] && templates[0].id);
@@ -1177,11 +1325,6 @@
       await tplDo(d => { const t = withTpl(d); if(t) t.fields = t.fields.filter(f => f.key !== key); });
       return;
     }
-    if(act === 'up' || act === 'down'){
-      const dir = act === 'up' ? -1 : 1;
-      await tplDo(d => { const t = withTpl(d); if(!t) return; const i = t.fields.findIndex(f => f.key === key), j = i + dir; if(i < 0 || j < 1 || j >= t.fields.length) return; [t.fields[i], t.fields[j]] = [t.fields[j], t.fields[i]]; });
-      return;
-    }
   });
   document.getElementById('tplBody').addEventListener('change', async (e) => {
     const inp = e.target.closest('.tpl-label');
@@ -1194,7 +1337,6 @@
   /* ----- 생성 / 수정 폼 ----- */
   let formTpl = null;      // 폼에서 현재 고른 템플릿
   let formInfo = null;     // 수정 중인 캐릭터 (새 캐릭터면 null)
-  let tplTouched = false;  // 템플릿을 직접 고른 적이 있는지
 
   function fInput(label, id, val, ph){
     return `<label class="f-row"><span>${label}</span><input class="f-input" id="${id}" value="${esc(val)}" ${ph ? `placeholder="${ph}"` : ''}></label>`;
@@ -1269,7 +1411,9 @@
 
   function renderDynamic(tpl, values){
     const box = document.getElementById('fDynamic');
-    box.innerHTML = tpl.fields.filter(f => !f.core).map(f => `<div class="f-row"><span>${esc(f.label)}</span>${widgetHtml(f, values[f.key])}</div>`).join('');
+    const prev = document.getElementById('fClubHead');
+    const head = prev ? prev.checked : !!(formInfo && formInfo.clubHead);
+    box.innerHTML = tpl.fields.filter(f => !f.core).map(f => `<div class="f-row"><span>${esc(f.label)}</span>${widgetHtml(f, values[f.key])}${f.label === '동아리' ? `<div class="f-checks"><label class="f-check"><input type="checkbox" id="fClubHead" ${head ? 'checked' : ''}><span>부장</span></label></div>` : ''}</div>`).join('');
     wireWidgets(box, tpl, values);
   }
 
@@ -1277,27 +1421,25 @@
     return templates.map(t => `<option value="${esc(t.id)}" ${t.id === selectedId ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
   }
 
+  function tplByOwner(owner){ return templates.find(t => t.name === owner) || templates[0]; }
+
   function openForm(name){
     const info = name ? masterCharacters[name] : null;
     formInfo = info;
-    const cf = (info && charFiles[info.name]) || {};
     pendingImage = null;
-    tplTouched = !!cf.template;
-    formTpl = info ? (templates.find(t => t.id === cf.template) || templates.find(t => t.name === info.owner) || templateFor(info)) : templates[0];
+    const owner0 = info ? info.owner : '호원';
+    formTpl = tplByOwner(owner0);
 
-    const groupOpts = groups.map(g => `<option value="${esc(g.name)}" ${info && info.group === g.name ? 'selected' : ''}>${esc(g.name)}</option>`).join('');
-    const colorOpts = ['<option value="">없음</option>'].concat(pickableColors(info && info.color ? [info.color] : []).map(c => `<option value="${esc(c)}" ${info && info.color === c ? 'selected' : ''}>${esc(c)}</option>`)).join('');
-    const ownerOpts = ['<option value="">선택 안 함</option>'].concat(OWNERS.map(o => `<option value="${o}" ${(info && info.owner) === o ? 'selected' : ''}>${o}</option>`)).join('');
+    const colorNames = pickableColors(info && info.color ? [info.color] : []);
+    const ownerOpts = (info && !info.owner ? ['<option value="">(미정)</option>'] : []).concat(OWNERS.map(o => `<option value="${o}" ${owner0 === o ? 'selected' : ''}>${o}</option>`)).join('');
     const curImg = info ? imgSrcFor(info.name, info.file) : '';
     const linked = info && ocOverrides[info.name];
+    const role0 = info ? info.role : '';
 
     document.getElementById('formBody').innerHTML = `
       <h2 class="form-title">${info ? '캐릭터 수정' : '캐릭터 추가'}</h2>
 
       <label class="f-row"><span>오너</span><select class="f-input" id="fOwner">${ownerOpts}</select></label>
-      <div class="f-row"><span>템플릿</span>
-        <div class="f-inline"><select class="f-input" id="fTpl">${tplOptionsHtml(formTpl && formTpl.id)}</select><button type="button" class="text-btn" id="fTplMgr">템플릿 관리</button></div>
-      </div>
       ${linked ? '<p class="form-hint">oc 저장소에 같은 이름의 캐릭터가 있어서, 사진과 프로필 내용은 oc 값이 우선 보여요. 수정은 oc에서 해 주세요.</p>' : ''}
 
       <div class="f-group">이미지</div>
@@ -1313,9 +1455,15 @@
       ${fInput('이름', 'fName', info ? info.name : '')}
 
       <div class="f-group">GROUP</div>
-      <label class="f-row"><span>그룹</span><select class="f-input" id="fGroup">${groupOpts}</select></label>
-      ${fInput('역할', 'fRole', info ? info.role : '', "예: 리더, 보컬 (매니저는 '매니저'로 입력)")}
-      <label class="f-row"><span>그룹 내 담당 컬러 (선택)</span><select class="f-input" id="fColor">${colorOpts}</select></label>
+      <label class="f-row"><span>그룹명</span><input class="f-input" id="fGroup" list="fGroupNames" value="${esc(info ? info.group : '')}" autocomplete="off"></label>
+      <datalist id="fGroupNames">${groups.map(g => `<option value="${esc(g.name)}">`).join('')}</datalist>
+      <div class="f-row"><span>역할</span><div class="f-checks">
+        <label class="f-check"><input type="checkbox" id="fRoleLeader" ${role0 === '리더' ? 'checked' : ''}><span>리더</span></label>
+        <label class="f-check"><input type="checkbox" id="fRoleManager" ${role0 === '매니저' ? 'checked' : ''}><span>매니저</span></label>
+      </div></div>
+      <div class="f-row"><span>그룹 내 담당 컬러 (선택)</span>
+        <div class="f-inline"><span class="gd-color-dot" id="fColorDot" style="background:${info && colorMap[info.color] ? colorMap[info.color] : 'transparent'}"></span><input class="f-input" id="fColor" list="fColorNames" value="${esc(info && info.color ? info.color : '')}" autocomplete="off"></div></div>
+      <datalist id="fColorNames">${colorNames.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
 
       <div class="f-group">PROFILE</div>
       <div id="fDynamic"></div>
@@ -1328,19 +1476,13 @@
     formModal.classList.add('active');
     renderDynamic(formTpl, initialValues(info, formTpl));
 
-    document.getElementById('fOwner').addEventListener('change', (e) => {
-      if(tplTouched) return;
-      const t = templates.find(x => x.name === e.target.value);
-      if(t) changeFormTemplate(t.id);
-    });
-    document.getElementById('fTpl').addEventListener('change', (e) => { tplTouched = true; changeFormTemplate(e.target.value); });
-    document.getElementById('fTplMgr').addEventListener('click', () => {
-      const snap = collectFields(formTpl);
-      openTplMgr(() => {
-        formTpl = templates.find(t => t.id === formTpl.id) || templates[0];
-        document.getElementById('fTpl').innerHTML = tplOptionsHtml(formTpl.id);
-        renderDynamic(formTpl, Object.assign(initialValues(formInfo, formTpl), snap));
-      }, formTpl.id);
+    document.getElementById('fOwner').addEventListener('change', (e) => changeFormTemplate(tplByOwner(e.target.value).id));
+    const leader = document.getElementById('fRoleLeader'), mgr = document.getElementById('fRoleManager');
+    leader.addEventListener('change', () => { if(leader.checked) mgr.checked = false; });
+    mgr.addEventListener('change', () => { if(mgr.checked) leader.checked = false; });
+    document.getElementById('fColor').addEventListener('input', (e) => {
+      const hex = colorMap[e.target.value.trim()];
+      document.getElementById('fColorDot').style.background = hex || 'transparent';
     });
     document.getElementById('fImage').addEventListener('change', (e) => {
       const f = e.target.files[0];
@@ -1357,7 +1499,6 @@
   function changeFormTemplate(id){
     const snap = collectFields(formTpl);
     formTpl = templates.find(t => t.id === id) || templates[0];
-    document.getElementById('fTpl').value = formTpl.id;
     renderDynamic(formTpl, Object.assign(initialValues(formInfo, formTpl), snap));
   }
 
@@ -1386,11 +1527,12 @@
     const prev = (info && charFiles[info.name]) || {};
     const data = {
       id, name, file:id,
-      group: document.getElementById('fGroup').value,
-      role: document.getElementById('fRole').value.trim(),
-      color: document.getElementById('fColor').value || null,
+      group: document.getElementById('fGroup').value.trim(),
+      role: document.getElementById('fRoleLeader').checked ? '리더' : (document.getElementById('fRoleManager').checked ? '매니저' : ''),
+      color: document.getElementById('fColor').value.trim() || null,
       owner: document.getElementById('fOwner').value,
       template: formTpl.id,
+      clubHead: !!(document.getElementById('fClubHead') && document.getElementById('fClubHead').checked),
       image: prev.image || null,
       imageV: prev.imageV || null,
       fields
@@ -1455,7 +1597,7 @@
       ${fInput('장르', 'gGenre', g ? g.genre : '')}
       ${fInput('팬덤명', 'gFandom', g ? g.fandom : '')}
       <div class="f-row"><span>대표 컬러</span><div class="color-picks" id="gColors">${chipHtml()}</div>
-        <div class="f-inline color-add"><input class="f-input" id="gNewColorName" placeholder="새 색 이름"><input type="color" id="gNewColorHex" value="#8899aa"><button type="button" class="text-btn" id="gAddColor">색 추가</button></div></div>
+        <div class="f-inline color-add"><input class="f-input" id="gNewColorName" placeholder="색 이름"><input type="color" id="gNewColorHex" value="#8899aa"><button type="button" class="text-btn" id="gAddColor">색 추가</button></div></div>
       <div class="f-row"><span>소개</span><textarea class="f-input" rows="3" id="gIntro">${esc(g ? g.intro : '')}</textarea></div>
       <div class="f-group">이미지</div>
       <div class="f-image">
@@ -1608,8 +1750,11 @@
   }
 
   /* ----- 학급 추가 / 수정 / 삭제 (data/classes.json) ----- */
+  const ROSTER_FLAGS = ['회장', '부회장', '복학생', '편입생'];
   function rosterRowHtml(r){
-    return `<div class="tpl-row"><input class="f-input" list="charNames" data-r="name" placeholder="학생 이름" value="${esc(r.name || '')}"><input class="f-input roster-officer" data-r="officer" placeholder="직책 (선택)" value="${esc(r.officer || '')}"><button type="button" class="text-btn danger" data-rdel>삭제</button></div>`;
+    const have = String(r.officer || '').split(',').map(x => x.trim()).filter(Boolean);
+    const extra = have.filter(x => !ROSTER_FLAGS.includes(x)).join(', ');
+    return `<div class="tpl-row roster-row" data-extra="${esc(extra)}"><input class="f-input" list="charNames" data-r="name" placeholder="학생 이름" value="${esc(r.name || '')}"><span class="roster-flags">${ROSTER_FLAGS.map(fl => `<label class="f-check"><input type="checkbox" data-flag="${fl}" ${have.includes(fl) ? 'checked' : ''}><span>${fl}</span></label>`).join('')}</span><button type="button" class="text-btn danger" data-rdel>삭제</button></div>`;
   }
   function openClassForm(sec){
     const grade = sec ? classes.find(g => g.sections.includes(sec)).grade : (classes[0] ? classes[0].grade : '');
@@ -1628,6 +1773,12 @@
     formModal.classList.add('active');
     document.getElementById('cAddRow').addEventListener('click', () => document.getElementById('cRoster').insertAdjacentHTML('beforeend', rosterRowHtml({})));
     document.getElementById('cRoster').addEventListener('click', (e) => { const b = e.target.closest('[data-rdel]'); if(b) b.closest('.tpl-row').remove(); });
+    document.getElementById('cRoster').addEventListener('change', (e) => {
+      const c = e.target.closest('[data-flag]'); if(!c || !c.checked) return;
+      const pairs = { '회장':'부회장', '부회장':'회장', '복학생':'편입생', '편입생':'복학생' };
+      const other = c.closest('.tpl-row').querySelector(`[data-flag="${pairs[c.dataset.flag]}"]`);
+      if(other) other.checked = false;
+    });
     document.getElementById('formSave').addEventListener('click', async () => {
       const err = document.getElementById('formError'); err.textContent = '';
       const g = document.getElementById('cGrade').value.trim();
@@ -1635,8 +1786,10 @@
       const teacher = document.getElementById('cTeacher').value.trim();
       if(!g || !id){ err.textContent = '학년과 학급 이름을 입력해 주세요.'; return; }
       if(classes.some(x => x.sections.some(s => s.id === id && s !== sec))){ err.textContent = '같은 이름의 학급이 이미 있어요.'; return; }
-      const roster = [...document.querySelectorAll('#cRoster .tpl-row')].map(row => {
-        const n = row.querySelector('[data-r=name]').value.trim(), o = row.querySelector('[data-r=officer]').value.trim();
+      const roster = [...document.querySelectorAll('#cRoster .roster-row')].map(row => {
+        const n = row.querySelector('[data-r=name]').value.trim();
+        const flags = [...row.querySelectorAll('[data-flag]:checked')].map(x => x.dataset.flag);
+        const o = [row.dataset.extra || '', ...flags].filter(Boolean).join(', ');
         return n ? (o ? { name:n, officer:o } : { name:n }) : null;
       }).filter(Boolean);
       const btn = document.getElementById('formSave'); btn.disabled = true; btn.textContent = '저장 중...';
@@ -1770,7 +1923,7 @@
           const body = cleanHtml(document.querySelector(`[data-fkey="page_${k}"]`).innerHTML);
           if(t || !isEmptyVal(body)) next.pages[k] = { title:t, body:isEmptyVal(body) ? '' : body };
         });
-        const ok = await jsonChange(SITE_PATH, () => ({}), (d) => { Object.keys(d).forEach(key => delete d[key]); Object.assign(d, next); }, 'Update site settings');
+        const ok = await jsonChange(SITE_PATH, () => ({}), (d) => { const keepOrder = d.order; Object.keys(d).forEach(key => delete d[key]); Object.assign(d, next); if(keepOrder) d.order = keepOrder; }, 'Update site settings');
         if(ok) window.location.reload(); else { btn.disabled = false; btn.textContent = '저장'; }
       } catch(e){
         btn.disabled = false; btn.textContent = '저장';
@@ -1787,8 +1940,14 @@
   function applyEditMode(){
     document.body.classList.toggle('edit-mode', editModeOn());
     const st = document.getElementById('editModeState');
-    if(st) st.textContent = editModeOn() ? '켜짐' : '꺼짐';
+    if(st){ st.textContent = editModeOn() ? 'ON' : 'OFF'; st.classList.toggle('on', editModeOn()); }
   }
+  function toggleEditMode(){
+    try { localStorage.setItem('ymkb_edit', editModeOn() ? '0' : '1'); } catch(err){}
+    applyEditMode();
+  }
+  document.getElementById('editPill').addEventListener('click', toggleEditMode);
+  document.getElementById('editBannerOff').addEventListener('click', toggleEditMode);
   applyEditMode();
   document.getElementById('menuBtn').addEventListener('click', () => { applyEditMode(); menuModal.classList.add('active'); });
   document.getElementById('menuClose').addEventListener('click', () => menuModal.classList.remove('active'));
@@ -1797,8 +1956,7 @@
     const b = e.target.closest('.menu-item');
     if(!b) return;
     if(b.id === 'editModeBtn'){
-      try { localStorage.setItem('ymkb_edit', editModeOn() ? '0' : '1'); } catch(err){}
-      applyEditMode();
+      toggleEditMode();
       return;
     }
     menuModal.classList.remove('active');
@@ -1820,6 +1978,7 @@
       <div class="spec-row"><span class="spec-label" style="min-width:110px">YMKB 캐릭터</span><span class="spec-sep">|</span><span class="spec-value">${Object.keys(ocOverrides).length}명</span></div>
       <div class="f-group">ymkb와 이름이 같아 연결된 캐릭터</div>
       ${rows}
+      ${ocSkipped.length ? `<div class="f-group">오너가 호원이 아니라 연동하지 않은 캐릭터</div><p class="form-hint">${ocSkipped.map(esc).join(', ')}</p>` : ''}
       ${unmatched.length ? `<div class="f-group">oc에는 있지만 ymkb에서 이름이 맞지 않는 캐릭터</div><p class="form-hint">${unmatched.map(esc).join(', ')}<br>ymkb의 이름을 oc와 똑같이 맞춰 주세요.</p>` : ''}`;
     formModal.classList.add('active');
   }
