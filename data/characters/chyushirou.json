@@ -5,10 +5,8 @@
   "group": "Lotus",
   "role": "리더",
   "color": null,
-  "owner": "세잇",
-  "template": "t_seit",
-  "clubHead": false,
-  "classFlags": [],
+  "owner": "",
+  "template": "t_dowon",
   "image": null,
   "imageV": null,
   "fields": {}
