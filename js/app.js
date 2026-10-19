@@ -957,23 +957,23 @@
     return isEmptyVal(v) || (f.type === 'rating' && !Number(v)) ? undefined : v;
   }
   function valueOf(info, f){
-    if((info.fieldsOwn || {})[f.key] === null) return undefined; // 직접 비운 항목은 oc/예전 값으로 되돌아가지 않고 빈 칸으로 둔다
+    if((info.fieldsOwn || {})[f.key] === null && !ocOverrides[info.name]) return undefined; // 직접 비운 항목은 oc/예전 값으로 되돌아가지 않고 빈 칸으로 둔다
     for(const fn of [ownValue, ocValue, legacyValue]){
       const v = fn(info, f);
       if(v !== undefined) return v;
     }
     return undefined;
   }
-  // 오너가 호원인 템플릿은 oc에서 연동하는 '프로필 항목'(짧은 글, 태그, 별점)만 보여준다. 소개·성격·여담 같은 긴 본문 칸은 쓰지 않는다.
+  // (수정 폼 전용) 오너가 호원인 템플릿은 oc에서 연동하는 '프로필 항목'(짧은 글, 태그, 별점)만 보여준다. 소개·성격·여담 같은 긴 본문 칸은 쓰지 않는다.
   function profileOnly(tpl){
     return Object.assign({}, tpl, { fields: tpl.fields.filter(f => f.core || !['textarea', 'collapse'].includes(f.type)) });
   }
   function templateFor(info){
     if(ocOverrides[info.name] && ocFields.length){
-      return profileOnly({ id:'__oc', name:'oc', fields: ocFields.map(f => ({ key:f.key, label:f.label, type:['text','tags','textarea','collapse','rating'].includes(f.type) ? f.type : 'text', core:!!f.core })) });
+      return ({ id:'__oc', name:'oc', fields: ocFields.map(f => ({ key:f.key, label:f.label, type:['text','tags','textarea','collapse','rating'].includes(f.type) ? f.type : 'text', core:!!f.core })) });
     }
     const t = templates.find(t => t.name === info.owner) || templates.find(t => t.id === info.template) || templates[0];
-    return info.owner === '호원' ? profileOnly(t) : t;
+    return t;
   }
 
   function renderTemplateBody(info){
@@ -1087,6 +1087,7 @@
   const settingsModal = document.getElementById('settingsModal');
   const cropModal = document.getElementById('cropModal');
   let pendingImage = null; // { blob }
+  let removeImage = false; // 이미지 삭제 버튼을 눌렀는지
   let activeCropper = null;
 
   function toBase64Text(str){ return btoa(unescape(encodeURIComponent(str))); }
@@ -1495,9 +1496,10 @@
     tpl.fields.forEach(f => {
       if(f.core) return;
       if(!info) return;
-      if((info.fieldsOwn || {})[f.key] === null) return;
+      const linked = !!ocOverrides[info.name];
+      if(!linked && (info.fieldsOwn || {})[f.key] === null) return;
       const v = ownValue(info, f);
-      const o = v !== undefined ? v : ocValue(info, f);
+      const o = v !== undefined ? v : (linked ? undefined : ocValue(info, f));
       const w = o !== undefined ? o : legacyValue(info, f);
       if(w !== undefined) vals[f.key] = w;
     });
@@ -1534,7 +1536,7 @@
   function openForm(name){
     const info = name ? masterCharacters[name] : null;
     formInfo = info;
-    pendingImage = null;
+    pendingImage = null; removeImage = false;
     const owner0 = info ? info.owner : '호원';
     formTpl = tplByOwner(owner0);
 
@@ -1554,7 +1556,7 @@
       <div class="f-image">
         <div class="f-thumb" id="fThumb">${curImg ? `<img src="${esc(curImg)}" alt="" onerror="window.__imgErr(this)">` : ''}</div>
         <div>
-          <input type="file" id="fImage" accept="image/*">
+          <div class="f-inline"><input type="file" id="fImage" accept="image/*"><button type="button" class="text-btn danger" id="fImageDel">삭제</button></div>
           <p class="form-hint" id="fImageNote"></p>
         </div>
       </div>
@@ -1594,11 +1596,17 @@
       const hex = colorMap[e.target.value.trim()];
       document.getElementById('fColorDot').style.background = hex || 'transparent';
     });
+    document.getElementById('fImageDel').addEventListener('click', () => {
+      pendingImage = null; removeImage = true;
+      document.getElementById('fImage').value = '';
+      document.getElementById('fThumb').innerHTML = '';
+      document.getElementById('fImageNote').textContent = '';
+    });
     document.getElementById('fImage').addEventListener('change', (e) => {
       const f = e.target.files[0];
       if(!f) return;
       openCrop(f, (blob, ext) => {
-        pendingImage = { blob, ext };
+        pendingImage = { blob, ext }; removeImage = false;
         document.getElementById('fThumb').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`;
         document.getElementById('fImageNote').textContent = '';
       });
@@ -1637,7 +1645,8 @@
       if(!empty) return;
       // 폼을 열었을 때 값이 있었거나 저장된 값이 있었다면, 지운 것은 '직접 비움'으로 꼭 남긴다. (다른 출처의 값이 다시 나오지 않도록)
       const wasSet = !isEmptyVal(shown[f.key]) || (!isEmptyVal(hadFields[f.key]) && !(f.type === 'rating' && !Number(hadFields[f.key])));
-      const fallback = info ? (wasSet || ocValue(info, f) !== undefined || legacyValue(info, f) !== undefined) : false;
+      const linked = !!(info && ocOverrides[info.name]);
+      const fallback = linked ? false : info ? (wasSet || ocValue(info, f) !== undefined || legacyValue(info, f) !== undefined) : false;
       if(fallback) fields[f.key] = null; else delete fields[f.key];
     });
 
@@ -1662,8 +1671,8 @@
       template: formTpl.id,
       clubHead: !!(document.getElementById('fClubHead') && document.getElementById('fClubHead').checked),
       classFlags: [...document.querySelectorAll('#fDynamic [data-cflag]:checked')].map(x => x.dataset.cflag),
-      image: prev.image || null,
-      imageV: prev.imageV || null,
+      image: removeImage ? null : (prev.image || null),
+      imageV: removeImage ? null : (prev.imageV || null),
       fields
     };
     if(prev.profile) data.profile = prev.profile; // 예전 형식 값은 그대로 보존
@@ -1678,7 +1687,7 @@
         data.imageV = Date.now();
       }
       await ghPut(`${CHAR_DIR}/${id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `${info ? 'Update' : 'Add'} character: ${name}`);
-      if(pendingImage && prev.image && prev.image !== data.image){ try { await ghDelete(prev.image, `Replace image: ${name}`); } catch(e){} }
+      if(prev.image && prev.image !== data.image){ try { await ghDelete(prev.image, `Replace image: ${name}`); } catch(e){} }
       reloadKeepingView({ profile:name });
     } catch(e){
       btn.disabled = false; btn.textContent = '저장';
@@ -1725,7 +1734,7 @@
 
   /* ----- 그룹 추가 / 수정 / 삭제 ----- */
   function openGroupForm(g){
-    pendingImage = null;
+    pendingImage = null; removeImage = false;
     const isEdit = !!g;
     let sel = g ? g.colors.slice() : [];
     const newColors = {};
@@ -1747,7 +1756,7 @@
       <div class="f-image">
         <div class="f-thumb square" id="fThumb">${g && g.image ? `<img src="${esc(groupImgSrc(g))}" alt="" onerror="window.__imgErr(this)">` : ''}</div>
         <div>
-          <input type="file" id="fImage" accept="image/*">
+          <div class="f-inline"><input type="file" id="fImage" accept="image/*"><button type="button" class="text-btn danger" id="fImageDel">삭제</button></div>
           <p class="form-hint" id="fImageNote"></p>
         </div>
       </div>
@@ -1778,10 +1787,16 @@
       document.getElementById('gColors').innerHTML = chipHtml();
       document.getElementById('gNewColorName').value = '';
     });
+    document.getElementById('fImageDel').addEventListener('click', () => {
+      pendingImage = null; removeImage = true;
+      document.getElementById('fImage').value = '';
+      document.getElementById('fThumb').innerHTML = '';
+      document.getElementById('fImageNote').textContent = '';
+    });
     document.getElementById('fImage').addEventListener('change', (e) => {
       const f = e.target.files[0]; if(!f) return;
       openCrop(f, (blob, ext) => {
-        pendingImage = { blob, ext };
+        pendingImage = { blob, ext }; removeImage = false;
         document.getElementById('fThumb').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`;
         document.getElementById('fImageNote').textContent = '';
       }, { aspect:1, noOriginal:true });
@@ -1805,8 +1820,8 @@
       fandom: document.getElementById('gFandom').value.trim(),
       colors,
       intro: document.getElementById('gIntro').value.trim(),
-      image: g ? g.image || null : null,
-      imageV: g ? g.imageV || null : null
+      image: g && !removeImage ? g.image || null : null,
+      imageV: g && !removeImage ? g.imageV || null : null
     };
     const btn = document.getElementById('formSave');
     btn.disabled = true; btn.textContent = '저장 중...';
@@ -1829,6 +1844,7 @@
         oldImage = data.image;
         data.image = imgPath; data.imageV = Date.now();
       }
+      if(removeImage && g && g.image) oldImage = g.image;
       await ghPut(`${GROUP_DIR}/${id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `${g ? 'Update' : 'Add'} group: ${name}`);
       if(oldImage && oldImage !== data.image){ try { await ghDelete(oldImage, `Replace group image: ${name}`); } catch(e){} }
       reloadKeepingView();
@@ -1957,15 +1973,15 @@
 
   /* ----- 사이트 설정: 제목, 링크, 푸터, 로고, 캐러셀, 빈 페이지 본문 ----- */
   function openSiteForm(){
-    pendingImage = null;
-    let pendingLogo = null;
+    pendingImage = null; removeImage = false;
+    let pendingLogo = null, removeLogo = false;
     let slides = site.slides.map(x => Object.assign({}, x));
     const slideHtml = (sl, i) => `<div class="slide-row" data-i="${i}">
       <div class="f-thumb wide">${sl.pendingUrl ? `<img src="${sl.pendingUrl}" alt="">` : (sl.image ? `<img src="${esc(rawUrl(sl.image, sl.imageV))}" alt="" onerror="window.__imgErr(this)">` : '')}</div>
       <div class="slide-fields">
         <input class="f-input" data-s="title" placeholder="슬라이드 제목" value="${esc(sl.title || '')}">
         <input class="f-input" data-s="date" placeholder="날짜 (선택)" value="${esc(sl.date || '')}">
-        <div class="f-inline"><input type="file" data-s="file" accept="image/*"><button type="button" class="text-btn danger" data-sdel>슬라이드 삭제</button></div>
+        <div class="f-inline"><input type="file" data-s="file" accept="image/*"><button type="button" class="text-btn danger" data-simgdel>이미지 삭제</button><button type="button" class="text-btn danger" data-sdel>슬라이드 삭제</button></div>
       </div></div>`;
     const syncSlides = () => {
       document.querySelectorAll('#sSlides .slide-row').forEach(row => {
@@ -1994,7 +2010,7 @@
       ${fInput('Soundcloud 링크', 'sSc', site.soundcloud)}
       ${fInput('맨 아래 문구', 'sFoot', site.footer)}
       <div class="f-row"><span>로고 이미지</span>
-        <div class="f-image"><div class="f-thumb square" id="sLogoThumb">${site.logo ? `<img src="${esc(rawUrl(site.logo, site.logoV))}" alt="" onerror="window.__imgErr(this)">` : ''}</div><input type="file" id="sLogo" accept="image/*"></div>
+        <div class="f-image"><div class="f-thumb square" id="sLogoThumb">${site.logo ? `<img src="${esc(rawUrl(site.logo, site.logoV))}" alt="" onerror="window.__imgErr(this)">` : ''}</div><div class="f-inline"><input type="file" id="sLogo" accept="image/*"><button type="button" class="text-btn danger" id="sLogoDel">삭제</button></div></div>
       </div>
       <div class="f-group">메인 슬라이드</div>
       <div id="sSlides"></div>
@@ -2012,12 +2028,18 @@
     drawSlides();
     document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ id:'s' + Date.now(), title:'', date:'', image:null }); drawSlides(); });
     document.getElementById('sSlides').addEventListener('click', (e) => {
+      const ib = e.target.closest('[data-simgdel]');
+      if(ib){ syncSlides(); const sl = slides[Number(ib.closest('.slide-row').dataset.i)]; if(sl){ sl.image = null; sl.imageV = null; sl.pending = null; sl.pendingUrl = null; } drawSlides(); return; }
       const b = e.target.closest('[data-sdel]'); if(!b) return;
       syncSlides(); slides.splice(Number(b.closest('.slide-row').dataset.i), 1); drawSlides();
     });
+    document.getElementById('sLogoDel').addEventListener('click', () => {
+      pendingLogo = null; removeLogo = true;
+      document.getElementById('sLogo').value = ''; document.getElementById('sLogoThumb').innerHTML = '';
+    });
     document.getElementById('sLogo').addEventListener('change', (e) => {
       const f = e.target.files[0]; if(!f) return;
-      openCrop(f, (blob, ext) => { pendingLogo = { blob, ext }; document.getElementById('sLogoThumb').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`; });
+      openCrop(f, (blob, ext) => { pendingLogo = { blob, ext }; removeLogo = false; document.getElementById('sLogoThumb').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`; });
     });
     document.getElementById('formSave').addEventListener('click', async () => {
       const err = document.getElementById('formError'); err.textContent = '';
@@ -2031,7 +2053,7 @@
           youtube: document.getElementById('sYt').value.trim(),
           soundcloud: document.getElementById('sSc').value.trim(),
           footer: document.getElementById('sFoot').value.trim(),
-          logo: site.logo || null, logoV: site.logoV || null,
+          logo: removeLogo ? null : (site.logo || null), logoV: removeLogo ? null : (site.logoV || null),
           colors: site.colors || {},
           hiddenColors: [...hiddenColors],
           slides: [], pages: {}
