@@ -161,13 +161,48 @@
     } catch(e){ return false; }
     return true;
   }
+  // 내가 방금 저장한 파일은 깃허브 쪽 목록이 아직 옛날 내용을 줄 수 있으니, 3분 동안은 내가 저장한 내용을 우선한다.
+  const RECENT_KEY = 'ymkb_recent', RECENT_TTL = 180000;
+  function recentGet(){
+    try {
+      const m = JSON.parse(localStorage.getItem(RECENT_KEY)) || {}; const now = Date.now();
+      Object.keys(m).forEach(p => { if(now - m[p].t > RECENT_TTL) delete m[p]; });
+      return m;
+    } catch(e){ return {}; }
+  }
+  function recentSet(path, obj){
+    try { const m = recentGet(); m[path] = { t:Date.now(), obj:obj === undefined ? null : obj }; localStorage.setItem(RECENT_KEY, JSON.stringify(m)); } catch(e){}
+  }
+  function applyRecent(key, v){
+    try {
+      const m = recentGet(), paths = Object.keys(m);
+      if(!paths.length) return v;
+      const single = { templates:'data/templates.json', site:'data/site.json', classes:'data/classes.json' };
+      if(single[key]){ const r = m[single[key]]; return r && r.obj ? JSON.parse(JSON.stringify(r.obj)) : v; }
+      if(key === 'chars' || key === 'groups'){
+        const dir = key === 'chars' ? 'data/characters' : 'data/groups';
+        const out = Object.assign({}, v);
+        paths.filter(p => p.startsWith(dir + '/')).forEach(p => {
+          Object.keys(out).forEach(k => { if(out[k] && out[k]._path === p) delete out[k]; });
+          const o = m[p].obj;
+          if(o && o.name){
+            const c = JSON.parse(JSON.stringify(o)); c._path = p; c.id = c.id || p.split('/').pop().replace(/\.json$/, '');
+            out[key === 'chars' ? c.name : c.id] = c;
+          }
+        });
+        return out;
+      }
+    } catch(e){}
+    return v;
+  }
   function swr(key, fetcher){
     const cached = cacheGet(key);
     const before = cached !== null ? stripSha(cached) : null;
     const live = fetcher().then((v) => {
       if(v === undefined || v === null) return cached;
+      v = applyRecent(key, v);
       cacheSet(key, v);
-      if(before !== null && stripSha(v) !== before && canAutoReload()) window.location.reload();
+      if(before !== null && stripSha(v) !== before && canAutoReload()) reloadKeepingView();
       return v;
     }).catch((err) => { console.warn(key + ' 를 불러오지 못했어요.', err); return cached; });
     return cached !== null ? Promise.resolve(cached) : live;
@@ -194,6 +229,7 @@
   }
   // 저장하자마자 화면에 반영되도록, 저장한 내용을 캐시에도 바로 넣어 둔다.
   function cacheTouch(path, obj){
+    if(path.endsWith('.json')) recentSet(path, obj ? JSON.parse(JSON.stringify(obj)) : null);
     try {
       const isChar = path.startsWith(CHAR_DIR + '/'), isGroup = path.startsWith(GROUP_DIR + '/');
       if(isChar || isGroup){
@@ -303,7 +339,7 @@
   let hiddenAt = 0;
   document.addEventListener('visibilitychange', () => {
     if(document.hidden){ hiddenAt = Date.now(); return; }
-    if(hiddenAt && Date.now() - hiddenAt > 60000 && canAutoReload()) window.location.reload();
+    if(hiddenAt && Date.now() - hiddenAt > 60000 && canAutoReload()) reloadKeepingView();
   });
   let ownersReady = false;
   const ocCached = cacheGet('oc');
@@ -315,7 +351,7 @@
   const ocBefore = ocCached ? stripSha(ocCached.byName) : null;
   const ocReadyPromise = (ocCached && ocCached.byName ? Promise.resolve() : ocLive.then(() => {}));
   ocLive.then((map) => { if(ownersReady) filterOcByOwner();
-    if(ocBefore !== null && !ocStatus.error && stripSha(map) !== ocBefore && canAutoReload()) window.location.reload(); });
+    if(ocBefore !== null && !ocStatus.error && stripSha(map) !== ocBefore && canAutoReload()) reloadKeepingView(); });
 
   /* ---------------- 데이터 불러오기 (groups / classes / profiles) ----------------
      예전에는 이 셋이 코드 안에 통째로 박혀있었는데, 이제 data 폴더의 JSON 파일로 분리했다.
@@ -928,11 +964,16 @@
     }
     return undefined;
   }
+  // 오너가 호원인 템플릿은 oc에서 연동하는 '프로필 항목'(짧은 글, 태그, 별점)만 보여준다. 소개·성격·여담 같은 긴 본문 칸은 쓰지 않는다.
+  function profileOnly(tpl){
+    return Object.assign({}, tpl, { fields: tpl.fields.filter(f => f.core || !['textarea', 'collapse'].includes(f.type)) });
+  }
   function templateFor(info){
     if(ocOverrides[info.name] && ocFields.length){
-      return { id:'__oc', name:'oc', fields: ocFields.map(f => ({ key:f.key, label:f.label, type:['text','tags','textarea','collapse','rating'].includes(f.type) ? f.type : 'text', core:!!f.core })) };
+      return profileOnly({ id:'__oc', name:'oc', fields: ocFields.map(f => ({ key:f.key, label:f.label, type:['text','tags','textarea','collapse','rating'].includes(f.type) ? f.type : 'text', core:!!f.core })) });
     }
-    return templates.find(t => t.name === info.owner) || templates.find(t => t.id === info.template) || templates[0];
+    const t = templates.find(t => t.name === info.owner) || templates.find(t => t.id === info.template) || templates[0];
+    return info.owner === '호원' ? profileOnly(t) : t;
   }
 
   function renderTemplateBody(info){
@@ -996,9 +1037,25 @@
     `;
   }
 
+  // 저장한 뒤에는 보고 있던 화면(페이지, 열려 있던 그룹/학급/프로필)을 그대로 다시 열어 준다.
+  function reloadKeepingView(opts){
+    opts = opts || {};
+    try {
+      const page = document.querySelector('.page.active');
+      const v = { page: page ? page.id.replace(/^page-/, '') : 'main', y: window.scrollY, t: Date.now() };
+      if(groupModal.classList.contains('active') && currentGroup) v.group = currentGroup.id;
+      if(classModal.classList.contains('active') && currentSection) v.cls = currentSection.id;
+      if(opts.profile) v.profile = opts.profile;
+      else if(profileModal.classList.contains('active') && lastProfile) v.profile = lastProfile;
+      sessionStorage.setItem('ymkb_view', JSON.stringify(v));
+    } catch(e){}
+    window.location.reload();
+  }
+  let lastProfile = null;
   async function openProfile(name){
     const info = masterCharacters[name];
     if(!info) return;
+    lastProfile = name;
     await ocReadyPromise;
     document.getElementById('profileBody').innerHTML = renderProfile(info);
     profileModal.classList.add('active');
@@ -1472,7 +1529,7 @@
     return templates.map(t => `<option value="${esc(t.id)}" ${t.id === selectedId ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
   }
 
-  function tplByOwner(owner){ return templates.find(t => t.name === owner) || templates[0]; }
+  function tplByOwner(owner){ const t = templates.find(t => t.name === owner) || templates[0]; return owner === '호원' ? profileOnly(t) : t; }
 
   function openForm(name){
     const info = name ? masterCharacters[name] : null;
@@ -1529,7 +1586,7 @@
     const rs = document.getElementById('formReset');
     if(rs) rs.addEventListener('click', () => resetCharacter(info));
 
-    document.getElementById('fOwner').addEventListener('change', (e) => changeFormTemplate(tplByOwner(e.target.value).id));
+    document.getElementById('fOwner').addEventListener('change', (e) => changeFormTemplate(e.target.value));
     const leader = document.getElementById('fRoleLeader'), mgr = document.getElementById('fRoleManager');
     leader.addEventListener('change', () => { if(leader.checked) mgr.checked = false; });
     mgr.addEventListener('change', () => { if(mgr.checked) leader.checked = false; });
@@ -1549,9 +1606,9 @@
     document.getElementById('formSave').addEventListener('click', () => submitForm(info));
   }
 
-  function changeFormTemplate(id){
+  function changeFormTemplate(owner){
     const snap = collectFields(formTpl);
-    formTpl = templates.find(t => t.id === id) || templates[0];
+    formTpl = tplByOwner(owner);
     renderDynamic(formTpl, Object.assign(initialValues(formInfo, formTpl), snap));
   }
 
@@ -1618,7 +1675,7 @@
       }
       await ghPut(`${CHAR_DIR}/${id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `${info ? 'Update' : 'Add'} character: ${name}`);
       if(pendingImage && prev.image && prev.image !== data.image){ try { await ghDelete(prev.image, `Replace image: ${name}`); } catch(e){} }
-      window.location.reload();
+      reloadKeepingView({ profile:name });
     } catch(e){
       btn.disabled = false; btn.textContent = '저장';
       err.textContent = e.message === 'NO_TOKEN' ? '먼저 저장 설정에서 토큰을 등록해 주세요.' : '저장에 실패했어요: ' + e.message;
@@ -1634,7 +1691,7 @@
     const data = { id:cf.id, name:cf.name, file:cf.file || cf.id, group:cf.group || '', role:cf.role || '', color:cf.color || null, owner:cf.owner || '', template:cf.template || '', image:cf.image || null, imageV:cf.imageV || null, fields:{} };
     try {
       await ghPut(`${CHAR_DIR}/${cf.id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `Reset profile: ${info.name}`);
-      window.location.reload();
+      reloadKeepingView({ profile:info.name });
     } catch(e){
       document.getElementById('formError').textContent = '초기화에 실패했어요: ' + e.message;
     }
@@ -1655,7 +1712,7 @@
         await ghDelete(cf._path, `Delete character: ${name}`);
         if(cf.image){ try { await ghDelete(cf.image, `Delete image: ${name}`); } catch(e){} }
       } else { alert('지울 데이터를 찾지 못했어요.'); return; }
-      window.location.reload();
+      reloadKeepingView();
     } catch(e){
       alert('삭제에 실패했어요: ' + e.message);
     }
@@ -1770,7 +1827,7 @@
       }
       await ghPut(`${GROUP_DIR}/${id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `${g ? 'Update' : 'Add'} group: ${name}`);
       if(oldImage && oldImage !== data.image){ try { await ghDelete(oldImage, `Replace group image: ${name}`); } catch(e){} }
-      window.location.reload();
+      reloadKeepingView();
     } catch(e){
       btn.disabled = false; btn.textContent = '저장';
       err.textContent = e.message === 'NO_TOKEN' ? '먼저 저장 설정에서 토큰을 등록해 주세요.' : '저장에 실패했어요: ' + e.message;
@@ -1788,7 +1845,7 @@
         await ghDelete(g.file._path, `Delete group: ${g.name}`);
         if(g.file.image){ try { await ghDelete(g.file.image, `Delete group image: ${g.name}`); } catch(e){} }
       }
-      window.location.reload();
+      reloadKeepingView();
     } catch(e){ alert('삭제에 실패했어요: ' + e.message); }
   }
 
@@ -1878,7 +1935,7 @@
           for(let i = data.length - 1; i >= 0; i--) if(!data[i].sections.length && data[i] !== tg) data.splice(i, 1);
         } else tg.sections.push(entry);
       }, `${sec ? 'Update' : 'Add'} class: ${id}`);
-      if(ok) window.location.reload(); else { btn.disabled = false; btn.textContent = '저장'; }
+      if(ok) reloadKeepingView(); else { btn.disabled = false; btn.textContent = '저장'; }
     });
   }
   async function deleteClass(sec){
@@ -1888,7 +1945,7 @@
       data.forEach(gr => { gr.sections = gr.sections.filter(s => s.id !== sec.id); });
       for(let i = data.length - 1; i >= 0; i--) if(!data[i].sections.length) data.splice(i, 1);
     }, `Delete class: ${sec.id}`);
-    if(ok) window.location.reload();
+    if(ok) reloadKeepingView();
   }
   document.getElementById('addClassBtn').addEventListener('click', () => openClassForm(null));
   document.getElementById('clEdit').addEventListener('click', () => { if(currentSection) openClassForm(currentSection); });
@@ -1996,7 +2053,7 @@
           if(t || !isEmptyVal(body)) next.pages[k] = { title:t, body:isEmptyVal(body) ? '' : body };
         });
         const ok = await jsonChange(SITE_PATH, () => ({}), (d) => { const keepOrder = d.order; Object.keys(d).forEach(key => delete d[key]); Object.assign(d, next); if(keepOrder) d.order = keepOrder; }, 'Update site settings');
-        if(ok) window.location.reload(); else { btn.disabled = false; btn.textContent = '저장'; }
+        if(ok) reloadKeepingView(); else { btn.disabled = false; btn.textContent = '저장'; }
       } catch(e){
         btn.disabled = false; btn.textContent = '저장';
         err.textContent = '저장에 실패했어요: ' + e.message;
@@ -2065,4 +2122,22 @@
     if(b.dataset.act === 'edit') openForm(b.dataset.name);
     if(b.dataset.act === 'delete') deleteCharacter(b.dataset.name);
   });
+
+  // 저장 직후 다시 불러왔다면, 보고 있던 화면으로 돌아간다.
+  try {
+    const raw = sessionStorage.getItem('ymkb_view');
+    if(raw){
+      sessionStorage.removeItem('ymkb_view');
+      const v = JSON.parse(raw);
+      if(v && Date.now() - v.t < 60000){
+        if(v.page && v.page !== 'main') goPage(v.page);
+        const g = v.group && groups.find(x => x.id === v.group);
+        const sec = v.cls && allSections.find(x => x.id === v.cls);
+        if(g) await openGroupDetail(g);
+        else if(sec) await openClassDetail(sec);
+        if(v.profile && masterCharacters[v.profile]) await openProfile(v.profile);
+        setTimeout(() => window.scrollTo({ top:v.y || 0, behavior:'auto' }), 0);
+      }
+    }
+  } catch(e){ console.warn(e); }
 })();
