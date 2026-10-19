@@ -75,6 +75,99 @@
     '골드':'#c9a227', '마룬':'#6e1f2b', '스페이스':'#232323', '하트':'#d1454f', '다이아몬드':'#c9576a'
   };
 
+  /* ---------------- 저장소 설정 / 공용 유틸 ---------------- */
+  const GH_OWNER = 'xowonim';
+  const GH_REPO = 'ymkb';
+  const GH_BRANCH = 'main';
+  const CHAR_DIR = 'data/characters';
+  const TOKEN_KEY = 'ymkb_gh_token';
+  const OWNERS = ['도원', '세잇', '해원', '호원'];
+
+  function getToken(){ try { return localStorage.getItem(TOKEN_KEY) || ''; } catch(e){ return ''; } }
+  function setToken(t){
+    try { if(t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch(e){}
+  }
+  function esc(v){
+    return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function escDeep(o){
+    if(typeof o === 'string') return esc(o);
+    if(o && typeof o === 'object') { const r = {}; Object.keys(o).forEach(k => r[k] = escDeep(o[k])); return r; }
+    return o;
+  }
+  function mergeProfile(base, custom){
+    const out = JSON.parse(JSON.stringify(base));
+    Object.keys(custom || {}).forEach(k => {
+      if(out[k] && typeof out[k] === 'object' && custom[k] && typeof custom[k] === 'object') Object.assign(out[k], custom[k]);
+      else if(custom[k] !== undefined) out[k] = custom[k];
+    });
+    return out;
+  }
+
+  const TEMPLATE_PATH = 'data/templates.json';
+  const FIELD_TYPES = { text:'텍스트', tags:'태그', textarea:'긴 글', collapse:'접기 글', rating:'별점' };
+  // oc의 YMKB 세계관 항목을 그대로 가져온 기본 틀. 오너 네 명이 처음에는 똑같은 템플릿을 가진다.
+  const DEFAULT_FIELDS = [{"key": "name", "label": "이름", "type": "text", "core": true}, {"key": "f_1790459852228", "label": "영어 / 한자 이름", "type": "text"}, {"key": "f_1790459909805", "label": "나이", "type": "text"}, {"key": "f_1790485356104", "label": "생일", "type": "text"}, {"key": "f_1790485416027", "label": "신체", "type": "text"}, {"key": "f_1790460026132", "label": "학과", "type": "text"}, {"key": "f_1790460191966", "label": "학년", "type": "text"}, {"key": "f_1790477497994", "label": "학급", "type": "text"}, {"key": "f_1790484073611", "label": "소속", "type": "tags"}, {"key": "f_1790484157581", "label": "동아리", "type": "text"}, {"key": "f_1790484238483", "label": "학생회", "type": "text"}, {"key": "f_1790484328878", "label": "기숙사", "type": "text"}, {"key": "f_1790484388805", "label": "소개", "type": "textarea"}, {"key": "f_1790484546744", "label": "성격", "type": "textarea"}, {"key": "f_1790484621408", "label": "좋아하는 음식", "type": "text"}, {"key": "f_1790484726646", "label": "좋아하는 것", "type": "text"}, {"key": "f_1790484814456", "label": "좋아하는 사람", "type": "text"}, {"key": "f_1790484946547", "label": "싫어하는 음식", "type": "text"}, {"key": "f_1790484951928", "label": "싫어하는 것", "type": "text"}, {"key": "f_1790484957343", "label": "싫어하는 사람", "type": "text"}, {"key": "f_1790484965565", "label": "여담", "type": "textarea"}, {"key": "f_1790490251818", "label": "캐릭터 이야기 1", "type": "collapse"}, {"key": "f_1790490342827", "label": "보컬", "type": "rating"}, {"key": "f_1790492405183", "label": "정신력", "type": "rating"}, {"key": "f_1790492376210", "label": "무용", "type": "rating"}, {"key": "f_1790492415019", "label": "눈치", "type": "rating"}, {"key": "f_1790492385635", "label": "연기", "type": "rating"}, {"key": "f_1790492423525", "label": "성적", "type": "rating"}, {"key": "f_1790492394900", "label": "체력", "type": "rating"}];
+  const OWNER_IDS = ['dowon', 'seit', 'haewon', 'howon'];
+  const SITE_PATH = 'data/site.json';
+  const DEFAULT_SLIDE = { id:'s0', date:'', title:'plz wait a little bit of..♡', image:null };
+  const SLIDE_GRADIENT = 'linear-gradient(160deg,#7fa0d4,#3f5f96)';
+  const PAGE_KEYS = [['club','CLUB'], ['counsel','학생회'], ['agency','기숙사'], ['etc','ETC']];
+  const SITE_DEFAULTS = { title:'유메키보고등학교', subtitle:'YUMEKIBO HIGH SCHOOL', youtube:'https://youtube.com/@ymkbhighschool', soundcloud:'https://soundcloud.com/ymkbofficial', footer:'© ymkb high school', logo:null, logoV:null, slides:[DEFAULT_SLIDE], pages:{} };
+
+  const GROUP_DIR = 'data/groups';
+  function apiHeaders(){ const h = { Accept:'application/vnd.github+json' }; const t = getToken(); if(t) h.Authorization = 'Bearer ' + t; return h; }
+  async function ghGet(url){
+    const h = apiHeaders();
+    let res = await fetch(url, { headers:h, cache:'no-store' });
+    if((res.status === 401 || res.status === 403) && h.Authorization){
+      res = await fetch(url, { headers:{ Accept:h.Accept }, cache:'no-store' });
+    }
+    return res;
+  }
+  function cacheGet(k){ try { return JSON.parse(localStorage.getItem('ymkb_cache_' + k)); } catch(e){ return null; } }
+  function cacheSet(k, v){ try { localStorage.setItem('ymkb_cache_' + k, JSON.stringify(v)); } catch(e){} }
+
+  async function fetchJsonDir(dir, cacheKey, idFrom){
+    try {
+      const res = await ghGet(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${dir}?ref=${GH_BRANCH}`);
+      if(res.status === 404){ cacheSet(cacheKey, {}); return {}; }
+      if(!res.ok) throw new Error('목록 실패 ' + res.status);
+      const entries = await res.json();
+      if(!Array.isArray(entries)) throw new Error('형식 오류');
+      const files = entries.filter(e => e.type === 'file' && e.name.endsWith('.json') && !e.name.startsWith('_'));
+      const list = await Promise.all(files.map(async f => {
+        const r = await fetch(`${f.download_url}?v=${f.sha}`);
+        if(!r.ok) throw new Error('파일 실패 ' + r.status);
+        const d = await r.json();
+        d._path = f.path; d._sha = f.sha; d.id = d.id || f.name.replace(/\.json$/, '');
+        return d;
+      }));
+      const map = {};
+      list.filter(c => c && c.name).forEach(c => { map[idFrom(c)] = c; });
+      cacheSet(cacheKey, map);
+      return map;
+    } catch(err){
+      console.warn(dir + ' 를 불러오지 못해 저장된 이전 내용을 사용해요.', err);
+      return cacheGet(cacheKey) || {};
+    }
+  }
+  function fetchOwnCharacters(){ return fetchJsonDir(CHAR_DIR, 'chars', c => c.name); }
+  function fetchGroupFiles(){ return fetchJsonDir(GROUP_DIR, 'groups', g => g.id); }
+
+  // 서로 기다리지 않도록, 필요한 원격 데이터를 한꺼번에 먼저 요청한다.
+  const remoteP = {
+    data: Promise.all([
+      fetch('data/groups.json').then((r) => r.json()),
+      fetch('data/classes.json').then((r) => r.json()),
+      fetch('data/profiles.json').then((r) => r.json())
+    ]),
+    chars: fetchOwnCharacters(),
+    templates: loadTemplates(),
+    site: loadSite(),
+    groups: fetchGroupFiles()
+  };
+
   /* ---------------- OC 연동 (호원 담당 캐릭터의 사진·기본 정보를 oc 저장소에서 가져오기) ----------------
      oc 쪽 "YMKB" 카테고리에 등록된 캐릭터와 이름이 똑같으면, 그 캐릭터의 사진과 나이 정보를
      oc 쪽 것으로 덮어써서 보여준다. oc 파일은 전혀 건드리지 않고 읽기만 한다. */
@@ -93,7 +186,7 @@
   async function fetchOcYmkbCharacters() {
     try {
       const listUrl = `https://api.github.com/repos/${OC_OWNER}/${OC_REPO}/contents/data/characters?ref=${OC_BRANCH}`;
-      const listRes = await fetch(listUrl, { headers: { Accept: 'application/vnd.github+json' } });
+      const listRes = await ghGet(listUrl);
       if (!listRes.ok) throw new Error('oc 캐릭터 목록을 불러오지 못했습니다 (' + listRes.status + ')');
       const entries = await listRes.json();
       if (!Array.isArray(entries)) throw new Error('oc 캐릭터 목록 형식 오류');
@@ -126,10 +219,13 @@
         .filter((c) => ymkbWorldIds.includes(c.world))
         .forEach((c) => { byName[c.name] = c; });
       ocStatus.charCount = Object.keys(byName).length;
+      cacheSet('oc', { byName, fields:ocFields });
       return byName;
     } catch (err) {
       ocStatus.error = String((err && err.message) || err);
-      console.warn('oc 연동에 실패해서, ymkb 자체 데이터만 사용합니다.', err);
+      console.warn('oc 연동에 실패해서, 저장된 이전 내용을 사용합니다.', err);
+      const c = cacheGet('oc');
+      if(c && c.byName){ ocFields = c.fields || []; ocStatus.cached = true; ocStatus.charCount = Object.keys(c.byName).length; return c.byName; }
       return {};
     }
   }
@@ -141,73 +237,12 @@
   /* ---------------- 데이터 불러오기 (groups / classes / profiles) ----------------
      예전에는 이 셋이 코드 안에 통째로 박혀있었는데, 이제 data 폴더의 JSON 파일로 분리했다.
      깃허브 페이지가 같은 저장소에서 서빙하는 파일이라 그냥 상대경로로 fetch하면 된다. */
-  const [groups, classes, characterProfiles] = await Promise.all([
-    fetch('data/groups.json').then((r) => r.json()),
-    fetch('data/classes.json').then((r) => r.json()),
-    fetch('data/profiles.json').then((r) => r.json())
-  ]);
-
-  /* ---------------- 저장소 설정 / 공용 유틸 ---------------- */
-  const GH_OWNER = 'xowonim';
-  const GH_REPO = 'ymkb';
-  const GH_BRANCH = 'main';
-  const CHAR_DIR = 'data/characters';
-  const TOKEN_KEY = 'ymkb_gh_token';
-  const OWNERS = ['도원', '세잇', '해원', '호원'];
-
-  function getToken(){ try { return localStorage.getItem(TOKEN_KEY) || ''; } catch(e){ return ''; } }
-  function setToken(t){
-    try { if(t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch(e){}
-  }
-  function esc(v){
-    return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-  function escDeep(o){
-    if(typeof o === 'string') return esc(o);
-    if(o && typeof o === 'object') { const r = {}; Object.keys(o).forEach(k => r[k] = escDeep(o[k])); return r; }
-    return o;
-  }
-  function mergeProfile(base, custom){
-    const out = JSON.parse(JSON.stringify(base));
-    Object.keys(custom || {}).forEach(k => {
-      if(out[k] && typeof out[k] === 'object' && custom[k] && typeof custom[k] === 'object') Object.assign(out[k], custom[k]);
-      else if(custom[k] !== undefined) out[k] = custom[k];
-    });
-    return out;
-  }
+  const [groups, classes, characterProfiles] = await remoteP.data;
 
   /* ---------------- ymkb 자체 캐릭터 파일 (data/characters/*.json, 파일 하나 = 캐릭터 한 명) ---------------- */
-  async function fetchOwnCharacters(){
-    try {
-      const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${CHAR_DIR}?ref=${GH_BRANCH}`, { headers:{ Accept:'application/vnd.github+json' }, cache:'no-store' });
-      if(!res.ok) return {};
-      const entries = await res.json();
-      if(!Array.isArray(entries)) return {};
-      const files = entries.filter(e => e.type === 'file' && e.name.endsWith('.json') && !e.name.startsWith('_'));
-      const list = await Promise.all(files.map(async f => {
-        try {
-          const r = await fetch(`${f.download_url}?v=${f.sha}`);
-          const d = await r.json();
-          d._path = f.path; d._sha = f.sha; d.id = d.id || f.name.replace(/\.json$/, '');
-          return d;
-        } catch(e){ console.warn('캐릭터 파일을 불러오지 못했어요:', f.name, e); return null; }
-      }));
-      const map = {};
-      list.filter(c => c && c.name).forEach(c => { map[c.name] = c; });
-      return map;
-    } catch(err){
-      console.warn('자체 캐릭터 파일을 불러오지 못했어요.', err);
-      return {};
-    }
-  }
-  const charFiles = await fetchOwnCharacters();
+  const charFiles = await remoteP.chars;
 
   /* ---------------- 프로필 템플릿 (data/templates.json) ---------------- */
-  const TEMPLATE_PATH = 'data/templates.json';
-  const FIELD_TYPES = { text:'텍스트', tags:'태그', textarea:'긴 글', collapse:'접기 글', rating:'별점' };
-  // oc의 YMKB 세계관 항목을 그대로 가져온 기본 틀. 오너 네 명이 처음에는 똑같은 템플릿을 가진다.
-  const DEFAULT_FIELDS = [{"key": "name", "label": "이름", "type": "text", "core": true}, {"key": "f_1790459852228", "label": "영어 / 한자 이름", "type": "text"}, {"key": "f_1790459909805", "label": "나이", "type": "text"}, {"key": "f_1790485356104", "label": "생일", "type": "text"}, {"key": "f_1790485416027", "label": "신체", "type": "text"}, {"key": "f_1790460026132", "label": "학과", "type": "text"}, {"key": "f_1790460191966", "label": "학년", "type": "text"}, {"key": "f_1790477497994", "label": "학급", "type": "text"}, {"key": "f_1790484073611", "label": "소속", "type": "tags"}, {"key": "f_1790484157581", "label": "동아리", "type": "text"}, {"key": "f_1790484238483", "label": "학생회", "type": "text"}, {"key": "f_1790484328878", "label": "기숙사", "type": "text"}, {"key": "f_1790484388805", "label": "소개", "type": "textarea"}, {"key": "f_1790484546744", "label": "성격", "type": "textarea"}, {"key": "f_1790484621408", "label": "좋아하는 음식", "type": "text"}, {"key": "f_1790484726646", "label": "좋아하는 것", "type": "text"}, {"key": "f_1790484814456", "label": "좋아하는 사람", "type": "text"}, {"key": "f_1790484946547", "label": "싫어하는 음식", "type": "text"}, {"key": "f_1790484951928", "label": "싫어하는 것", "type": "text"}, {"key": "f_1790484957343", "label": "싫어하는 사람", "type": "text"}, {"key": "f_1790484965565", "label": "여담", "type": "textarea"}, {"key": "f_1790490251818", "label": "캐릭터 이야기 1", "type": "collapse"}, {"key": "f_1790490342827", "label": "보컬", "type": "rating"}, {"key": "f_1790492405183", "label": "정신력", "type": "rating"}, {"key": "f_1790492376210", "label": "무용", "type": "rating"}, {"key": "f_1790492415019", "label": "눈치", "type": "rating"}, {"key": "f_1790492385635", "label": "연기", "type": "rating"}, {"key": "f_1790492423525", "label": "성적", "type": "rating"}, {"key": "f_1790492394900", "label": "체력", "type": "rating"}];
-  const OWNER_IDS = ['dowon', 'seit', 'haewon', 'howon'];
   function defaultTemplates(){
     return OWNERS.map((o, i) => ({ id:'t_' + OWNER_IDS[i], name:o, fields:JSON.parse(JSON.stringify(DEFAULT_FIELDS)) }));
   }
@@ -224,16 +259,11 @@
     }
     return defaultTemplates();
   }
-  let templates = await loadTemplates();
+  let templates = await remoteP.templates;
 
   const RICH_OK = ['b','i','u','strong','em','br','div','p','span'];
 
   /* ---------------- 사이트 설정 (data/site.json): 제목, 링크, 푸터, 로고, 캐러셀, 빈 페이지 본문 ---------------- */
-  const SITE_PATH = 'data/site.json';
-  const DEFAULT_SLIDE = { id:'s0', date:'', title:'plz wait a little bit of..♡', image:null };
-  const SLIDE_GRADIENT = 'linear-gradient(160deg,#7fa0d4,#3f5f96)';
-  const PAGE_KEYS = [['club','CLUB'], ['counsel','학생회'], ['agency','기숙사'], ['etc','ETC']];
-  const SITE_DEFAULTS = { title:'유메키보고등학교', subtitle:'YUMEKIBO HIGH SCHOOL', youtube:'https://youtube.com/@ymkbhighschool', soundcloud:'https://soundcloud.com/ymkbofficial', footer:'© ymkb high school', logo:null, logoV:null, slides:[DEFAULT_SLIDE], pages:{} };
   async function loadSite(){
     const urls = [`https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${SITE_PATH}?t=${Date.now()}`, `${SITE_PATH}?t=${Date.now()}`];
     for(const u of urls){
@@ -242,8 +272,9 @@
     return {};
   }
   function rawUrl(path, v){ return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${path}?v=${v || ''}`; }
-  const siteRaw = await loadSite();
+  const siteRaw = await remoteP.site;
   const site = Object.assign({}, SITE_DEFAULTS, siteRaw);
+  Object.assign(colorMap, site.colors || {});
   if(!Array.isArray(site.slides) || !site.slides.length) site.slides = [DEFAULT_SLIDE];
   site.pages = site.pages || {};
 
@@ -298,28 +329,8 @@
   }
 
   /* ---------------- 그룹 파일 (data/groups/*.json): 기존 그룹을 덮어쓰거나 새 그룹을 추가 ---------------- */
-  const GROUP_DIR = 'data/groups';
   function slugOf(str){ return String(str || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''); }
-  async function fetchGroupFiles(){
-    try {
-      const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GROUP_DIR}?ref=${GH_BRANCH}`, { headers:{ Accept:'application/vnd.github+json' }, cache:'no-store' });
-      if(!res.ok) return {};
-      const entries = await res.json();
-      if(!Array.isArray(entries)) return {};
-      const files = entries.filter(e => e.type === 'file' && e.name.endsWith('.json') && !e.name.startsWith('_'));
-      const list = await Promise.all(files.map(async f => {
-        try {
-          const d = await (await fetch(`${f.download_url}?v=${f.sha}`)).json();
-          d._path = f.path; d.id = d.id || f.name.replace(/\.json$/, '');
-          return d;
-        } catch(e){ return null; }
-      }));
-      const map = {};
-      list.filter(g => g && g.name).forEach(g => { map[g.id] = g; });
-      return map;
-    } catch(e){ return {}; }
-  }
-  const groupFiles = await fetchGroupFiles();
+  const groupFiles = await remoteP.groups;
   const groupRename = {};
   groups.forEach(g => { g.id = slugOf(g.name) || ('g-' + Math.random().toString(36).slice(2, 7)); g.base = true; });
   Object.values(groupFiles).forEach(gf => {
@@ -328,10 +339,10 @@
     if(g){
       if(g.name !== gf.name) groupRename[g.name] = gf.name;
       ['name','concept','genre','fandom','intro','image','imageV'].forEach(k => { if(gf[k] !== undefined) g[k] = gf[k]; });
-      if(Array.isArray(gf.colors) && gf.colors.length) g.colors = gf.colors;
+      if(Array.isArray(gf.colors)) g.colors = gf.colors;
       g.file = gf;
     } else {
-      groups.push({ id:gf.id, name:gf.name, colors:Array.isArray(gf.colors) && gf.colors.length ? gf.colors : ['그레이'], concept:gf.concept || '', genre:gf.genre || '', fandom:gf.fandom || '', intro:gf.intro || '', image:gf.image || null, imageV:gf.imageV || null, members:[], manager:null, base:false, file:gf });
+      groups.push({ id:gf.id, name:gf.name, colors:Array.isArray(gf.colors) ? gf.colors : [], concept:gf.concept || '', genre:gf.genre || '', fandom:gf.fandom || '', intro:gf.intro || '', image:gf.image || null, imageV:gf.imageV || null, members:[], manager:null, base:false, file:gf });
     }
   });
 
@@ -386,6 +397,7 @@
 
   function groupThumbGradient(g){
     const hexes = g.colors.map(c => colorMap[c] || '#cccccc');
+    if(!hexes.length) return '#d9d9d6';
     return hexes.length > 1 ? `linear-gradient(135deg, ${hexes.join(', ')})` : hexes[0];
   }
 
@@ -436,26 +448,26 @@
     currentGroup = g;
     await ocReadyPromise;
     document.getElementById('gdTitle').textContent = g.name;
-    const colorsValue = g.colors.map(c => {
+    const colorsValue = (g.colors || []).map(c => {
       const hex = colorMap[c] || '#cccccc';
       const textColor = hex.toLowerCase() === '#ffffff' ? '#a8a69f' : hex;
-      return `<span class="gd-color-chip" style="color:${textColor}"><span class="gd-color-dot" style="background:${hex}"></span>${c}</span>`;
+      return `<span class="gd-color-chip" style="color:${textColor}"><span class="gd-color-dot" style="background:${hex}"></span>${esc(c)}</span>`;
     }).join('');
-    document.getElementById('gdTags').innerHTML = `
-      ${infoRow('컨셉', g.concept)}
-      ${infoRow('장르', g.genre)}
-      ${infoRow('팬덤명', g.fandom)}
-      ${infoRow('대표 컬러', colorsValue)}
-    `;
-    const introParts = [];
-    introParts.push(`${g.name}는` + (g.concept ? ` ${g.concept}을(를) 컨셉으로 하는` : '') + (g.genre ? ` ${g.genre} 기반` : '') + ` 그룹입니다.`);
-    introParts.push(`대표 컬러는 ${g.colors.join(', ')}입니다.`);
-    if(g.fandom) introParts.push(`팬덤명은 '${g.fandom}'입니다.`);
-    document.getElementById('gdIntro').textContent = g.intro ? g.intro : introParts.join(' ');
+    const tagRows = [];
+    if(g.concept) tagRows.push(infoRow('컨셉', esc(g.concept)));
+    if(g.genre) tagRows.push(infoRow('장르', esc(g.genre)));
+    if(g.fandom) tagRows.push(infoRow('팬덤명', esc(g.fandom)));
+    if(colorsValue) tagRows.push(infoRow('대표 컬러', colorsValue));
+    const tagsEl = document.getElementById('gdTags');
+    tagsEl.innerHTML = tagRows.join('');
+    tagsEl.style.display = tagRows.length ? '' : 'none';
+    const introEl = document.getElementById('gdIntro');
+    introEl.textContent = g.intro || '';
+    introEl.style.display = g.intro ? '' : 'none';
     document.getElementById('gdCharGallery').innerHTML = g.members.map(charCard).join('');
-    document.getElementById('gdManagerGallery').innerHTML = g.manager
-      ? charCard(g.manager)
-      : `<p style="color:var(--muted);font-size:12px;">등록된 매니저가 없습니다.</p>`;
+    document.getElementById('gdMembersSec').style.display = g.members.length ? '' : 'none';
+    document.getElementById('gdManagerGallery').innerHTML = g.manager ? charCard(g.manager) : '';
+    document.getElementById('gdManagerSec').style.display = g.manager ? '' : 'none';
     groupModal.classList.add('active');
   }
   document.getElementById('groupModalClose').addEventListener('click', () => groupModal.classList.remove('active'));
@@ -822,7 +834,8 @@
     if(t.includes('gif')) return 'gif';
     return 'jpg';
   }
-  function openCrop(file, onApply){
+  function openCrop(file, onApply, opts){
+    opts = opts || {};
     if(typeof Cropper === 'undefined'){
       // 자르기 도구를 못 불러오면 원본 그대로 쓴다.
       onApply(file, extOf(file));
@@ -834,7 +847,7 @@
       cropModal.classList.add('active');
       img.onload = () => {
         if(activeCropper) activeCropper.destroy();
-        activeCropper = new Cropper(img, { viewMode:1, autoCropArea:1, background:false, responsive:true });
+        activeCropper = new Cropper(img, { viewMode:1, autoCropArea:1, background:false, responsive:true, aspectRatio: opts.aspect || NaN });
       };
       img.src = reader.result;
     };
@@ -846,9 +859,11 @@
     fresh('cropReset').addEventListener('click', () => activeCropper && activeCropper.reset());
     fresh('cropApply').addEventListener('click', () => {
       if(!activeCropper) return;
-      activeCropper.getCroppedCanvas({ maxWidth:1600, maxHeight:1600, imageSmoothingQuality:'high' }).toBlob(b => { onApply(b, 'png'); closeCrop(); }, 'image/png');
+      activeCropper.getCroppedCanvas({ maxWidth:opts.aspect ? 1000 : 1600, maxHeight:opts.aspect ? 1000 : 1600, imageSmoothingQuality:'high' }).toBlob(b => { onApply(b, 'png'); closeCrop(); }, 'image/png');
     });
-    fresh('cropOriginal').addEventListener('click', () => { onApply(file, extOf(file)); closeCrop(); });
+    const origBtn = fresh('cropOriginal');
+    origBtn.style.display = opts.noOriginal ? 'none' : '';
+    origBtn.addEventListener('click', () => { onApply(file, extOf(file)); closeCrop(); });
     fresh('cropCancel').addEventListener('click', closeCrop);
   }
   function closeCrop(){
@@ -1125,7 +1140,6 @@
 
     document.getElementById('formBody').innerHTML = `
       <h2 class="form-title">${info ? '캐릭터 수정' : '캐릭터 추가'}</h2>
-      <p class="form-hint">저장하면 깃허브에 바로 올라가요. 처음이라면 먼저 저장 설정에서 토큰을 등록해 주세요.</p>
 
       <label class="f-row"><span>오너</span><select class="f-input" id="fOwner">${ownerOpts}</select></label>
       <div class="f-row"><span>템플릿</span>
@@ -1138,7 +1152,7 @@
         <div class="f-thumb" id="fThumb">${curImg ? `<img src="${esc(curImg)}" alt="" onerror="this.style.display='none'">` : ''}</div>
         <div>
           <input type="file" id="fImage" accept="image/*">
-          <p class="form-hint" id="fImageNote">파일을 고르면 확대/자르기 창이 열려요. 자르지 않고 원본 그대로 올릴 수도 있어요.</p>
+          <p class="form-hint" id="fImageNote"></p>
         </div>
       </div>
 
@@ -1275,25 +1289,26 @@
     pendingImage = null;
     const isEdit = !!g;
     let sel = g ? g.colors.slice() : [];
+    const newColors = {};
     const chipHtml = () => Object.keys(colorMap).map(c => {
       const on = sel.includes(c);
       return `<button type="button" class="color-pick${on ? ' on' : ''}" data-c="${esc(c)}"><span class="gd-color-dot" style="background:${colorMap[c]}"></span>${esc(c)}</button>`;
     }).join('');
     document.getElementById('formBody').innerHTML = `
       <h2 class="form-title">${isEdit ? '그룹 수정' : '그룹 추가'}</h2>
-      <p class="form-hint">저장하면 깃허브에 바로 올라가요. 처음이라면 먼저 저장 설정에서 토큰을 등록해 주세요.</p>
       ${fInput('이름', 'gName', g ? g.name : '')}
       ${fInput('컨셉', 'gConcept', g ? g.concept : '')}
       ${fInput('장르', 'gGenre', g ? g.genre : '')}
       ${fInput('팬덤명', 'gFandom', g ? g.fandom : '')}
-      <div class="f-row"><span>대표 컬러 (누른 순서대로 들어가요)</span><div class="color-picks" id="gColors">${chipHtml()}</div></div>
-      <div class="f-row"><span>소개 (비워 두면 자동으로 만들어져요)</span><textarea class="f-input" rows="3" id="gIntro">${esc(g ? g.intro : '')}</textarea></div>
+      <div class="f-row"><span>대표 컬러</span><div class="color-picks" id="gColors">${chipHtml()}</div>
+        <div class="f-inline color-add"><input class="f-input" id="gNewColorName" placeholder="새 색 이름"><input type="color" id="gNewColorHex" value="#8899aa"><button type="button" class="text-btn" id="gAddColor">색 추가</button></div></div>
+      <div class="f-row"><span>소개</span><textarea class="f-input" rows="3" id="gIntro">${esc(g ? g.intro : '')}</textarea></div>
       <div class="f-group">이미지</div>
       <div class="f-image">
         <div class="f-thumb square" id="fThumb">${g && g.image ? `<img src="${esc(groupImgSrc(g))}" alt="" onerror="this.style.display='none'">` : ''}</div>
         <div>
           <input type="file" id="fImage" accept="image/*">
-          <p class="form-hint" id="fImageNote">파일을 고르면 확대/자르기 창이 열려요. 그룹 카드는 정사각형(1:1)으로 보여요.</p>
+          <p class="form-hint" id="fImageNote"></p>
         </div>
       </div>
       <p class="form-error" id="formError"></p>
@@ -1305,18 +1320,27 @@
       sel = sel.includes(c) ? sel.filter(x => x !== c) : sel.concat([c]);
       document.getElementById('gColors').innerHTML = chipHtml();
     });
+    document.getElementById('gAddColor').addEventListener('click', () => {
+      const nm = document.getElementById('gNewColorName').value.trim();
+      const hx = document.getElementById('gNewColorHex').value;
+      if(!nm) return;
+      if(!colorMap[nm]){ colorMap[nm] = hx; newColors[nm] = hx; }
+      if(!sel.includes(nm)) sel.push(nm);
+      document.getElementById('gColors').innerHTML = chipHtml();
+      document.getElementById('gNewColorName').value = '';
+    });
     document.getElementById('fImage').addEventListener('change', (e) => {
       const f = e.target.files[0]; if(!f) return;
       openCrop(f, (blob, ext) => {
         pendingImage = { blob, ext };
         document.getElementById('fThumb').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`;
         document.getElementById('fImageNote').textContent = '새 이미지가 준비됐어요. 저장하면 올라가요.';
-      });
+      }, { aspect:1, noOriginal:true });
     });
-    document.getElementById('formSave').addEventListener('click', () => submitGroupForm(g, () => sel));
+    document.getElementById('formSave').addEventListener('click', () => submitGroupForm(g, () => sel, newColors));
   }
 
-  async function submitGroupForm(g, getSel){
+  async function submitGroupForm(g, getSel, newColors){
     const err = document.getElementById('formError');
     err.textContent = '';
     const name = document.getElementById('gName').value.trim();
@@ -1330,7 +1354,7 @@
       concept: document.getElementById('gConcept').value.trim(),
       genre: document.getElementById('gGenre').value.trim(),
       fandom: document.getElementById('gFandom').value.trim(),
-      colors: colors.length ? colors : (g ? g.colors : ['그레이']),
+      colors,
       intro: document.getElementById('gIntro').value.trim(),
       image: g ? g.image || null : null,
       imageV: g ? g.imageV || null : null
@@ -1338,6 +1362,10 @@
     const btn = document.getElementById('formSave');
     btn.disabled = true; btn.textContent = '저장 중...';
     try {
+      if(newColors && Object.keys(newColors).length){
+        const okc = await jsonChange(SITE_PATH, () => ({}), (d) => { d.colors = Object.assign(d.colors || {}, newColors); }, 'Add colors');
+        if(!okc) throw new Error('색 저장에 실패했어요');
+      }
       if(pendingImage){
         const imgPath = `ymkb_group_${id}.${pendingImage.ext}`;
         await ghPut(imgPath, await blobToBase64(pendingImage.blob), `Update group image: ${name}`);
@@ -1408,7 +1436,6 @@
     const grade = sec ? classes.find(g => g.sections.includes(sec)).grade : (classes[0] ? classes[0].grade : '');
     document.getElementById('formBody').innerHTML = `
       <h2 class="form-title">${sec ? '학급 수정' : '학급 추가'}</h2>
-      <p class="form-hint">저장하면 깃허브에 바로 올라가요. 처음이라면 먼저 저장 설정에서 토큰을 등록해 주세요.</p>
       <label class="f-row"><span>학년</span><input class="f-input" id="cGrade" list="gradeNames" value="${esc(grade)}" placeholder="예: 3학년"></label>
       <datalist id="gradeNames">${classes.map(g => `<option value="${esc(g.grade)}">`).join('')}</datalist>
       ${fInput('학급 이름', 'cId', sec ? sec.id : '', '예: 3-A')}
@@ -1495,14 +1522,13 @@
     };
     document.getElementById('formBody').innerHTML = `
       <h2 class="form-title">사이트 설정</h2>
-      <p class="form-hint">저장하면 깃허브에 바로 올라가요. 처음이라면 먼저 저장 설정에서 토큰을 등록해 주세요.</p>
       <div class="f-group">기본</div>
       ${fInput('제목', 'sTitle', site.title)}
       ${fInput('부제', 'sSub', site.subtitle)}
       ${fInput('YouTube 링크', 'sYt', site.youtube)}
       ${fInput('Soundcloud 링크', 'sSc', site.soundcloud)}
       ${fInput('맨 아래 문구', 'sFoot', site.footer)}
-      <div class="f-row"><span>로고 이미지 (비워 두면 그대로예요)</span>
+      <div class="f-row"><span>로고 이미지</span>
         <div class="f-image"><div class="f-thumb square" id="sLogoThumb">${site.logo ? `<img src="${esc(rawUrl(site.logo, site.logoV))}" alt="" onerror="this.style.display='none'">` : ''}</div><input type="file" id="sLogo" accept="image/*"></div>
       </div>
       <div class="f-group">메인 슬라이드</div>
@@ -1541,6 +1567,7 @@
           soundcloud: document.getElementById('sSc').value.trim(),
           footer: document.getElementById('sFoot').value.trim(),
           logo: site.logo || null, logoV: site.logoV || null,
+          colors: site.colors || {},
           slides: [], pages: {}
         };
         if(pendingLogo){
