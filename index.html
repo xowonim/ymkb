@@ -6,7 +6,7 @@
 <title>유메키보고등학교</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
-<link rel="stylesheet" href="css/style.css?v=6">
+<link rel="stylesheet" href="css/style.css?v=7">
 </head>
 <body>
 
@@ -27,15 +27,6 @@
     <button class="nav-btn" data-page="counsel">학생회</button>
     <button class="nav-btn" data-page="agency">기숙사</button>
     <button class="nav-btn" data-page="etc">ETC</button>
-  </div>
-
-  <div class="tool-row">
-    <button type="button" class="text-btn" id="addGroupBtn">그룹 추가</button>
-    <button type="button" class="text-btn" id="addCharBtn">캐릭터 추가</button>
-    <button type="button" class="text-btn" id="addClassBtn">학급 추가</button>
-    <button type="button" class="text-btn" id="tplBtn">템플릿 관리</button>
-    <button type="button" class="text-btn" id="siteBtn">사이트 설정</button>
-    <button type="button" class="text-btn" id="settingsBtn">저장 설정</button>
   </div>
 
   <!-- ================= MAIN PAGE ================= -->
@@ -125,7 +116,7 @@
     </div>
     <div class="char-gallery" id="gdManagerGallery"></div>
 
-    <div class="profile-actions">
+    <div class="profile-actions edit-only">
       <span></span>
       <span>
         <button type="button" class="text-btn" id="gdEdit">그룹 수정</button>
@@ -149,7 +140,7 @@
     </div>
     <div class="char-gallery cols-5" id="clGallery"></div>
 
-    <div class="profile-actions">
+    <div class="profile-actions edit-only">
       <span></span>
       <span>
         <button type="button" class="text-btn" id="clEdit">학급 수정</button>
@@ -164,6 +155,28 @@
   <div class="modal-box">
     <button class="modal-close" id="profileModalClose">&times;</button>
     <div class="profile-body" id="profileBody"></div>
+  </div>
+</div>
+
+<!-- ================= SETTINGS MENU ================= -->
+<button type="button" class="menu-fab" id="menuBtn">설정</button>
+<div class="modal-overlay" id="menuModal">
+  <div class="modal-box narrow">
+    <button class="modal-close" id="menuClose">&times;</button>
+    <h2 class="form-title">설정</h2>
+    <div class="menu-sec">편집</div>
+    <button type="button" class="menu-item" id="editModeBtn"><span>편집 모드</span><span id="editModeState">꺼짐</span></button>
+    <p class="form-hint">켜면 캐릭터, 그룹, 학급 창에 수정과 삭제 버튼이 보여요.</p>
+    <div class="menu-sec">추가</div>
+    <button type="button" class="menu-item" id="addGroupBtn">그룹 추가</button>
+    <button type="button" class="menu-item" id="addCharBtn">캐릭터 추가</button>
+    <button type="button" class="menu-item" id="addClassBtn">학급 추가</button>
+    <div class="menu-sec">관리</div>
+    <button type="button" class="menu-item" id="tplBtn">템플릿 관리</button>
+    <button type="button" class="menu-item" id="siteBtn">사이트 설정</button>
+    <button type="button" class="menu-item" id="ocStatusBtn">oc 연동 상태</button>
+    <div class="menu-sec">저장</div>
+    <button type="button" class="menu-item" id="settingsBtn">저장 설정 (토큰)</button>
   </div>
 </div>
 
@@ -209,6 +222,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
-<script src="js/app.js?v=6"></script>
+<script src="js/app.js?v=7"></script>
 </body>
 </html>
