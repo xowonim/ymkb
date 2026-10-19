@@ -125,6 +125,23 @@
     }
     return res;
   }
+  // 방금 올린 이미지는 깃허브에 퍼지기까지 몇 초 걸릴 수 있어서, 올린 직후에는 내 브라우저가 가진 사본을 먼저 보여준다.
+  function freshImg(path){
+    try { const j = JSON.parse(sessionStorage.getItem('ymkb_img_' + path)); if(j && Date.now() - j.t < 600000) return j.u; } catch(e){}
+    return null;
+  }
+  function rememberImg(path, base64){
+    const ext = (path.split('.').pop() || 'png').toLowerCase();
+    const mime = ext === 'jpg' ? 'image/jpeg' : 'image/' + ext;
+    try { sessionStorage.setItem('ymkb_img_' + path, JSON.stringify({ t:Date.now(), u:`data:${mime};base64,${base64}` })); } catch(e){}
+  }
+  // 이미지가 바로 안 뜨면 숨기지 않고 몇 번 다시 불러본다.
+  window.__imgErr = function(img){
+    const n = (+img.dataset.try || 0) + 1; img.dataset.try = n;
+    if(n > 4){ img.style.display = 'none'; return; }
+    if(!img.dataset.base) img.dataset.base = img.src;
+    setTimeout(() => { img.src = img.dataset.base + (img.dataset.base.includes('?') ? '&' : '?') + 'r=' + n; }, 1500 * n);
+  };
   function cacheGet(k){ try { return JSON.parse(localStorage.getItem('ymkb_cache_' + k)); } catch(e){ return null; } }
   function cacheSet(k, v){ try { localStorage.setItem('ymkb_cache_' + k, JSON.stringify(v)); } catch(e){} }
 
@@ -326,7 +343,7 @@
       throw new Error('site');
     }).then(v => v || {});
   }
-  function rawUrl(path, v){ return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${path}?v=${v || ''}`; }
+  function rawUrl(path, v){ const f = freshImg(path); if(f) return f; return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${path}?v=${v || ''}`; }
   const siteRaw = await remoteP.site;
   const site = Object.assign({}, SITE_DEFAULTS, siteRaw);
   Object.assign(colorMap, site.colors || {});
@@ -360,7 +377,7 @@
     if(links[0]) links[0].href = site.youtube;
     if(links[1]) links[1].href = site.soundcloud;
     document.querySelector('footer').textContent = site.footer;
-    if(site.logo) document.querySelector('.logo').innerHTML = `<img src="${esc(rawUrl(site.logo, site.logoV))}" alt="" onerror="this.style.display='none'">`;
+    if(site.logo) document.querySelector('.logo').innerHTML = `<img src="${esc(rawUrl(site.logo, site.logoV))}" alt="" onerror="window.__imgErr(this)">`;
     PAGE_KEYS.forEach(([k, label]) => {
       const box = document.querySelector(`#page-${k} .placeholder`);
       const pg = site.pages[k];
@@ -463,6 +480,7 @@
     const ocPath = oc && (oc.image || oc.profileImage);
     if(ocPath) return ocAssetUrl(ocPath);
     const cf = charFiles[name];
+    if(cf && cf.image){ const f = freshImg(cf.image); if(f) return f; }
     if(cf && cf.image) return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${cf.image}?v=${cf.imageV || ''}`;
     return file ? `ymkb_icon_${file}.png` : '';
   }
@@ -476,6 +494,7 @@
   }
 
   function groupImgSrc(g){
+    const f = freshImg(g.image); if(f) return f;
     return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${g.image}?v=${g.imageV || ''}`;
   }
 
@@ -488,7 +507,7 @@
     card.className = 'photo-card ratio-1x1';
     const meta = [g.concept, g.genre].filter(Boolean).join(' · ');
     card.innerHTML = `
-      <div class="p-thumb" style="background:${groupThumbGradient(g)}">${g.image ? `<img src="${esc(groupImgSrc(g))}" alt="" onerror="this.style.display='none'">` : ''}</div>
+      <div class="p-thumb" style="background:${groupThumbGradient(g)}">${g.image ? `<img src="${esc(groupImgSrc(g))}" alt="" onerror="window.__imgErr(this)">` : ''}</div>
       <div class="p-overlay">
         <div class="p-cat">${esc(meta)}</div>
         <div class="p-name">${esc(g.name)}</div>
@@ -505,7 +524,7 @@
     return `
       <div class="photo-card ratio-3x4" data-name="${member.name}">
         <div class="p-thumb" style="background:${colorGradient(hex)}">
-          <img src="${imgSrc}" alt="${member.name}" onerror="this.style.display='none'">
+          <img src="${imgSrc}" alt="${member.name}" onerror="window.__imgErr(this)">
         </div>
         <div class="p-overlay">
           <div class="p-cat">${roleTxt}</div>
@@ -628,7 +647,7 @@
     return `
       <div class="photo-card ratio-3x4" data-name="${r.name}">
         <div class="p-thumb" style="background:${colorGradient(hex)}">
-          ${imgSrc ? `<img src="${imgSrc}" alt="${r.name}" onerror="this.style.display='none'">` : ''}
+          ${imgSrc ? `<img src="${imgSrc}" alt="${r.name}" onerror="window.__imgErr(this)">` : ''}
         </div>
         <div class="p-overlay">
           <div class="p-cat">${sub}</div>
@@ -676,7 +695,7 @@
       <div class="profile-photo-wrap">
         <div class="photo-card ratio-3x4">
           <div class="p-thumb" style="background:${colorGradient(hex)}">
-            ${imgSrc ? `<img src="${imgSrc}" alt="${info.name}" onerror="this.style.display='none'">` : ''}
+            ${imgSrc ? `<img src="${imgSrc}" alt="${info.name}" onerror="window.__imgErr(this)">` : ''}
           </div>
         </div>
       </div>`;
@@ -885,6 +904,7 @@
             body: JSON.stringify({ message, content:base64, branch:GH_BRANCH, ...(sha ? { sha } : {}) })
           });
           if(!res.ok) throw httpError(res, await res.json().catch(() => ({})), '저장 실패');
+          if(!path.endsWith('.json')) rememberImg(path, base64);
           if(path.endsWith('.json')){ try { cacheTouch(path, JSON.parse(b64DecodeUnicode(base64))); } catch(e){} }
           return res.json();
         } catch(err){
@@ -1277,7 +1297,7 @@
 
       <div class="f-group">이미지</div>
       <div class="f-image">
-        <div class="f-thumb" id="fThumb">${curImg ? `<img src="${esc(curImg)}" alt="" onerror="this.style.display='none'">` : ''}</div>
+        <div class="f-thumb" id="fThumb">${curImg ? `<img src="${esc(curImg)}" alt="" onerror="window.__imgErr(this)">` : ''}</div>
         <div>
           <input type="file" id="fImage" accept="image/*">
           <p class="form-hint" id="fImageNote"></p>
@@ -1434,7 +1454,7 @@
       <div class="f-row"><span>소개</span><textarea class="f-input" rows="3" id="gIntro">${esc(g ? g.intro : '')}</textarea></div>
       <div class="f-group">이미지</div>
       <div class="f-image">
-        <div class="f-thumb square" id="fThumb">${g && g.image ? `<img src="${esc(groupImgSrc(g))}" alt="" onerror="this.style.display='none'">` : ''}</div>
+        <div class="f-thumb square" id="fThumb">${g && g.image ? `<img src="${esc(groupImgSrc(g))}" alt="" onerror="window.__imgErr(this)">` : ''}</div>
         <div>
           <input type="file" id="fImage" accept="image/*">
           <p class="form-hint" id="fImageNote"></p>
@@ -1650,7 +1670,7 @@
     let pendingLogo = null;
     let slides = site.slides.map(x => Object.assign({}, x));
     const slideHtml = (sl, i) => `<div class="slide-row" data-i="${i}">
-      <div class="f-thumb wide">${sl.pendingUrl ? `<img src="${sl.pendingUrl}" alt="">` : (sl.image ? `<img src="${esc(rawUrl(sl.image, sl.imageV))}" alt="" onerror="this.style.display='none'">` : '')}</div>
+      <div class="f-thumb wide">${sl.pendingUrl ? `<img src="${sl.pendingUrl}" alt="">` : (sl.image ? `<img src="${esc(rawUrl(sl.image, sl.imageV))}" alt="" onerror="window.__imgErr(this)">` : '')}</div>
       <div class="slide-fields">
         <input class="f-input" data-s="title" placeholder="슬라이드 제목" value="${esc(sl.title || '')}">
         <input class="f-input" data-s="date" placeholder="날짜 (선택)" value="${esc(sl.date || '')}">
@@ -1683,7 +1703,7 @@
       ${fInput('Soundcloud 링크', 'sSc', site.soundcloud)}
       ${fInput('맨 아래 문구', 'sFoot', site.footer)}
       <div class="f-row"><span>로고 이미지</span>
-        <div class="f-image"><div class="f-thumb square" id="sLogoThumb">${site.logo ? `<img src="${esc(rawUrl(site.logo, site.logoV))}" alt="" onerror="this.style.display='none'">` : ''}</div><input type="file" id="sLogo" accept="image/*"></div>
+        <div class="f-image"><div class="f-thumb square" id="sLogoThumb">${site.logo ? `<img src="${esc(rawUrl(site.logo, site.logoV))}" alt="" onerror="window.__imgErr(this)">` : ''}</div><input type="file" id="sLogo" accept="image/*"></div>
       </div>
       <div class="f-group">메인 슬라이드</div>
       <div id="sSlides"></div>
