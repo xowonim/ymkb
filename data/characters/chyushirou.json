@@ -5,11 +5,14 @@
   "group": "Lotus",
   "role": "리더",
   "color": null,
-  "owner": "",
-  "template": "t_dowon",
+  "owner": "세잇",
+  "template": "t_seit",
   "clubHead": false,
   "classFlags": [],
   "image": null,
   "imageV": null,
-  "fields": {}
+  "fields": {
+    "f_1790459852228": "Sinohara Chusiro",
+    "f_1792438847898": "篠原 中史郎"
+  }
 }
