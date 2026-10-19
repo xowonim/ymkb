@@ -1160,6 +1160,11 @@
       throw lastErr;
     });
   }
+  // 지운 파일은 이 브라우저가 기억하던 사본(저장 내용, 방금 올린 이미지)도 함께 지운다.
+  function forgetLocal(path){
+    if(path.endsWith('.json')) cacheTouch(path, null);
+    else { try { sessionStorage.removeItem('ymkb_img_' + assetPath(path)); sessionStorage.removeItem('ymkb_img_' + path); } catch(e){} }
+  }
   function ghDelete(path, message){
     return queued(async () => {
       const token = getToken();
@@ -1168,14 +1173,14 @@
       for(let attempt = 0; attempt < 8; attempt++){
         try {
           const sha = await getFileSha(path);
-          if(!sha) return;
+          if(!sha){ forgetLocal(path); return; }
           const res = await fetch(apiBase + path, {
             method:'DELETE',
             headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' },
             body: JSON.stringify({ message, sha, branch:GH_BRANCH })
           });
           if(!res.ok) throw httpError(res, await res.json().catch(() => ({})), '삭제 실패');
-          if(path.endsWith('.json')) cacheTouch(path, null);
+          forgetLocal(path);
           return;
         } catch(err){
           lastErr = err;
