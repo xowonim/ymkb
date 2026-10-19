@@ -4,7 +4,7 @@
   --surface-2: #f7f7f5;
   --ink: #232323;
   --muted: #9a9a9a;
-  --accent: #a28bd8;
+  --accent: #9B85AD;
   --line: #ececea;
   --radius: 16px;
 }
@@ -508,9 +508,9 @@ textarea.f-input{ resize:vertical; line-height:1.6; }
 /* ---------- Settings menu / edit mode ---------- */
 .tool-row{ display:none; }
 .fab-group{ position:fixed; right:18px; bottom:18px; z-index:50; display:flex; align-items:center; gap:10px; }
-.menu-fab{ width:46px; height:46px; border-radius:50%; background:#fff; border:1px solid var(--line); box-shadow:0 4px 14px rgba(60,40,110,0.16); color:var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
+.menu-fab{ width:46px; height:46px; border-radius:50%; background:#fff; border:1px solid var(--line); box-shadow:0 4px 14px rgba(70,55,85,0.16); color:var(--ink); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
 .menu-fab:hover{ color:var(--accent); border-color:var(--accent); }
-.edit-pill{ display:none; background:var(--accent); color:#fff; border:none; border-radius:999px; padding:11px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; box-shadow:0 4px 14px rgba(120,90,200,0.35); }
+.edit-pill{ display:none; background:var(--accent); color:#fff; border:none; border-radius:999px; padding:11px 18px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; box-shadow:0 4px 14px rgba(155,133,173,0.4); }
 body.edit-mode .edit-pill{ display:block; }
 .menu-sec{ font-size:11.5px; font-weight:700; letter-spacing:0.06em; color:var(--muted); margin:22px 0 6px; }
 .menu-item{ display:flex; justify-content:space-between; align-items:center; width:100%; text-align:left; background:none; border:none; border-bottom:1px solid var(--line); padding:12px 2px; font-size:13.5px; color:var(--ink); cursor:pointer; font-family:inherit; }
