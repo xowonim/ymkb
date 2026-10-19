@@ -461,30 +461,35 @@
   // 이름·그룹·역할·컬러를 덮어쓰고, 처음 보는 캐릭터는 지정한 그룹에 추가한다. 역할이 '매니저'면 매니저 칸으로 간다.
   const renames = {};
   const deletedNames = new Set();
-  groups.forEach(g => { g.members.forEach(m => { m.base = true; }); if(g.manager) g.manager.base = true; });
+  // 예전에 groups.json에 적어 둔 역할과 매니저 설정은 쓰지 않는다. 역할은 캐릭터 프로필의 체크박스(리더/매니저)로만 정한다.
+  groups.forEach(g => {
+    if(g.manager){ g.members.push(g.manager); g.manager = null; }
+    g.members.forEach(m => { m.base = true; m.role = ''; });
+  });
   Object.values(charFiles).forEach(c => {
-    let gi = -1, mi = -1, wasMgr = false, old = null;
+    let gi = -1, mi = -1, old = null;
     groups.forEach((g, i) => {
-      g.members.forEach((m, j) => { if((m.file && m.file === c.id) || m.name === c.name){ gi = i; mi = j; wasMgr = false; old = m; } });
-      if(g.manager && ((g.manager.file && g.manager.file === c.id) || g.manager.name === c.name)){ gi = i; mi = -1; wasMgr = true; old = g.manager; }
+      g.members.forEach((m, j) => { if((m.file && m.file === c.id) || m.name === c.name){ gi = i; mi = j; old = m; } });
     });
     if(c.deleted){
-      if(old){ if(wasMgr) groups[gi].manager = null; else groups[gi].members.splice(mi, 1); deletedNames.add(old.name); }
+      if(old){ groups[gi].members.splice(mi, 1); deletedNames.add(old.name); }
       return;
     }
     const gname = groupRename[c.group] || c.group;
-    const target = groups.find(x => x.name === gname) || (gi >= 0 ? groups[gi] : null);
-    if(!target) return;
+    const target = groups.find(x => x.name === gname) || (gi >= 0 && !c.group ? groups[gi] : null);
+    if(!target){
+      // 그룹명이 비었거나 맞지 않으면 그룹 소속에서는 빠진다.
+      if(old){ groups[gi].members.splice(mi, 1); if(old.name !== c.name) renames[old.name] = c.name; }
+      return;
+    }
     const entry = { name:c.name, role:c.role || '', color:c.color || null, file:c.id, base:!!(old && old.base) };
-    const isMgr = entry.role === '매니저' && (!target.manager || target.manager === old);
     let keepIndex = -1;
     if(old){
       if(old.name !== c.name) renames[old.name] = c.name;
-      if(wasMgr) groups[gi].manager = null;
-      else { groups[gi].members.splice(mi, 1); if(groups[gi] === target) keepIndex = mi; }
+      groups[gi].members.splice(mi, 1);
+      if(groups[gi] === target) keepIndex = mi;
     }
-    if(isMgr) target.manager = entry;
-    else if(keepIndex >= 0) target.members.splice(keepIndex, 0, entry);
+    if(keepIndex >= 0) target.members.splice(keepIndex, 0, entry);
     else target.members.push(entry);
   });
   Object.keys(charFiles).forEach(k => { if(charFiles[k].deleted) delete charFiles[k]; });
@@ -646,13 +651,22 @@
     introEl.textContent = g.intro || '';
     introEl.style.display = g.intro ? '' : 'none';
     g.members = applyOrder(g.members, m => m.name, 'members:' + g.id);
-    document.getElementById('gdCharGallery').innerHTML = g.members.map(charCard).join('');
-    document.getElementById('gdMembersSec').style.display = g.members.length ? '' : 'none';
-    document.getElementById('gdManagerGallery').innerHTML = g.manager ? charCard(g.manager) : '';
-    document.getElementById('gdManagerSec').style.display = g.manager ? '' : 'none';
+    const plain = g.members.filter(m => m.role !== '매니저');
+    plain.sort((a, b) => (b.role === '리더' ? 1 : 0) - (a.role === '리더' ? 1 : 0));
+    const mgrs = g.members.filter(m => m.role === '매니저');
+    document.getElementById('gdCharGallery').innerHTML = plain.map(charCard).join('');
+    document.getElementById('gdMembersSec').style.display = plain.length ? '' : 'none';
+    document.getElementById('gdManagerGallery').innerHTML = mgrs.map(charCard).join('');
+    document.getElementById('gdManagerSec').style.display = mgrs.length ? '' : 'none';
     groupModal.classList.add('active');
   }
-  makeSortable(document.getElementById('gdCharGallery'), '.photo-card', (items) => { if(currentGroup) saveOrder('members:' + currentGroup.id, items.map(c => c.dataset.name)); });
+  const saveMemberOrder = () => {
+    if(!currentGroup) return;
+    const names = [...document.querySelectorAll('#gdCharGallery .photo-card, #gdManagerGallery .photo-card')].map(c => c.dataset.name);
+    saveOrder('members:' + currentGroup.id, names);
+  };
+  makeSortable(document.getElementById('gdCharGallery'), '.photo-card', saveMemberOrder);
+  makeSortable(document.getElementById('gdManagerGallery'), '.photo-card', saveMemberOrder);
   document.getElementById('groupModalClose').addEventListener('click', () => groupModal.classList.remove('active'));
   groupModal.addEventListener('click', (e) => { if(e.target === groupModal) groupModal.classList.remove('active'); });
 
@@ -664,9 +678,6 @@
     g.members.forEach(m => {
       masterCharacters[m.name] = { name:m.name, color:m.color, file:m.file, group:g.name, role:m.role, base:!!m.base };
     });
-    if(g.manager){
-      masterCharacters[g.manager.name] = { name:g.manager.name, color:g.manager.color, file:g.manager.file, group:g.name, role:g.manager.role, base:!!g.manager.base };
-    }
   });
 
   // 그룹이 없거나 그룹명이 맞지 않는 캐릭터도 사라지지 않게 함께 등록한다.
@@ -679,7 +690,6 @@
   classes.forEach(g => g.sections.forEach(sec => sec.roster.forEach(r => {
     if(masterCharacters[r.name]){
       masterCharacters[r.name].classId = sec.id;
-      masterCharacters[r.name].officer = r.officer || null;
     }
   })));
 
@@ -707,6 +717,7 @@
     masterCharacters[name].fieldsOwn = cf.fields || {};
     masterCharacters[name].template = cf.template || '';
     masterCharacters[name].clubHead = !!cf.clubHead;
+    masterCharacters[name].classFlags = Array.isArray(cf.classFlags) ? cf.classFlags : [];
   });
   // oc 저장소에서 자동으로 불러오는 것은 오너가 호원인 캐릭터만 해당한다.
   const ocSkipped = [];
@@ -789,7 +800,7 @@
   function rosterCard(r){
     const info = masterCharacters[r.name] || {};
     const hex = colorMap[info.color] || '#b7b7b7';
-    const sub = r.officer || '';
+    const sub = (info.classFlags || []).join(', ');
     const imgSrc = imgSrcFor(r.name, info.file);
     return `
       <div class="photo-card ratio-3x4" data-name="${r.name}">
@@ -939,7 +950,7 @@
 
   function renderProfile(info){
     const groupTxt = info.group ? `${info.group}${info.role ? ' (' + info.role + ')' : ''}` : '-';
-    const classTxt = info.classId ? `${info.classId}${info.officer ? ' (' + info.officer + ')' : ''}` : '-';
+    const classTxt = info.classId ? `${info.classId}${(info.classFlags || []).length ? ' (' + info.classFlags.join(', ') + ')' : ''}` : '-';
     return `
       ${photoBlock(info)}
       <div class="profile-top-info">
@@ -1409,12 +1420,25 @@
     return vals;
   }
 
+  const CLASS_FLAGS = ['회장', '부회장', '복학생', '편입생'];
   function renderDynamic(tpl, values){
     const box = document.getElementById('fDynamic');
     const prev = document.getElementById('fClubHead');
     const head = prev ? prev.checked : !!(formInfo && formInfo.clubHead);
-    box.innerHTML = tpl.fields.filter(f => !f.core).map(f => `<div class="f-row"><span>${esc(f.label)}</span>${widgetHtml(f, values[f.key])}${f.label === '동아리' ? `<div class="f-checks"><label class="f-check"><input type="checkbox" id="fClubHead" ${head ? 'checked' : ''}><span>부장</span></label></div>` : ''}</div>`).join('');
+    const prevFlags = [...document.querySelectorAll('#fDynamic [data-cflag]:checked')].map(x => x.dataset.cflag);
+    const flags = document.querySelector('#fDynamic [data-cflag]') ? prevFlags : ((formInfo && formInfo.classFlags) || []);
+    box.innerHTML = tpl.fields.filter(f => !f.core).map(f => {
+      let extra = '';
+      if(f.label === '동아리') extra = `<div class="f-checks"><label class="f-check"><input type="checkbox" id="fClubHead" ${head ? 'checked' : ''}><span>부장</span></label></div>`;
+      if(f.label === '학급') extra = `<div class="f-checks">${CLASS_FLAGS.map(fl => `<label class="f-check"><input type="checkbox" data-cflag="${fl}" ${flags.includes(fl) ? 'checked' : ''}><span>${fl}</span></label>`).join('')}</div>`;
+      return `<div class="f-row"><span>${esc(f.label)}</span>${widgetHtml(f, values[f.key])}${extra}</div>`;
+    }).join('');
     wireWidgets(box, tpl, values);
+    box.querySelectorAll('[data-cflag]').forEach(c => c.addEventListener('change', () => {
+      if(!c.checked) return;
+      const pairs = { '회장':'부회장', '부회장':'회장', '복학생':'편입생', '편입생':'복학생' };
+      const o = box.querySelector(`[data-cflag="${pairs[c.dataset.cflag]}"]`); if(o) o.checked = false;
+    }));
   }
 
   function tplOptionsHtml(selectedId){
@@ -1456,7 +1480,7 @@
 
       <div class="f-group">GROUP</div>
       <label class="f-row"><span>그룹명</span><input class="f-input" id="fGroup" list="fGroupNames" value="${esc(info ? info.group : '')}" autocomplete="off"></label>
-      <datalist id="fGroupNames">${groups.map(g => `<option value="${esc(g.name)}">`).join('')}</datalist>
+      <datalist id="fGroupNames">${groups.map(g => g.name).sort((a, b) => a.localeCompare(b, 'ko')).map(n => `<option value="${esc(n)}">`).join('')}</datalist>
       <div class="f-row"><span>역할</span><div class="f-checks">
         <label class="f-check"><input type="checkbox" id="fRoleLeader" ${role0 === '리더' ? 'checked' : ''}><span>리더</span></label>
         <label class="f-check"><input type="checkbox" id="fRoleManager" ${role0 === '매니저' ? 'checked' : ''}><span>매니저</span></label>
@@ -1533,6 +1557,7 @@
       owner: document.getElementById('fOwner').value,
       template: formTpl.id,
       clubHead: !!(document.getElementById('fClubHead') && document.getElementById('fClubHead').checked),
+      classFlags: [...document.querySelectorAll('#fDynamic [data-cflag]:checked')].map(x => x.dataset.cflag),
       image: prev.image || null,
       imageV: prev.imageV || null,
       fields
@@ -1696,7 +1721,7 @@
 
   async function deleteGroup(g){
     if(!getToken()){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return; }
-    const n = g.members.length + (g.manager ? 1 : 0);
+    const n = g.members.length;
     if(!confirm(`"${g.name}" 그룹을 삭제할까요?${n ? `\n소속된 캐릭터 ${n}명도 이 그룹과 함께 보이지 않게 돼요.` : ''}`)) return;
     try {
       if(g.base){
@@ -1750,11 +1775,8 @@
   }
 
   /* ----- 학급 추가 / 수정 / 삭제 (data/classes.json) ----- */
-  const ROSTER_FLAGS = ['회장', '부회장', '복학생', '편입생'];
   function rosterRowHtml(r){
-    const have = String(r.officer || '').split(',').map(x => x.trim()).filter(Boolean);
-    const extra = have.filter(x => !ROSTER_FLAGS.includes(x)).join(', ');
-    return `<div class="tpl-row roster-row" data-extra="${esc(extra)}"><input class="f-input" list="charNames" data-r="name" placeholder="학생 이름" value="${esc(r.name || '')}"><span class="roster-flags">${ROSTER_FLAGS.map(fl => `<label class="f-check"><input type="checkbox" data-flag="${fl}" ${have.includes(fl) ? 'checked' : ''}><span>${fl}</span></label>`).join('')}</span><button type="button" class="text-btn danger" data-rdel>삭제</button></div>`;
+    return `<div class="tpl-row roster-row"><input class="f-input" list="charNames" data-r="name" placeholder="학생 이름" value="${esc(r.name || '')}"><button type="button" class="x-btn" data-rdel title="삭제" aria-label="삭제">&times;</button></div>`;
   }
   function openClassForm(sec){
     const grade = sec ? classes.find(g => g.sections.includes(sec)).grade : (classes[0] ? classes[0].grade : '');
@@ -1765,7 +1787,7 @@
       ${fInput('학급 이름', 'cId', sec ? sec.id : '', '예: 3-A')}
       ${fInput('담당 교사', 'cTeacher', sec ? sec.teacher : '')}
       <div class="f-group">학생 명단</div>
-      <datalist id="charNames">${Object.keys(masterCharacters).map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+      <datalist id="charNames">${Object.keys(masterCharacters).sort((a, b) => a.localeCompare(b, 'ko')).map(n => `<option value="${esc(n)}">`).join('')}</datalist>
       <div id="cRoster">${(sec ? sec.roster : []).map(rosterRowHtml).join('')}</div>
       <button type="button" class="text-btn" id="cAddRow">+ 학생 추가</button>
       <p class="form-error" id="formError"></p>
@@ -1773,12 +1795,6 @@
     formModal.classList.add('active');
     document.getElementById('cAddRow').addEventListener('click', () => document.getElementById('cRoster').insertAdjacentHTML('beforeend', rosterRowHtml({})));
     document.getElementById('cRoster').addEventListener('click', (e) => { const b = e.target.closest('[data-rdel]'); if(b) b.closest('.tpl-row').remove(); });
-    document.getElementById('cRoster').addEventListener('change', (e) => {
-      const c = e.target.closest('[data-flag]'); if(!c || !c.checked) return;
-      const pairs = { '회장':'부회장', '부회장':'회장', '복학생':'편입생', '편입생':'복학생' };
-      const other = c.closest('.tpl-row').querySelector(`[data-flag="${pairs[c.dataset.flag]}"]`);
-      if(other) other.checked = false;
-    });
     document.getElementById('formSave').addEventListener('click', async () => {
       const err = document.getElementById('formError'); err.textContent = '';
       const g = document.getElementById('cGrade').value.trim();
@@ -1788,9 +1804,7 @@
       if(classes.some(x => x.sections.some(s => s.id === id && s !== sec))){ err.textContent = '같은 이름의 학급이 이미 있어요.'; return; }
       const roster = [...document.querySelectorAll('#cRoster .roster-row')].map(row => {
         const n = row.querySelector('[data-r=name]').value.trim();
-        const flags = [...row.querySelectorAll('[data-flag]:checked')].map(x => x.dataset.flag);
-        const o = [row.dataset.extra || '', ...flags].filter(Boolean).join(', ');
-        return n ? (o ? { name:n, officer:o } : { name:n }) : null;
+        return n ? { name:n } : null;
       }).filter(Boolean);
       const btn = document.getElementById('formSave'); btn.disabled = true; btn.textContent = '저장 중...';
       const origId = sec ? sec.id : null;
