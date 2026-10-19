@@ -128,10 +128,32 @@
   function cacheGet(k){ try { return JSON.parse(localStorage.getItem('ymkb_cache_' + k)); } catch(e){ return null; } }
   function cacheSet(k, v){ try { localStorage.setItem('ymkb_cache_' + k, JSON.stringify(v)); } catch(e){} }
 
-  async function fetchJsonDir(dir, cacheKey, idFrom){
+  // 캐시가 있으면 바로 보여주고, 뒤에서 최신 내용을 확인한다. 달라졌을 때만 한 번 새로 고친다.
+  const stripSha = (v) => JSON.stringify(v, (k, x) => k === '_sha' ? undefined : x);
+  function canAutoReload(){
+    if(document.querySelector('.modal-overlay.active')) return false;
     try {
+      const t = +sessionStorage.getItem('ymkb_rl') || 0;
+      if(Date.now() - t < 15000) return false;
+      sessionStorage.setItem('ymkb_rl', String(Date.now()));
+    } catch(e){ return false; }
+    return true;
+  }
+  function swr(key, fetcher){
+    const cached = cacheGet(key);
+    const before = cached !== null ? stripSha(cached) : null;
+    const live = fetcher().then((v) => {
+      if(v === undefined || v === null) return cached;
+      cacheSet(key, v);
+      if(before !== null && stripSha(v) !== before && canAutoReload()) window.location.reload();
+      return v;
+    }).catch((err) => { console.warn(key + ' 를 불러오지 못했어요.', err); return cached; });
+    return cached !== null ? Promise.resolve(cached) : live;
+  }
+  function fetchJsonDir(dir, cacheKey, idFrom){
+    return swr(cacheKey, async () => {
       const res = await ghGet(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${dir}?ref=${GH_BRANCH}`);
-      if(res.status === 404){ cacheSet(cacheKey, {}); return {}; }
+      if(res.status === 404) return {};
       if(!res.ok) throw new Error('목록 실패 ' + res.status);
       const entries = await res.json();
       if(!Array.isArray(entries)) throw new Error('형식 오류');
@@ -145,21 +167,44 @@
       }));
       const map = {};
       list.filter(c => c && c.name).forEach(c => { map[idFrom(c)] = c; });
-      cacheSet(cacheKey, map);
       return map;
-    } catch(err){
-      console.warn(dir + ' 를 불러오지 못해 저장된 이전 내용을 사용해요.', err);
-      return cacheGet(cacheKey) || {};
-    }
+    }).then(v => v || {});
+  }
+  // 저장하자마자 화면에 반영되도록, 저장한 내용을 캐시에도 바로 넣어 둔다.
+  function cacheTouch(path, obj){
+    try {
+      const isChar = path.startsWith(CHAR_DIR + '/'), isGroup = path.startsWith(GROUP_DIR + '/');
+      if(isChar || isGroup){
+        const key = isChar ? 'chars' : 'groups';
+        const map = cacheGet(key) || {};
+        Object.keys(map).forEach(k => { if(map[k]._path === path) delete map[k]; });
+        if(obj && obj.name){
+          obj._path = path;
+          obj.id = obj.id || path.split('/').pop().replace(/\.json$/, '');
+          map[isChar ? obj.name : obj.id] = obj;
+        }
+        cacheSet(key, map);
+      } else if(path === TEMPLATE_PATH){ if(Array.isArray(obj)) cacheSet('templates', obj); }
+      else if(path === SITE_PATH){ if(obj && typeof obj === 'object') cacheSet('site', obj); }
+      else if(path === 'data/classes.json'){ if(Array.isArray(obj)) cacheSet('classes', obj); }
+    } catch(e){}
   }
   function fetchOwnCharacters(){ return fetchJsonDir(CHAR_DIR, 'chars', c => c.name); }
   function fetchGroupFiles(){ return fetchJsonDir(GROUP_DIR, 'groups', g => g.id); }
 
+  function loadClasses(){
+    return swr('classes', async () => {
+      for(const u of [`https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/data/classes.json?t=${Date.now()}`, `data/classes.json?t=${Date.now()}`]){
+        try { const r = await fetch(u, { cache:'no-store' }); if(r.ok){ const j = await r.json(); if(Array.isArray(j)) return j; } } catch(e){}
+      }
+      throw new Error('classes');
+    }).then(v => v || fetch('data/classes.json').then(r => r.json()));
+  }
   // 서로 기다리지 않도록, 필요한 원격 데이터를 한꺼번에 먼저 요청한다.
   const remoteP = {
     data: Promise.all([
       fetch('data/groups.json').then((r) => r.json()),
-      fetch('data/classes.json').then((r) => r.json()),
+      loadClasses(),
       fetch('data/profiles.json').then((r) => r.json())
     ]),
     chars: fetchOwnCharacters(),
@@ -232,7 +277,15 @@
 
   // 그룹/학급 상세나 프로필을 열 때, oc 데이터를 다 가져올 때까지만 살짝 기다린다.
   // (보통 클릭하기 전에 이미 끝나있어서 체감되는 지연은 없다.)
-  const ocReadyPromise = fetchOcYmkbCharacters().then((map) => { ocOverrides = map; });
+  const ocCached = cacheGet('oc');
+  const ocLive = fetchOcYmkbCharacters().then((map) => { ocOverrides = map; return map; });
+  if(ocCached && ocCached.byName){
+    ocOverrides = ocCached.byName; ocFields = ocCached.fields || [];
+    ocStatus.cached = true; ocStatus.charCount = Object.keys(ocCached.byName).length;
+  }
+  const ocBefore = ocCached ? stripSha(ocCached.byName) : null;
+  const ocReadyPromise = (ocCached && ocCached.byName ? Promise.resolve() : ocLive.then(() => {}));
+  ocLive.then((map) => { if(ocBefore !== null && !ocStatus.error && stripSha(map) !== ocBefore && canAutoReload()) window.location.reload(); });
 
   /* ---------------- 데이터 불러오기 (groups / classes / profiles) ----------------
      예전에는 이 셋이 코드 안에 통째로 박혀있었는데, 이제 data 폴더의 JSON 파일로 분리했다.
@@ -246,35 +299,50 @@
   function defaultTemplates(){
     return OWNERS.map((o, i) => ({ id:'t_' + OWNER_IDS[i], name:o, fields:JSON.parse(JSON.stringify(DEFAULT_FIELDS)) }));
   }
-  async function loadTemplates(){
-    const urls = [
-      `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${TEMPLATE_PATH}?t=${Date.now()}`,
-      `${TEMPLATE_PATH}?t=${Date.now()}`
-    ];
-    for(const u of urls){
-      try {
-        const r = await fetch(u, { cache:'no-store' });
-        if(r.ok){ const j = await r.json(); if(Array.isArray(j) && j.length) return j; }
-      } catch(e){}
-    }
-    return defaultTemplates();
+  function loadTemplates(){
+    return swr('templates', async () => {
+      for(const u of [`https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${TEMPLATE_PATH}?t=${Date.now()}`, `${TEMPLATE_PATH}?t=${Date.now()}`]){
+        try { const r = await fetch(u, { cache:'no-store' }); if(r.ok){ const j = await r.json(); if(Array.isArray(j) && j.length) return j; } } catch(e){}
+      }
+      throw new Error('templates');
+    }).then(v => v || defaultTemplates());
   }
   let templates = await remoteP.templates;
 
   const RICH_OK = ['b','i','u','strong','em','br','div','p','span'];
 
   /* ---------------- 사이트 설정 (data/site.json): 제목, 링크, 푸터, 로고, 캐러셀, 빈 페이지 본문 ---------------- */
-  async function loadSite(){
-    const urls = [`https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${SITE_PATH}?t=${Date.now()}`, `${SITE_PATH}?t=${Date.now()}`];
-    for(const u of urls){
-      try { const r = await fetch(u, { cache:'no-store' }); if(r.ok){ const j = await r.json(); if(j && typeof j === 'object') return j; } } catch(e){}
-    }
-    return {};
+  function loadSite(){
+    return swr('site', async () => {
+      for(const u of [`https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${SITE_PATH}?t=${Date.now()}`, `${SITE_PATH}?t=${Date.now()}`]){
+        try { const r = await fetch(u, { cache:'no-store' }); if(r.ok){ const j = await r.json(); if(j && typeof j === 'object') return j; } } catch(e){}
+      }
+      throw new Error('site');
+    }).then(v => v || {});
   }
   function rawUrl(path, v){ return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${path}?v=${v || ''}`; }
   const siteRaw = await remoteP.site;
   const site = Object.assign({}, SITE_DEFAULTS, siteRaw);
   Object.assign(colorMap, site.colors || {});
+  const hiddenColors = new Set(Array.isArray(site.hiddenColors) ? site.hiddenColors : []);
+  // 무지개 순서(빨강 → 주황 → 노랑 → 초록 → 파랑 → 보라 → 분홍)로 정렬하고, 무채색(화이트/그레이/블랙)은 맨 뒤로 보낸다.
+  function colorSortKey(name){
+    const hex = (colorMap[name] || '#888888').replace('#', '');
+    const r = parseInt(hex.slice(0, 2), 16) / 255, g = parseInt(hex.slice(2, 4), 16) / 255, b = parseInt(hex.slice(4, 6), 16) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+    const sat = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+    if(sat < 0.18 || l > 0.96 || l < 0.08) return [1, -l, 0];
+    let h = d === 0 ? 0 : mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h = (h * 60 + 360) % 360;
+    return [0, (h + 15) % 360, -l];
+  }
+  function sortColors(names){
+    return names.slice().sort((a, b) => {
+      const x = colorSortKey(a), y = colorSortKey(b);
+      return x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
+    });
+  }
+  function pickableColors(keep){ return sortColors(Object.keys(colorMap).filter(c => !hiddenColors.has(c) || (keep || []).includes(c))); }
   if(!Array.isArray(site.slides) || !site.slides.length) site.slides = [DEFAULT_SLIDE];
   site.pages = site.pages || {};
 
@@ -407,7 +475,7 @@
 
   /* ---------------- GROUP LIST ---------------- */
   const gallery = document.getElementById('groupGallery');
-  document.getElementById('groupCountLabel').textContent = `전체 ${groups.length}팀 · 카드를 누르면 상세 정보를 볼 수 있어요`;
+  document.getElementById('groupCountLabel').textContent = '';
 
   groups.forEach((g) => {
     const card = document.createElement('div');
@@ -782,6 +850,7 @@
       body: JSON.stringify({ message, content:base64, branch:GH_BRANCH, ...(sha ? { sha } : {}) })
     });
     if(!res.ok){ const b = await res.json().catch(() => ({})); throw new Error(b.message || `저장 실패 (${res.status})`); }
+    if(path.endsWith('.json')){ try { cacheTouch(path, JSON.parse(b64DecodeUnicode(base64))); } catch(e){} }
     return res.json();
   }
   async function ghDelete(path, message){
@@ -795,6 +864,7 @@
       body: JSON.stringify({ message, sha, branch:GH_BRANCH })
     });
     if(!res.ok){ const b = await res.json().catch(() => ({})); throw new Error(b.message || `삭제 실패 (${res.status})`); }
+    if(path.endsWith('.json')) cacheTouch(path, null);
   }
 
   /* ----- 저장 설정 (토큰) ----- */
@@ -899,6 +969,7 @@
         });
         if(!res.ok){ const b = await res.json().catch(() => ({})); throw new Error(b.message || `저장 실패 (${res.status})`); }
         templates = data;
+        cacheTouch(TEMPLATE_PATH, data);
         return true;
       } catch(err){
         const conflict = /sha|does not match|expected/i.test(err.message || '');
@@ -1133,7 +1204,7 @@
     formTpl = info ? templateFor(info) : templates[0];
 
     const groupOpts = groups.map(g => `<option value="${esc(g.name)}" ${info && info.group === g.name ? 'selected' : ''}>${esc(g.name)}</option>`).join('');
-    const colorOpts = ['<option value="">없음</option>'].concat(Object.keys(colorMap).map(c => `<option value="${esc(c)}" ${info && info.color === c ? 'selected' : ''}>${esc(c)}</option>`)).join('');
+    const colorOpts = ['<option value="">없음</option>'].concat(pickableColors(info && info.color ? [info.color] : []).map(c => `<option value="${esc(c)}" ${info && info.color === c ? 'selected' : ''}>${esc(c)}</option>`)).join('');
     const ownerOpts = ['<option value="">선택 안 함</option>'].concat(OWNERS.map(o => `<option value="${o}" ${(info && info.owner) === o ? 'selected' : ''}>${o}</option>`)).join('');
     const curImg = info ? imgSrcFor(info.name, info.file) : '';
     const linked = info && ocOverrides[info.name];
@@ -1195,7 +1266,7 @@
       openCrop(f, (blob, ext) => {
         pendingImage = { blob, ext };
         document.getElementById('fThumb').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`;
-        document.getElementById('fImageNote').textContent = '새 이미지가 준비됐어요. 저장하면 올라가요.';
+        document.getElementById('fImageNote').textContent = '';
       });
     });
     document.getElementById('formSave').addEventListener('click', () => submitForm(info));
@@ -1248,7 +1319,7 @@
     btn.disabled = true; btn.textContent = '저장 중...';
     try {
       if(pendingImage){
-        const imgPath = `ymkb_icon_${id}.${pendingImage.ext}`;
+        const imgPath = `assets/ymkb_icon_${id}.${pendingImage.ext}`;
         await ghPut(imgPath, await blobToBase64(pendingImage.blob), `Update image: ${name}`);
         if(prev.image && prev.image !== imgPath){ try { await ghDelete(prev.image, `Replace image: ${name}`); } catch(e){} }
         data.image = imgPath;
@@ -1290,9 +1361,10 @@
     const isEdit = !!g;
     let sel = g ? g.colors.slice() : [];
     const newColors = {};
-    const chipHtml = () => Object.keys(colorMap).map(c => {
+    const removed = new Set();
+    const chipHtml = () => pickableColors(sel).filter(c => !removed.has(c)).map(c => {
       const on = sel.includes(c);
-      return `<button type="button" class="color-pick${on ? ' on' : ''}" data-c="${esc(c)}"><span class="gd-color-dot" style="background:${colorMap[c]}"></span>${esc(c)}</button>`;
+      return `<span class="color-pick${on ? ' on' : ''}" data-c="${esc(c)}"><span class="gd-color-dot" style="background:${colorMap[c]}"></span>${esc(c)}<span class="color-del" data-del="${esc(c)}" title="이 색 삭제">&times;</span></span>`;
     }).join('');
     document.getElementById('formBody').innerHTML = `
       <h2 class="form-title">${isEdit ? '그룹 수정' : '그룹 추가'}</h2>
@@ -1315,6 +1387,14 @@
       <div class="form-actions"><span></span><button type="button" class="form-submit" id="formSave">저장</button></div>`;
     formModal.classList.add('active');
     document.getElementById('gColors').addEventListener('click', (e) => {
+      const del = e.target.closest('[data-del]');
+      if(del){
+        const dc = del.dataset.del;
+        sel = sel.filter(x => x !== dc);
+        removed.add(dc); delete newColors[dc];
+        document.getElementById('gColors').innerHTML = chipHtml();
+        return;
+      }
       const b = e.target.closest('.color-pick'); if(!b) return;
       const c = b.dataset.c;
       sel = sel.includes(c) ? sel.filter(x => x !== c) : sel.concat([c]);
@@ -1325,6 +1405,7 @@
       const hx = document.getElementById('gNewColorHex').value;
       if(!nm) return;
       if(!colorMap[nm]){ colorMap[nm] = hx; newColors[nm] = hx; }
+      removed.delete(nm);
       if(!sel.includes(nm)) sel.push(nm);
       document.getElementById('gColors').innerHTML = chipHtml();
       document.getElementById('gNewColorName').value = '';
@@ -1334,13 +1415,13 @@
       openCrop(f, (blob, ext) => {
         pendingImage = { blob, ext };
         document.getElementById('fThumb').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`;
-        document.getElementById('fImageNote').textContent = '새 이미지가 준비됐어요. 저장하면 올라가요.';
+        document.getElementById('fImageNote').textContent = '';
       }, { aspect:1, noOriginal:true });
     });
-    document.getElementById('formSave').addEventListener('click', () => submitGroupForm(g, () => sel, newColors));
+    document.getElementById('formSave').addEventListener('click', () => submitGroupForm(g, () => sel, newColors, removed));
   }
 
-  async function submitGroupForm(g, getSel, newColors){
+  async function submitGroupForm(g, getSel, newColors, removed){
     const err = document.getElementById('formError');
     err.textContent = '';
     const name = document.getElementById('gName').value.trim();
@@ -1362,12 +1443,19 @@
     const btn = document.getElementById('formSave');
     btn.disabled = true; btn.textContent = '저장 중...';
     try {
-      if(newColors && Object.keys(newColors).length){
-        const okc = await jsonChange(SITE_PATH, () => ({}), (d) => { d.colors = Object.assign(d.colors || {}, newColors); }, 'Add colors');
+      if((newColors && Object.keys(newColors).length) || (removed && removed.size)){
+        const okc = await jsonChange(SITE_PATH, () => ({}), (d) => {
+          d.colors = Object.assign(d.colors || {}, newColors || {});
+          const hid = new Set(Array.isArray(d.hiddenColors) ? d.hiddenColors : []);
+          (removed ? [...removed] : []).forEach(c => hid.add(c));
+          Object.keys(newColors || {}).forEach(c => hid.delete(c));
+          colors.forEach(c => hid.delete(c));
+          d.hiddenColors = [...hid];
+        }, 'Update colors');
         if(!okc) throw new Error('색 저장에 실패했어요');
       }
       if(pendingImage){
-        const imgPath = `ymkb_group_${id}.${pendingImage.ext}`;
+        const imgPath = `assets/ymkb_group_${id}.${pendingImage.ext}`;
         await ghPut(imgPath, await blobToBase64(pendingImage.blob), `Update group image: ${name}`);
         if(data.image && data.image !== imgPath){ try { await ghDelete(data.image, `Replace group image: ${name}`); } catch(e){} }
         data.image = imgPath; data.imageV = Date.now();
@@ -1418,6 +1506,7 @@
           body: JSON.stringify({ message, content:toBase64Text(JSON.stringify(data, null, 2) + '\n'), branch:GH_BRANCH, ...(sha ? { sha } : {}) })
         });
         if(!put.ok){ const b = await put.json().catch(() => ({})); throw new Error(b.message || `저장 실패 (${put.status})`); }
+        cacheTouch(path, data);
         return true;
       } catch(err){
         const conflict = /sha|does not match|expected/i.test(err.message || '');
@@ -1568,10 +1657,11 @@
           footer: document.getElementById('sFoot').value.trim(),
           logo: site.logo || null, logoV: site.logoV || null,
           colors: site.colors || {},
+          hiddenColors: [...hiddenColors],
           slides: [], pages: {}
         };
         if(pendingLogo){
-          const lp = `ymkb_logo.${pendingLogo.ext}`;
+          const lp = `assets/ymkb_logo.${pendingLogo.ext}`;
           await ghPut(lp, await blobToBase64(pendingLogo.blob), 'Update logo');
           next.logo = lp; next.logoV = Date.now();
         }
@@ -1579,7 +1669,7 @@
           const sl = slides[i];
           const out = { id:sl.id || ('s' + Date.now() + i), title:sl.title || '', date:sl.date || '', image:sl.image || null, imageV:sl.imageV || null };
           if(sl.pending){
-            const ip = `ymkb_slide_${out.id}.${sl.pending.ext}`;
+            const ip = `assets/ymkb_slide_${out.id}.${sl.pending.ext}`;
             await ghPut(ip, await blobToBase64(sl.pending.blob), `Update slide image: ${out.title}`);
             out.image = ip; out.imageV = Date.now();
           }
