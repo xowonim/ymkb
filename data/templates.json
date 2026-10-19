@@ -222,6 +222,11 @@
         "type": "textarea"
       },
       {
+        "key": "f_1792438847898",
+        "label": "한자 이름",
+        "type": "text"
+      },
+      {
         "key": "f_1790484546744",
         "label": "성격",
         "type": "textarea"
@@ -300,11 +305,6 @@
         "key": "f_1790492394900",
         "label": "체력",
         "type": "rating"
-      },
-      {
-        "key": "f_1792438847898",
-        "label": "한자 이름",
-        "type": "text"
       }
     ]
   },
