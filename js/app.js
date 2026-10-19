@@ -538,6 +538,7 @@
 
   function imgSrcFor(name, file){
     const cf = charFiles[name];
+    if(cf && cf.noImage && !cf.image) return ''; // 이미지를 일부러 지운 캐릭터
     if(cf && cf.image){ const f = freshImg(cf.image); if(f) return f; }
     if(!(cf && cf.image)){
       const oc = ocOverrides[name];
@@ -655,7 +656,7 @@
     return `
       <div class="photo-card ratio-3x4" data-name="${member.name}">
         <div class="p-thumb" style="background:${colorGradient(hex)}">
-          <img src="${imgSrc}" alt="${member.name}" onerror="window.__imgErr(this)">
+          ${imgSrc ? `<img src="${imgSrc}" alt="${member.name}" onerror="window.__imgErr(this)">` : ''}
         </div>
         <div class="p-overlay">
           <div class="p-cat">${roleTxt}</div>
@@ -1673,6 +1674,7 @@
       classFlags: [...document.querySelectorAll('#fDynamic [data-cflag]:checked')].map(x => x.dataset.cflag),
       image: removeImage ? null : (prev.image || null),
       imageV: removeImage ? null : (prev.imageV || null),
+      noImage: removeImage ? true : (pendingImage ? false : !!prev.noImage),
       fields
     };
     if(prev.profile) data.profile = prev.profile; // 예전 형식 값은 그대로 보존
@@ -1701,7 +1703,7 @@
     if(!cf) return;
     if(!getToken()){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return; }
     if(!confirm(`"${info.name}"의 ymkb 프로필 내용을 모두 비울까요?\n이름, 그룹, 오너, 사진은 그대로 남아요.`)) return;
-    const data = { id:cf.id, name:cf.name, file:cf.file || cf.id, group:cf.group || '', role:cf.role || '', color:cf.color || null, owner:cf.owner || '', template:cf.template || '', image:cf.image || null, imageV:cf.imageV || null, fields:{} };
+    const data = { id:cf.id, name:cf.name, file:cf.file || cf.id, group:cf.group || '', role:cf.role || '', color:cf.color || null, owner:cf.owner || '', template:cf.template || '', image:cf.image || null, imageV:cf.imageV || null, noImage:!!cf.noImage, fields:{} };
     try {
       await ghPut(`${CHAR_DIR}/${cf.id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `Reset profile: ${info.name}`);
       reloadKeepingView({ profile:info.name });
@@ -1844,7 +1846,7 @@
         oldImage = data.image;
         data.image = imgPath; data.imageV = Date.now();
       }
-      if(removeImage && g && g.image) oldImage = g.image;
+      if(removeImage && g && g.file && g.file.image && g.file.image === g.image) oldImage = g.image;
       await ghPut(`${GROUP_DIR}/${id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `${g ? 'Update' : 'Add'} group: ${name}`);
       if(oldImage && oldImage !== data.image){ try { await ghDelete(oldImage, `Replace group image: ${name}`); } catch(e){} }
       reloadKeepingView();
