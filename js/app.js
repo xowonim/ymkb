@@ -727,9 +727,11 @@
 
   // 학급/직책 정보를 마스터 캐릭터 정보에도 합쳐서, 프로필에서 함께 보여줄 수 있게 합니다.
   classes.forEach(g => g.sections.forEach(sec => sec.roster.forEach(r => {
-    if(masterCharacters[r.name]){
-      masterCharacters[r.name].classId = sec.id;
+    if(!masterCharacters[r.name]){
+      // 명단에만 있고 아직 프로필이 없는 이름도 프로필 카드가 열리도록 빈 캐릭터로 등록한다. 수정해서 저장하면 그때 파일이 만들어진다.
+      masterCharacters[r.name] = { name:r.name, color:null, file:'', group:'', role:'', base:false };
     }
+    masterCharacters[r.name].classId = sec.id;
   })));
 
   function emptyProfile(){
