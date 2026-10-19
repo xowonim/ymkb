@@ -277,6 +277,12 @@
 
   // 그룹/학급 상세나 프로필을 열 때, oc 데이터를 다 가져올 때까지만 살짝 기다린다.
   // (보통 클릭하기 전에 이미 끝나있어서 체감되는 지연은 없다.)
+  // 탭으로 돌아왔을 때, 한동안 비워 두었다면 다른 사람이 바꾼 내용을 가져온다.
+  let hiddenAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){ hiddenAt = Date.now(); return; }
+    if(hiddenAt && Date.now() - hiddenAt > 60000 && canAutoReload()) window.location.reload();
+  });
   const ocCached = cacheGet('oc');
   const ocLive = fetchOcYmkbCharacters().then((map) => { ocOverrides = map; return map; });
   if(ocCached && ocCached.byName){
@@ -833,38 +839,88 @@
   }
   const apiBase = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/`;
 
+  // 여러 명이 동시에 저장해도 오류가 보이지 않도록: 이 브라우저의 저장은 한 줄로 세우고, 충돌이 나면 조용히 다시 시도한다.
+  function httpError(res, body, fallback){ const e = new Error((body && body.message) || `${fallback} (${res.status})`); e.status = res.status; return e; }
+  function isConflict(err){ return !!err && (err.status === 409 || err.status === 422 || /sha|does not match|expected|fast.?forward|conflict|reference/i.test(err.message || '')); }
+  const backoff = (n) => new Promise(r => setTimeout(r, 200 + n * 350 + Math.random() * 500));
+  let writeChain = Promise.resolve();
+  function queued(fn){
+    const run = writeChain.then(fn, fn);
+    writeChain = run.catch(() => {});
+    return run;
+  }
+  // 깃허브 API가 막혀 있어도(요청 횟수 제한 등) 저장할 수 있도록, 실패하면 파일 내용을 직접 읽어 sha를 계산한다.
+  async function shaFromRaw(path){
+    const r = await fetch(`https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${path}?t=${Date.now()}`, { cache:'no-store' });
+    if(r.status === 404) return undefined;
+    if(!r.ok) throw new Error(`기존 파일 정보를 불러오지 못했어요 (${r.status})`);
+    const body = new Uint8Array(await r.arrayBuffer());
+    const head = new TextEncoder().encode(`blob ${body.length}\0`);
+    const all = new Uint8Array(head.length + body.length); all.set(head); all.set(body, head.length);
+    const dig = new Uint8Array(await crypto.subtle.digest('SHA-1', all));
+    return Array.from(dig).map(x => x.toString(16).padStart(2, '0')).join('');
+  }
   async function getFileSha(path){
+    const url = `${apiBase}${path}?ref=${GH_BRANCH}&t=${Date.now()}`;
+    const h = apiHeaders();
     try {
-      const res = await fetch(`${apiBase}${path}?ref=${GH_BRANCH}`, { headers:{ Accept:'application/vnd.github+json' }, cache:'no-store' });
-      if(res.ok) return (await res.json()).sha;
+      let res = await fetch(url, { headers:h, cache:'no-store' });
+      if((res.status === 401 || res.status === 403) && h.Authorization) res = await fetch(url, { headers:{ Accept:h.Accept }, cache:'no-store' });
+      if(res.status === 404) return undefined;
+      if(res.ok){ const j = await res.json(); if(j && j.sha) return j.sha; }
     } catch(e){}
-    return undefined;
+    return shaFromRaw(path);
   }
-  async function ghPut(path, base64, message){
-    const token = getToken();
-    if(!token) throw new Error('NO_TOKEN');
-    const sha = await getFileSha(path);
-    const res = await fetch(apiBase + path, {
-      method:'PUT',
-      headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' },
-      body: JSON.stringify({ message, content:base64, branch:GH_BRANCH, ...(sha ? { sha } : {}) })
+  function ghPut(path, base64, message){
+    return queued(async () => {
+      const token = getToken();
+      if(!token) throw new Error('NO_TOKEN');
+      let lastErr;
+      for(let attempt = 0; attempt < 8; attempt++){
+        try {
+          const sha = await getFileSha(path);
+          const res = await fetch(apiBase + path, {
+            method:'PUT',
+            headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' },
+            body: JSON.stringify({ message, content:base64, branch:GH_BRANCH, ...(sha ? { sha } : {}) })
+          });
+          if(!res.ok) throw httpError(res, await res.json().catch(() => ({})), '저장 실패');
+          if(path.endsWith('.json')){ try { cacheTouch(path, JSON.parse(b64DecodeUnicode(base64))); } catch(e){} }
+          return res.json();
+        } catch(err){
+          lastErr = err;
+          if(!isConflict(err)) throw err;
+          await backoff(attempt);
+        }
+      }
+      throw lastErr;
     });
-    if(!res.ok){ const b = await res.json().catch(() => ({})); throw new Error(b.message || `저장 실패 (${res.status})`); }
-    if(path.endsWith('.json')){ try { cacheTouch(path, JSON.parse(b64DecodeUnicode(base64))); } catch(e){} }
-    return res.json();
   }
-  async function ghDelete(path, message){
-    const token = getToken();
-    if(!token) throw new Error('NO_TOKEN');
-    const sha = await getFileSha(path);
-    if(!sha) return;
-    const res = await fetch(apiBase + path, {
-      method:'DELETE',
-      headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' },
-      body: JSON.stringify({ message, sha, branch:GH_BRANCH })
+  function ghDelete(path, message){
+    return queued(async () => {
+      const token = getToken();
+      if(!token) throw new Error('NO_TOKEN');
+      let lastErr;
+      for(let attempt = 0; attempt < 8; attempt++){
+        try {
+          const sha = await getFileSha(path);
+          if(!sha) return;
+          const res = await fetch(apiBase + path, {
+            method:'DELETE',
+            headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' },
+            body: JSON.stringify({ message, sha, branch:GH_BRANCH })
+          });
+          if(!res.ok) throw httpError(res, await res.json().catch(() => ({})), '삭제 실패');
+          if(path.endsWith('.json')) cacheTouch(path, null);
+          return;
+        } catch(err){
+          lastErr = err;
+          if(!isConflict(err)) throw err;
+          await backoff(attempt);
+        }
+      }
+      throw lastErr;
     });
-    if(!res.ok){ const b = await res.json().catch(() => ({})); throw new Error(b.message || `삭제 실패 (${res.status})`); }
-    if(path.endsWith('.json')) cacheTouch(path, null);
   }
 
   /* ----- 저장 설정 (토큰) ----- */
@@ -958,7 +1014,7 @@
   async function applyTemplatesChange(mutate){
     const token = getToken();
     if(!token){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return false; }
-    for(let attempt = 0; attempt < 5; attempt++){
+    for(let attempt = 0; attempt < 8; attempt++){
       try {
         const { data, sha } = await fetchLiveTemplates();
         mutate(data);
@@ -967,14 +1023,13 @@
           headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' },
           body: JSON.stringify({ message:'Update templates.json', content:toBase64Text(JSON.stringify(data, null, 2) + '\n'), branch:GH_BRANCH, ...(sha ? { sha } : {}) })
         });
-        if(!res.ok){ const b = await res.json().catch(() => ({})); throw new Error(b.message || `저장 실패 (${res.status})`); }
+        if(!res.ok) throw httpError(res, await res.json().catch(() => ({})), '저장 실패');
         templates = data;
         cacheTouch(TEMPLATE_PATH, data);
         return true;
       } catch(err){
-        const conflict = /sha|does not match|expected/i.test(err.message || '');
-        if(!conflict || attempt === 4){ alert('템플릿 저장에 실패했어요: ' + err.message); return false; }
-        await new Promise(r => setTimeout(r, 150 + Math.random() * 250));
+        if(!isConflict(err) || attempt === 7){ alert('템플릿 저장에 실패했어요: ' + err.message); return false; }
+        await backoff(attempt);
       }
     }
     return false;
@@ -1321,11 +1376,11 @@
       if(pendingImage){
         const imgPath = `assets/ymkb_icon_${id}.${pendingImage.ext}`;
         await ghPut(imgPath, await blobToBase64(pendingImage.blob), `Update image: ${name}`);
-        if(prev.image && prev.image !== imgPath){ try { await ghDelete(prev.image, `Replace image: ${name}`); } catch(e){} }
         data.image = imgPath;
         data.imageV = Date.now();
       }
       await ghPut(`${CHAR_DIR}/${id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `${info ? 'Update' : 'Add'} character: ${name}`);
+      if(pendingImage && prev.image && prev.image !== data.image){ try { await ghDelete(prev.image, `Replace image: ${name}`); } catch(e){} }
       window.location.reload();
     } catch(e){
       btn.disabled = false; btn.textContent = '저장';
@@ -1442,6 +1497,7 @@
     };
     const btn = document.getElementById('formSave');
     btn.disabled = true; btn.textContent = '저장 중...';
+    let oldImage = null;
     try {
       if((newColors && Object.keys(newColors).length) || (removed && removed.size)){
         const okc = await jsonChange(SITE_PATH, () => ({}), (d) => {
@@ -1457,10 +1513,11 @@
       if(pendingImage){
         const imgPath = `assets/ymkb_group_${id}.${pendingImage.ext}`;
         await ghPut(imgPath, await blobToBase64(pendingImage.blob), `Update group image: ${name}`);
-        if(data.image && data.image !== imgPath){ try { await ghDelete(data.image, `Replace group image: ${name}`); } catch(e){} }
+        oldImage = data.image;
         data.image = imgPath; data.imageV = Date.now();
       }
       await ghPut(`${GROUP_DIR}/${id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `${g ? 'Update' : 'Add'} group: ${name}`);
+      if(oldImage && oldImage !== data.image){ try { await ghDelete(oldImage, `Replace group image: ${name}`); } catch(e){} }
       window.location.reload();
     } catch(e){
       btn.disabled = false; btn.textContent = '저장';
@@ -1492,12 +1549,18 @@
   async function jsonChange(path, fallbackFn, mutate, message){
     const token = getToken();
     if(!token){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return false; }
-    for(let attempt = 0; attempt < 5; attempt++){
+    return queued(async () => {
+    for(let attempt = 0; attempt < 8; attempt++){
       try {
-        const res = await fetch(`${apiBase}${path}?ref=${GH_BRANCH}`, { headers:{ Accept:'application/vnd.github+json', Authorization:`Bearer ${token}` }, cache:'no-store' });
+        const res = await fetch(`${apiBase}${path}?ref=${GH_BRANCH}&t=${Date.now()}`, { headers:{ Accept:'application/vnd.github+json', Authorization:`Bearer ${token}` }, cache:'no-store' });
         let data, sha;
         if(res.status === 404){ data = fallbackFn(); }
-        else if(!res.ok) throw new Error(`파일을 불러오지 못했어요 (${res.status})`);
+        else if(!res.ok){
+          const rr = await fetch(`https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${path}?t=${Date.now()}`, { cache:'no-store' });
+          if(rr.status === 404){ data = fallbackFn(); }
+          else if(!rr.ok) throw new Error(`파일을 불러오지 못했어요 (${res.status})`);
+          else { data = await rr.json(); sha = await shaFromRaw(path); }
+        }
         else { const d = await res.json(); data = JSON.parse(b64DecodeUnicode(d.content)); sha = d.sha; }
         mutate(data);
         const put = await fetch(apiBase + path, {
@@ -1505,16 +1568,16 @@
           headers:{ Authorization:`Bearer ${token}`, Accept:'application/vnd.github+json' },
           body: JSON.stringify({ message, content:toBase64Text(JSON.stringify(data, null, 2) + '\n'), branch:GH_BRANCH, ...(sha ? { sha } : {}) })
         });
-        if(!put.ok){ const b = await put.json().catch(() => ({})); throw new Error(b.message || `저장 실패 (${put.status})`); }
+        if(!put.ok) throw httpError(put, await put.json().catch(() => ({})), '저장 실패');
         cacheTouch(path, data);
         return true;
       } catch(err){
-        const conflict = /sha|does not match|expected/i.test(err.message || '');
-        if(!conflict || attempt === 4){ alert('저장에 실패했어요: ' + err.message); return false; }
-        await new Promise(r => setTimeout(r, 150 + Math.random() * 250));
+        if(!isConflict(err) || attempt === 7){ alert('저장에 실패했어요: ' + err.message); return false; }
+        await backoff(attempt);
       }
     }
     return false;
+    });
   }
 
   /* ----- 학급 추가 / 수정 / 삭제 (data/classes.json) ----- */
