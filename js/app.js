@@ -1624,6 +1624,8 @@
     const fields = Object.assign({}, (charFiles[info && info.name] || {}).fields || {}, collectFields(formTpl));
     // oc에서 불러온 값을 그대로 둔 항목은 저장하지 않아서, oc 쪽에서 나중에 바뀌어도 계속 따라간다.
     // 비워 둔 항목: oc나 예전 값이 있으면 '직접 비움'(null)으로 저장해서 그 값이 다시 나오지 않게 하고, 없으면 저장하지 않는다.
+    const hadFields = (charFiles[info && info.name] || {}).fields || {};
+    const shown = info ? initialValues(info, formTpl) : {};
     formTpl.fields.forEach(f => {
       if(f.core || !(f.key in fields)) return;
       const val = fields[f.key];
@@ -1633,7 +1635,9 @@
       }
       const empty = isEmptyVal(val) || (f.type === 'rating' && !Number(val));
       if(!empty) return;
-      const fallback = info ? (ocValue(info, f) !== undefined || legacyValue(info, f) !== undefined) : false;
+      // 폼을 열었을 때 값이 있었거나 저장된 값이 있었다면, 지운 것은 '직접 비움'으로 꼭 남긴다. (다른 출처의 값이 다시 나오지 않도록)
+      const wasSet = !isEmptyVal(shown[f.key]) || (!isEmptyVal(hadFields[f.key]) && !(f.type === 'rating' && !Number(hadFields[f.key])));
+      const fallback = info ? (wasSet || ocValue(info, f) !== undefined || legacyValue(info, f) !== undefined) : false;
       if(fallback) fields[f.key] = null; else delete fields[f.key];
     });
 
