@@ -19,7 +19,7 @@
   function openSlideBox(s, url, body){
     const box = document.getElementById('slideBoxBody');
     box.innerHTML = `${s.image ? `<img class="slide-box-img" src="${esc(s.image)}" alt="">` : ''}
-      ${url ? `<div class="slide-box-link"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">바로가기 &#8599;</a></div>` : ''}
+      ${url ? `<div class="slide-box-link"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(s.linkText || url)} &#8599;</a></div>` : ''}
       <hr class="slide-box-line"><div class="slide-box-text profile-text rich">${toRich(body)}</div>`;
     document.getElementById('slideModal').classList.add('active');
   }
@@ -485,7 +485,7 @@
       if(pg.title) box.querySelector('h2').textContent = pg.title;
       if(!isEmptyVal(pg.body)) box.innerHTML = `<h2>${esc(pg.title || label)}</h2><div class="profile-text rich page-body">${toRich(pg.body)}</div>`;
     });
-    initCarousel(site.slides.map(sl => ({ date:sl.date || '', title:sl.title || '', gradient:SLIDE_GRADIENT, image:sl.image ? rawUrl(sl.image, sl.imageV) : null, link:sl.link || '', body:sl.body || '' })));
+    initCarousel(site.slides.map(sl => ({ date:sl.date || '', title:sl.title || '', gradient:SLIDE_GRADIENT, image:sl.image ? rawUrl(sl.image, sl.imageV) : null, link:sl.link || '', linkText:sl.linkText || '', body:sl.body || '' })));
   })();
 
   /* 값 정리용 유틸: 리치 텍스트는 허용한 태그만 남기고 속성은 모두 지운다. */
@@ -684,11 +684,9 @@
   groups.forEach((g) => {
     const card = document.createElement('div');
     card.className = 'photo-card ratio-1x1';
-    const meta = [g.concept, g.genre].filter(Boolean).join(' · ');
     card.innerHTML = `
       <div class="p-thumb" style="background:${groupThumbGradient(g)}">${g.image ? `<img src="${esc(groupImgSrc(g))}" alt="" onerror="window.__imgErr(this)">` : ''}</div>
       <div class="p-overlay">
-        <div class="p-cat">${esc(meta)}</div>
         <div class="p-name">${esc(g.name)}</div>
       </div>`;
     card.dataset.gid = g.id;
@@ -2303,7 +2301,7 @@
       <div class="slide-fields">
         <input class="f-input" data-s="title" placeholder="슬라이드 제목" value="${esc(sl.title || '')}">
         <input class="f-input" data-s="date" placeholder="날짜 (선택)" value="${esc(sl.date || '')}">
-        <input class="f-input" data-s="link" placeholder="바로가기 링크 (선택)" value="${esc(sl.link || '')}">
+        <div class="sns-row"><input class="f-input" data-s="linkText" placeholder="링크 표시 글자 (선택)" value="${esc(sl.linkText || '')}"><input class="f-input" data-s="link" placeholder="링크 주소 (선택)" value="${esc(sl.link || '')}"></div>
         <div class="rt-wrap">${rtToolbarHtml()}<div class="rt-edit f-input" contenteditable="true" data-s="body" data-ph="본문 (선택)">${sl.body ? toRich(sl.body) : ''}</div></div>
         <input type="file" data-s="file" accept="image/*"><div class="slide-btns"><button type="button" class="btn-sm" data-simgdel>이미지 삭제</button><button type="button" class="btn-sm danger" data-sdel>슬라이드 삭제</button></div>
       </div></div>`;
@@ -2313,6 +2311,7 @@
         sl.title = row.querySelector('[data-s=title]').value.trim();
         sl.date = row.querySelector('[data-s=date]').value.trim();
         sl.link = row.querySelector('[data-s=link]').value.trim();
+        sl.linkText = row.querySelector('[data-s=linkText]').value.trim();
         sl.body = cleanHtml(row.querySelector('[data-s=body]').innerHTML);
       });
     };
@@ -2365,7 +2364,7 @@
       const f = e.target.files[0]; if(!f) return;
       openCrop(f, (blob, ext) => { pendingFav = { blob, ext }; removeFav = false; document.getElementById('sFavThumb').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`; }, { aspect:1, noOriginal:true });
     });
-    document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ id:'s' + Date.now(), title:'', date:'', link:'', body:'', image:null }); drawSlides(); });
+    document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ id:'s' + Date.now(), title:'', date:'', link:'', linkText:'', body:'', image:null }); drawSlides(); });
     document.getElementById('sSlides').addEventListener('click', (e) => {
       const ib = e.target.closest('[data-simgdel]');
       if(ib){ syncSlides(); const sl = slides[Number(ib.closest('.slide-row').dataset.i)]; if(sl){ sl.image = null; sl.imageV = null; sl.pending = null; sl.pendingUrl = null; } drawSlides(); return; }
@@ -2409,7 +2408,7 @@
         }
         for(let i = 0; i < slides.length; i++){
           const sl = slides[i];
-          const out = { id:sl.id || ('s' + Date.now() + i), title:sl.title || '', date:sl.date || '', link:sl.link || '', body:isEmptyVal(sl.body) ? '' : String(sl.body).trim(), image:sl.image || null, imageV:sl.imageV || null };
+          const out = { id:sl.id || ('s' + Date.now() + i), title:sl.title || '', date:sl.date || '', link:sl.link || '', linkText:sl.linkText || '', body:isEmptyVal(sl.body) ? '' : String(sl.body).trim(), image:sl.image || null, imageV:sl.imageV || null };
           if(sl.pending){
             const ip = `assets/ymkb_slide_${out.id}.${sl.pending.ext}`;
             await ghPut(ip, await blobToBase64(sl.pending.blob), `Update slide image: ${out.title}`);
