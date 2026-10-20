@@ -1145,14 +1145,10 @@
   }
 
   function renderProfile(info){
-    const groupTxt = info.group ? `${info.group}${info.role ? ' (' + info.role + ')' : ''}` : '-';
-    const classTxt = info.classId ? `${info.classId}${(info.classFlags || []).length ? ' (' + info.classFlags.join(', ') + ')' : ''}` : '-';
     return `
       ${photoBlock(info)}
       <div class="profile-top-info">
         ${infoRow('NAME', esc(info.name))}
-        ${infoRow('GROUP', esc(groupTxt))}
-        ${infoRow('CLASS', esc(classTxt))}
       </div>
 
       ${renderTemplateBody(info)}
@@ -1683,20 +1679,12 @@
     const box = document.getElementById('fDynamic');
     const prev = document.getElementById('fClubHead');
     const head = prev ? prev.checked : !!(formInfo && formInfo.clubHead);
-    const prevFlags = [...document.querySelectorAll('#fDynamic [data-cflag]:checked')].map(x => x.dataset.cflag);
-    const flags = document.querySelector('#fDynamic [data-cflag]') ? prevFlags : ((formInfo && formInfo.classFlags) || []);
     box.innerHTML = tpl.fields.filter(f => !f.core).map(f => {
       let extra = '';
       if(f.label === '동아리') extra = `<div class="f-checks"><label class="f-check"><input type="checkbox" id="fClubHead" ${head ? 'checked' : ''}><span>부장</span></label></div>`;
-      if(f.label === '학급') extra = `<div class="f-checks">${CLASS_FLAGS.map(fl => `<label class="f-check"><input type="checkbox" data-cflag="${fl}" ${flags.includes(fl) ? 'checked' : ''}><span>${fl}</span></label>`).join('')}</div>`;
       return `<div class="f-row"><span>${esc(f.label)}</span>${widgetHtml(f, values[f.key])}${extra}</div>`;
     }).join('');
     wireWidgets(box, tpl, values);
-    box.querySelectorAll('[data-cflag]').forEach(c => c.addEventListener('change', () => {
-      if(!c.checked) return;
-      const pairs = { '회장':'부회장', '부회장':'회장', '복학생':'편입생', '편입생':'복학생' };
-      const o = box.querySelector(`[data-cflag="${pairs[c.dataset.cflag]}"]`); if(o) o.checked = false;
-    }));
   }
 
   function tplOptionsHtml(selectedId){
@@ -1736,7 +1724,7 @@
       <div class="f-group">NAME</div>
       ${fInput('이름', 'fName', info ? info.name : '')}
 
-      <div class="f-group">GROUP</div>
+      <div class="f-group">GROUP · 카테고리 설정용 <span class="f-group-note">(프로필에 안 떠요!!)</span></div>
       <label class="f-row"><span>그룹명</span><input class="f-input" id="fGroup" list="fGroupNames" value="${esc(info ? info.group : '')}" autocomplete="off"></label>
       <datalist id="fGroupNames">${groups.map(g => g.name).sort((a, b) => a.localeCompare(b, 'ko')).map(n => `<option value="${esc(n)}">`).join('')}</datalist>
       <div class="f-row"><span>역할</span><div class="f-checks">
@@ -1746,6 +1734,9 @@
       <div class="f-row"><span>그룹 내 담당 컬러 (선택)</span>
         <div class="f-inline"><span class="gd-color-dot" id="fColorDot" style="background:${info && colorMap[info.color] ? colorMap[info.color] : 'transparent'}"></span><input class="f-input" id="fColor" list="fColorNames" value="${esc(info && info.color ? info.color : '')}" autocomplete="off"></div></div>
       <datalist id="fColorNames">${colorNames.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+
+      <div class="f-group">CLASS · 카테고리 설정용 <span class="f-group-note">(프로필에 안 떠요!!)</span></div>
+      <div class="f-checks" id="fClassFlags">${CLASS_FLAGS.map(fl => `<label class="f-check"><input type="checkbox" data-cflag="${fl}" ${((info && info.classFlags) || []).includes(fl) ? 'checked' : ''}><span>${fl}</span></label>`).join('')}</div>
 
       <div class="f-group">PROFILE</div>
       <div id="fDynamic"></div>
@@ -1761,6 +1752,11 @@
     if(rs) rs.addEventListener('click', () => resetCharacter(info));
 
     document.getElementById('fOwner').addEventListener('change', (e) => changeFormTemplate(e.target.value));
+    document.querySelectorAll('#fClassFlags [data-cflag]').forEach(c => c.addEventListener('change', () => {
+      if(!c.checked) return;
+      const pairs = { '회장':'부회장', '부회장':'회장', '복학생':'편입생', '편입생':'복학생' };
+      const o = document.querySelector(`#fClassFlags [data-cflag="${pairs[c.dataset.cflag]}"]`); if(o) o.checked = false;
+    }));
     const leader = document.getElementById('fRoleLeader'), mgr = document.getElementById('fRoleManager');
     leader.addEventListener('change', () => { if(leader.checked) mgr.checked = false; });
     mgr.addEventListener('change', () => { if(mgr.checked) leader.checked = false; });
@@ -1842,7 +1838,7 @@
       owner: document.getElementById('fOwner').value,
       template: formTpl.id,
       clubHead: !!(document.getElementById('fClubHead') && document.getElementById('fClubHead').checked),
-      classFlags: [...document.querySelectorAll('#fDynamic [data-cflag]:checked')].map(x => x.dataset.cflag),
+      classFlags: [...document.querySelectorAll('#fClassFlags [data-cflag]:checked')].map(x => x.dataset.cflag),
       image: removeImage ? null : (prev.image || null),
       imageV: removeImage ? null : (prev.imageV || null),
       noImage: removeImage ? true : (pendingImage ? false : !!prev.noImage),
