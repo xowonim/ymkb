@@ -639,3 +639,4 @@ a.disco-title:hover{ color:var(--accent); }
 .tpl-btns .text-btn{ font-size:18px; line-height:1; padding:0 6px; }
 
 .profile-text + .profile-rows{ margin-top:22px; padding-top:20px; border-top:1px solid var(--line); }
+.profile-photo-wrap .p-thumb img{ cursor:zoom-in; }
