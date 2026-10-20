@@ -1,0 +1,16 @@
+{
+  "id": "yuito",
+  "name": "니츠카 유이토",
+  "file": "yuito",
+  "group": "FLUID",
+  "role": "매니저",
+  "color": null,
+  "owner": "",
+  "template": "t_dowon",
+  "clubHead": false,
+  "classFlags": [],
+  "image": null,
+  "imageV": null,
+  "noImage": false,
+  "fields": {}
+}
