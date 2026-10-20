@@ -3,10 +3,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+/* 최신 버전 확인: 브라우저가 옛 index.html을 들고 있으면, 사이트의 최신 버전 번호를 확인하고 새 주소로 다시 연다. */
+(function(){
+  try{
+    var ready = new Promise(function(res){ if(document.readyState !== 'loading') res(); else document.addEventListener('DOMContentLoaded', res); });
+    Promise.all([fetch('index.html?t=' + Date.now(), { cache:'no-store' }).then(function(r){ return r.text(); }), ready]).then(function(a){
+      var t = a[0];
+      var latest = (t.match(/js\/app\.js\?v=(\d+)/) || [])[1];
+      var el = document.querySelector('script[src*="js/app.js"]');
+      var loaded = el && (el.getAttribute('src').match(/v=(\d+)/) || [])[1];
+      if(!latest || !loaded || latest === loaded) return;
+      if(sessionStorage.getItem('ymkb_vr') === latest) return;
+      sessionStorage.setItem('ymkb_vr', latest);
+      location.replace(location.pathname + '?v=' + latest + location.hash);
+    }).catch(function(){});
+  }catch(e){}
+})();
+</script>
 <title>YMKB</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
-<link rel="stylesheet" href="css/style.css?v=52">
+<link rel="stylesheet" href="css/style.css?v=53">
 </head>
 <body>
 
@@ -247,6 +265,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
-<script src="js/app.js?v=52"></script>
+<script src="js/app.js?v=53"></script>
 </body>
 </html>
