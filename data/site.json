@@ -14,8 +14,8 @@
   "footer": "© ymkb high school",
   "favicon": null,
   "faviconV": null,
-  "logo": null,
-  "logoV": null,
+  "logo": "assets/ymkb_logo.png",
+  "logoV": 1792516068215,
   "colors": {},
   "hiddenColors": [],
   "slides": [
