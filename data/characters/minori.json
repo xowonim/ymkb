@@ -8,8 +8,11 @@
   "owner": "호원",
   "template": "t_howon",
   "clubHead": false,
-  "classFlags": [],
+  "classFlags": [
+    "부회장"
+  ],
   "image": null,
   "imageV": null,
+  "noImage": false,
   "fields": {}
 }
