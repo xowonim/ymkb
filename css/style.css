@@ -461,7 +461,9 @@ textarea.f-input{ resize:vertical; line-height:1.6; }
 .profile-rows.cols2 .spec-row{ break-inside:avoid; }
 .profile-stars{ margin-top:18px; padding-top:14px; border-top:1px solid var(--line); gap:2px 16px; }
 .profile-text.rich{ white-space:normal; }
-.profile-collapse{ margin-top:22px; padding-top:14px; border-top:1px solid var(--line); }
+.profile-collapse{ margin-top:0; padding:12px 0; border-top:1px solid var(--line); }
+.profile-text + .profile-collapse, .profile-section-head + .profile-collapse{ margin-top:18px; }
+.profile-collapse + :not(.profile-collapse){ margin-top:26px; }
 .profile-collapse summary{ cursor:pointer; font-size:12px; font-weight:700; letter-spacing:0.08em; }
 .profile-collapse .profile-text{ margin-top:12px; }
 .f-inline{ display:flex; align-items:center; gap:14px; }
