@@ -468,7 +468,6 @@
     return [{ name:'YouTube', url:st.youtube || '' }, { name:'Soundcloud', url:st.soundcloud || '' }].filter(x => x.url);
   }
   (function applySite(){
-    document.title = site.title;
     document.querySelector('.title-bar h1').textContent = site.title;
     document.querySelector('.title-bar span').textContent = site.subtitle;
     const snsList = snsOf(site);
