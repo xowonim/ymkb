@@ -23,7 +23,7 @@ a{ color:inherit; text-decoration:none; }
 .wrap{
   max-width:1200px;
   margin:0 auto;
-  padding:32px 24px 70px;
+  padding:32px 24px 16px;
 }
 
 /* ---------- Header ---------- */
@@ -489,7 +489,7 @@ textarea.f-input{ resize:vertical; line-height:1.6; }
 .tpl-add{ display:flex; gap:8px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
 .tpl-add .f-input:first-child{ flex:1; }
 .tpl-add select{ width:110px; flex:0 0 auto; }
-@media (max-width: 560px){ .profile-rows.cols2{ grid-template-columns:1fr; } .tpl-row{ flex-wrap:wrap; } }
+@media (max-width: 560px){ .tpl-row{ flex-wrap:wrap; } .profile-rows.cols2{ gap:7px 16px; } }
 
 /* ---------- Group editor ---------- */
 .f-thumb.square{ aspect-ratio:1 / 1; }
@@ -659,3 +659,9 @@ a.disco-title:hover{ color:var(--accent); }
 #slideBoxBody > .slide-box-line:first-child{ display:none; }
 #slideBoxBody > .slide-box-text:first-child{ padding-top:22px; }
 .tpl-btns .text-btn{ font-size:22px; font-weight:300; }
+
+@media (max-width: 900px){
+  .side-col{ flex-direction:row; flex-wrap:nowrap; overflow-x:auto; gap:20px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+  .side-col::-webkit-scrollbar{ display:none; }
+  .side-col .link-row{ flex:0 0 auto; white-space:nowrap; }
+}
