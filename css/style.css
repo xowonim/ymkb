@@ -34,8 +34,8 @@ a{ color:inherit; text-decoration:none; }
   cursor:pointer;
 }
 .logo{
-  flex:0 0 96px;
-  height:96px;
+  flex:0 0 80px;
+  height:80px;
   border-radius:0;
   background:none;
   border:none;
