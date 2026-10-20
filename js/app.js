@@ -1468,7 +1468,7 @@
             <input class="f-input tpl-label" data-key="${esc(f.key)}" value="${esc(f.label)}" ${f.core ? 'readonly' : ''}>
             <span class="tpl-type">${f.core ? '필수' : FIELD_TYPES[f.type] || f.type}</span>
             <span class="tpl-btns">
-              ${f.core ? '' : `<button type="button" class="text-btn danger" data-tact="delField" data-key="${esc(f.key)}" aria-label="삭제">x</button>`}
+              ${f.core ? '' : `<button type="button" class="text-btn danger" data-tact="delField" data-key="${esc(f.key)}" aria-label="삭제">&times;</button>`}
             </span>
           </div>`).join('')}
       </div>
