@@ -105,7 +105,7 @@
   }
 
   const TEMPLATE_PATH = 'data/templates.json';
-  const FIELD_TYPES = { text:'텍스트', tags:'태그', textarea:'긴 글', collapse:'접기 글', rating:'별점' };
+  const FIELD_TYPES = { text:'텍스트', tags:'태그', textarea:'긴 글', collapse:'접기 글', rating:'별점', gallery:'갤러리' };
   // oc의 YMKB 세계관 항목을 그대로 가져온 기본 틀. 오너 네 명이 처음에는 똑같은 템플릿을 가진다.
   const DEFAULT_FIELDS = [{"key": "name", "label": "이름", "type": "text", "core": true}, {"key": "f_1790459852228", "label": "영어 / 한자 이름", "type": "text"}, {"key": "f_1790459909805", "label": "나이", "type": "text"}, {"key": "f_1790485356104", "label": "생일", "type": "text"}, {"key": "f_1790485416027", "label": "신체", "type": "text"}, {"key": "f_1790460026132", "label": "학과", "type": "text"}, {"key": "f_1790460191966", "label": "학년", "type": "text"}, {"key": "f_1790477497994", "label": "학급", "type": "text"}, {"key": "f_1790484073611", "label": "소속", "type": "tags"}, {"key": "f_1790484157581", "label": "동아리", "type": "text"}, {"key": "f_1790484238483", "label": "학생회", "type": "text"}, {"key": "f_1790484328878", "label": "기숙사", "type": "text"}, {"key": "f_1790484388805", "label": "소개", "type": "textarea"}, {"key": "f_1790484546744", "label": "성격", "type": "textarea"}, {"key": "f_1790484621408", "label": "좋아하는 음식", "type": "text"}, {"key": "f_1790484726646", "label": "좋아하는 것", "type": "text"}, {"key": "f_1790484814456", "label": "좋아하는 사람", "type": "text"}, {"key": "f_1790484946547", "label": "싫어하는 음식", "type": "text"}, {"key": "f_1790484951928", "label": "싫어하는 것", "type": "text"}, {"key": "f_1790484957343", "label": "싫어하는 사람", "type": "text"}, {"key": "f_1790484965565", "label": "여담", "type": "textarea"}, {"key": "f_1790490251818", "label": "캐릭터 이야기 1", "type": "collapse"}, {"key": "f_1790490342827", "label": "보컬", "type": "rating"}, {"key": "f_1790492405183", "label": "정신력", "type": "rating"}, {"key": "f_1790492376210", "label": "무용", "type": "rating"}, {"key": "f_1790492415019", "label": "눈치", "type": "rating"}, {"key": "f_1790492385635", "label": "연기", "type": "rating"}, {"key": "f_1790492423525", "label": "성적", "type": "rating"}, {"key": "f_1790492394900", "label": "체력", "type": "rating"}];
   const OWNER_IDS = ['dowon', 'seit', 'haewon', 'howon'];
@@ -950,6 +950,49 @@
   function abilityRow(label, n){
     return `<div class="spec-row" style="gap:6px; width:max-content;"><span class="spec-label" style="min-width:46px;">${label}</span><span class="stars">${starRating(n)}</span></div>`;
   }
+  /* ---------------- 갤러리 (템플릿 항목 종류 '갤러리') ---------------- */
+  function galThumbSrc(it){
+    const path = it.thumb || it.orig; if(!path) return '';
+    const f = freshImg(path); if(f) return f;
+    return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${assetPath(path)}?v=${(it.thumb ? it.thumbV : it.origV) || ''}`;
+  }
+  function galOrigSrc(it){
+    const path = it.orig || it.thumb; if(!path) return '';
+    const f = freshImg(path); if(f) return f;
+    return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${assetPath(path)}?v=${(it.orig ? it.origV : it.thumbV) || ''}`;
+  }
+  const lb = { items:[], i:0 };
+  function lbShow(){
+    const it = lb.items[lb.i]; if(!it) return;
+    document.getElementById('lbImg').src = galOrigSrc(it);
+    document.getElementById('lbCount').textContent = lb.items.length > 1 ? `${lb.i + 1} / ${lb.items.length}` : '';
+    document.getElementById('lbPrev').style.display = document.getElementById('lbNext').style.display = lb.items.length > 1 ? '' : 'none';
+  }
+  function lbOpen(items, i){ lb.items = items; lb.i = i; lbShow(); document.getElementById('lightbox').classList.add('active'); }
+  function lbClose(){ document.getElementById('lightbox').classList.remove('active'); document.getElementById('lbImg').removeAttribute('src'); }
+  function lbMove(d){ if(lb.items.length < 2) return; lb.i = (lb.i + d + lb.items.length) % lb.items.length; lbShow(); }
+  document.getElementById('lbClose').addEventListener('click', lbClose);
+  document.getElementById('lbPrev').addEventListener('click', (e) => { e.stopPropagation(); lbMove(-1); });
+  document.getElementById('lbNext').addEventListener('click', (e) => { e.stopPropagation(); lbMove(1); });
+  document.getElementById('lightbox').addEventListener('click', (e) => { if(e.target.id === 'lightbox' || e.target.id === 'lbStage') lbClose(); });
+  document.addEventListener('keydown', (e) => {
+    if(!document.getElementById('lightbox').classList.contains('active')) return;
+    if(e.key === 'Escape'){ e.stopImmediatePropagation(); lbClose(); } else if(e.key === 'ArrowLeft') lbMove(-1); else if(e.key === 'ArrowRight') lbMove(1);
+  }, true);
+  (function(){
+    let sx = null;
+    const box = document.getElementById('lightbox');
+    box.addEventListener('touchstart', (e) => { sx = e.touches.length === 1 ? e.touches[0].clientX : null; }, { passive:true });
+    box.addEventListener('touchend', (e) => { if(sx === null) return; const dx = e.changedTouches[0].clientX - sx; sx = null; if(Math.abs(dx) > 50) lbMove(dx < 0 ? 1 : -1); }, { passive:true });
+  })();
+  document.addEventListener('click', (e) => {
+    const c = e.target.closest('.gal-cell'); if(!c) return;
+    const grid = c.closest('.gallery-grid'); const info = grid && masterCharacters[grid.dataset.galName]; if(!info) return;
+    const f = templateFor(info).fields.find(x => x.key === grid.dataset.galKey); if(!f) return;
+    const v = valueOf(info, f);
+    const items = Array.isArray(v) ? v.filter(x => x && (x.thumb || x.orig)) : [];
+    lbOpen(items, Number(c.dataset.gi) || 0);
+  });
   function photoBlock(info){
     const hex = colorMap[info.color] || '#b7b7b7';
     const imgSrc = imgSrcFor(info.name, info.file);
@@ -1013,7 +1056,9 @@
   }
   function templateFor(info){
     if(ocOverrides[info.name] && ocFields.length){
-      return ({ id:'__oc', name:'oc', fields: ocFields.map(f => ({ key:f.key, label:f.label, type:['text','tags','textarea','collapse','rating'].includes(f.type) ? f.type : 'text', core:!!f.core })) });
+      const ot = templates.find(t => t.name === info.owner) || templates.find(t => t.id === info.template) || templates[0];
+      const gal = ot ? ot.fields.filter(f => f.type === 'gallery') : [];
+      return ({ id:'__oc', name:'oc', fields: ocFields.map(f => ({ key:f.key, label:f.label, type:['text','tags','textarea','collapse','rating'].includes(f.type) ? f.type : 'text', core:!!f.core })).concat(gal) });
     }
     const t = templates.find(t => t.name === info.owner) || templates.find(t => t.id === info.template) || templates[0];
     return t;
@@ -1027,12 +1072,11 @@
     let rows = [], stars = [];
     const flush = () => {
       if(rows.length){
-        out.push(`<div class="profile-rows${rows.length >= 6 ? ' cols2' : ''}">${rows.join('')}</div>`);
+        out.push(`<div class="profile-rows cols2">${rows.join('')}</div>`);
         rows = [];
       }
       if(stars.length){
-        const half = Math.ceil(stars.length / 2);
-        out.push(`<div class="profile-two-col profile-stars"><div>${stars.slice(0, half).join('')}</div><div>${stars.slice(half).join('')}</div></div>`);
+        out.push(`<div class="profile-rows cols2 profile-stars">${stars.join('')}</div>`);
         stars = [];
       }
     };
@@ -1048,6 +1092,10 @@
       } else if(f.type === 'textarea'){
         flush();
         out.push(`<div class="profile-section-head">${esc(f.label)}</div><div class="profile-text rich">${v === undefined ? '-' : toRich(v)}</div>`);
+      } else if(f.type === 'gallery'){
+        flush();
+        const gitems = Array.isArray(v) ? v.filter(x => x && (x.thumb || x.orig)) : [];
+        if(gitems.length) out.push(`<div class="profile-section-head">${esc(f.label)}</div><div class="gallery-grid" data-gal-name="${esc(info.name)}" data-gal-key="${esc(f.key)}">${gitems.map((it, gi) => `<button type="button" class="gal-cell" data-gi="${gi}"><img src="${esc(galThumbSrc(it))}" alt="" loading="lazy" onerror="window.__imgErr(this)"></button>`).join('')}</div>`);
       } else if(f.type === 'collapse'){
         flush();
         if(v !== undefined) out.push(`<details class="profile-collapse"><summary>${esc(f.label)}</summary><div class="profile-text rich">${toRich(v)}</div></details>`);
@@ -1071,7 +1119,7 @@
       ${renderTemplateBody(info)}
 
       <div class="profile-actions">
-        ${info.owner ? `<span class="profile-owner">OWNER ${esc(info.owner)}</span>` : '<span></span>'}
+        ${info.owner ? `<span class="profile-owner">OWNER · ${esc(info.owner)}</span>` : '<span></span>'}
         <span class="edit-only">
           <button type="button" class="btn-sm" data-act="edit" data-name="${esc(info.name)}">수정</button>
           <button type="button" class="btn-sm danger" data-act="delete" data-name="${esc(info.name)}">삭제</button>
@@ -1303,7 +1351,7 @@
     const origBtn = fresh('cropOriginal');
     origBtn.style.display = opts.noOriginal ? 'none' : '';
     origBtn.addEventListener('click', () => { onApply(file, extOf(file)); closeCrop(); });
-    fresh('cropCancel').addEventListener('click', closeCrop);
+    fresh('cropCancel').addEventListener('click', () => { closeCrop(); if(opts.onCancel) opts.onCancel(); });
   }
   function closeCrop(){
     cropModal.classList.remove('active');
@@ -1489,6 +1537,7 @@
     if(f.type === 'text') return `<input class="f-input" data-fkey="${k}" data-ftype="text" value="${esc(val == null ? '' : val)}">`;
     if(f.type === 'tags') return `<div class="f-tags" data-fkey="${k}" data-ftype="tags"><span class="chips"></span><input class="f-tag-input" placeholder="입력하고 Enter"></div>`;
     if(f.type === 'rating') return `<div class="f-rating" data-fkey="${k}" data-ftype="rating" data-val="${Number(val) || 0}"></div>`;
+    if(f.type === 'gallery') return `<div class="f-gallery" data-fkey="${k}" data-ftype="gallery"></div>`;
     // textarea / collapse
     return `<div class="rt-wrap"><div class="rt-toolbar"><button type="button" data-rt="bold"><b>B</b></button><button type="button" data-rt="italic"><i>I</i></button><button type="button" data-rt="underline"><u>U</u></button><button type="button" data-rt="removeFormat">서식 지우기</button></div><div class="rt-edit f-input" contenteditable="true" data-fkey="${k}" data-ftype="rich">${val ? toRich(val) : ''}</div></div>`;
   }
@@ -1508,6 +1557,35 @@
         inp.addEventListener('blur', add);
         chips.addEventListener('click', ev => { const b = ev.target.closest('button'); if(b){ el._vals.splice(Number(b.dataset.i), 1); draw(); } });
         draw();
+      } else if(f.type === 'gallery'){
+        el._items = Array.isArray(val) ? val.map(x => Object.assign({}, x)) : [];
+        const draw = () => {
+          el.innerHTML = `<div class="gal-edit-grid">${el._items.map((it, i) => `<div class="gal-edit-tile" data-i="${i}"><div class="gal-edit-thumb">${it.pendingThumbUrl ? `<img src="${it.pendingThumbUrl}" alt="">` : (it.thumb || it.orig ? `<img src="${esc(galThumbSrc(it))}" alt="" onerror="window.__imgErr(this)">` : '')}</div><div class="gal-edit-actions"><button type="button" class="btn-sm" data-gthumb>썸네일 변경</button><button type="button" class="btn-sm danger" data-gdel>삭제</button></div></div>`).join('')}</div><div class="f-inline"><input type="file" accept="image/*" multiple data-gadd></div>`;
+        };
+        draw();
+        el.addEventListener('change', (ev) => {
+          const inp = ev.target.closest('[data-gadd]'); if(!inp) return;
+          const files = [...inp.files]; inp.value = '';
+          const next = () => {
+            const file = files.shift(); if(!file) return;
+            openCrop(file, (blob, ext) => {
+              el._items.push({ id:'g' + Date.now().toString(36) + el._items.length, pendingOrig:{ blob:file, ext:extOf(file) }, pendingThumb:{ blob, ext }, pendingThumbUrl:URL.createObjectURL(blob) });
+              draw(); setTimeout(next, 80); // 자르기 창이 닫힌 뒤에 다음 이미지를 연다
+            }, { aspect:1, noOriginal:true, onCancel:() => setTimeout(next, 80) });
+          };
+          next();
+        });
+        el.addEventListener('click', async (ev) => {
+          const tile = ev.target.closest('.gal-edit-tile'); if(!tile) return;
+          const i = Number(tile.dataset.i), it = el._items[i]; if(!it) return;
+          if(ev.target.closest('[data-gdel]')){ el._items.splice(i, 1); draw(); return; }
+          if(ev.target.closest('[data-gthumb]')){
+            let blob;
+            try { blob = it.pendingOrig ? it.pendingOrig.blob : await (await fetch(galOrigSrc(it))).blob(); } catch(e){ blob = null; }
+            if(!blob){ alert('원본 이미지를 불러오지 못했어요. 잠시 뒤에 다시 시도해 주세요.'); return; }
+            openCrop(blob, (b, ext) => { it.pendingThumb = { blob:b, ext }; it.pendingThumbUrl = URL.createObjectURL(b); draw(); }, { aspect:1, noOriginal:true });
+          }
+        });
       } else if(f.type === 'rating'){
         const draw = () => {
           const n = Number(el.dataset.val) || 0;
@@ -1531,7 +1609,8 @@
       if(f.type === 'tags'){
         const inp = el.querySelector('input'); const pend = inp && inp.value.trim();
         out[f.key] = el._vals.concat(pend ? [pend] : []);
-      } else if(f.type === 'rating') out[f.key] = Number(el.dataset.val) || 0;
+      } else if(f.type === 'gallery') out[f.key] = el._items || [];
+      else if(f.type === 'rating') out[f.key] = Number(el.dataset.val) || 0;
       else if(f.type === 'textarea' || f.type === 'collapse') out[f.key] = cleanHtml(el.innerHTML);
       else out[f.key] = el.value.trim();
     });
@@ -1735,7 +1814,35 @@
         data.image = imgPath;
         data.imageV = Date.now();
       }
+      // 갤러리: 새로 고른 원본/썸네일을 올리고, 지운 이미지 파일은 저장이 끝난 뒤에 지운다.
+      const galDel = [], galKeep = new Set();
+      for(const f of formTpl.fields){
+        if(f.type !== 'gallery') continue;
+        const old = Array.isArray(hadFields[f.key]) ? hadFields[f.key] : [];
+        const items = Array.isArray(fields[f.key]) ? fields[f.key] : [];
+        const clean = [];
+        for(const it of items){
+          const c = { id:it.id, orig:it.orig || null, origV:it.origV || null, thumb:it.thumb || null, thumbV:it.thumbV || null };
+          if(it.pendingOrig){
+            const gp = `assets/ymkb_gal_${id}_${it.id}.${it.pendingOrig.ext}`;
+            await ghPut(gp, await blobToBase64(it.pendingOrig.blob), `Add gallery image: ${name}`);
+            if(c.orig && c.orig !== gp) galDel.push(c.orig);
+            c.orig = gp; c.origV = Date.now();
+          }
+          if(it.pendingThumb){
+            const tp = `assets/ymkb_galt_${id}_${it.id}.${it.pendingThumb.ext}`;
+            await ghPut(tp, await blobToBase64(it.pendingThumb.blob), `Add gallery thumbnail: ${name}`);
+            if(c.thumb && c.thumb !== tp) galDel.push(c.thumb);
+            c.thumb = tp; c.thumbV = Date.now();
+          }
+          if(c.orig || c.thumb){ clean.push(c); if(c.orig) galKeep.add(c.orig); if(c.thumb) galKeep.add(c.thumb); }
+        }
+        const keepIds = new Set(clean.map(c => c.id));
+        old.forEach(o => { if(o && !keepIds.has(o.id)){ if(o.orig) galDel.push(o.orig); if(o.thumb) galDel.push(o.thumb); } });
+        if(clean.length) fields[f.key] = clean; else delete fields[f.key];
+      }
       await ghPut(`${CHAR_DIR}/${id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `${info ? 'Update' : 'Add'} character: ${name}`);
+      for(const gp of galDel){ if(!galKeep.has(gp)){ try { await ghDelete(gp, `Remove gallery image: ${name}`); } catch(e){} } }
       if(prev.image && prev.image !== data.image){ try { await ghDelete(prev.image, `Replace image: ${name}`); } catch(e){} }
       reloadKeepingView({ profile:name });
     } catch(e){
