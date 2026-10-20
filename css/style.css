@@ -635,3 +635,5 @@ a.disco-title:hover{ color:var(--accent); }
 .tpl-hr{ margin:14px 0 8px; }
 .tpl-hr + .f-group + .tpl-fields{ border-top:0; margin-top:0; padding-top:0; }
 .tpl-hr + .f-group{ border-top:0; margin-top:8px; padding-top:0; }
+.tpl-owner{ margin-top:18px; }
+.tpl-btns .text-btn{ font-size:18px; line-height:1; padding:0 6px; }
