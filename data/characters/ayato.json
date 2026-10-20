@@ -9,8 +9,8 @@
   "template": "t_seit",
   "clubHead": true,
   "classFlags": [],
-  "image": null,
-  "imageV": null,
+  "image": "assets/ymkb_icon_ayato.png",
+  "imageV": 1792522618116,
   "noImage": false,
   "fields": {
     "f_1792438847898": "遠野 理人",
