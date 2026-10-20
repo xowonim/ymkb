@@ -1,0 +1,16 @@
+{
+  "id": "uzuki",
+  "name": "하쿠노 우즈키",
+  "file": "uzuki",
+  "group": "Tsicro",
+  "role": "매니저",
+  "color": null,
+  "owner": "",
+  "template": "t_dowon",
+  "clubHead": false,
+  "classFlags": [],
+  "image": null,
+  "imageV": null,
+  "noImage": false,
+  "fields": {}
+}
