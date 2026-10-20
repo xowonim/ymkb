@@ -1,0 +1,16 @@
+{
+  "id": "kitsune",
+  "name": "이자요이 키츠네",
+  "file": "kitsune",
+  "group": "kowiis",
+  "role": "",
+  "color": "스페이스",
+  "owner": "호원",
+  "template": "t_howon",
+  "clubHead": false,
+  "classFlags": [],
+  "image": null,
+  "imageV": null,
+  "noImage": false,
+  "fields": {}
+}
