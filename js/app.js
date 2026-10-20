@@ -1073,8 +1073,8 @@
       <div class="profile-actions">
         ${info.owner ? `<span class="profile-owner">오너 ${esc(info.owner)}</span>` : '<span></span>'}
         <span class="edit-only">
-          <button type="button" class="text-btn" data-act="edit" data-name="${esc(info.name)}">수정</button>
-          <button type="button" class="text-btn danger" data-act="delete" data-name="${esc(info.name)}">삭제</button>
+          <button type="button" class="btn-sm" data-act="edit" data-name="${esc(info.name)}">수정</button>
+          <button type="button" class="btn-sm danger" data-act="delete" data-name="${esc(info.name)}">삭제</button>
         </span>
       </div>
     `;
@@ -1604,7 +1604,7 @@
       <div class="f-image">
         <div class="f-thumb" id="fThumb">${curImg ? `<img src="${esc(curImg)}" alt="" onerror="window.__imgErr(this)">` : ''}</div>
         <div>
-          <div class="f-inline"><input type="file" id="fImage" accept="image/*"><button type="button" class="text-btn danger" id="fImageDel">삭제</button></div>
+          <div class="f-inline"><input type="file" id="fImage" accept="image/*"><button type="button" class="btn-sm danger" id="fImageDel">삭제</button></div>
           <p class="form-hint" id="fImageNote"></p>
         </div>
       </div>
@@ -1628,7 +1628,7 @@
 
       <p class="form-error" id="formError"></p>
       <div class="form-actions">
-        ${info && charFiles[info.name] ? '<button type="button" class="text-btn danger" id="formReset">내용 초기화</button>' : '<span></span>'}
+        ${info && charFiles[info.name] ? '<button type="button" class="btn-sm danger" id="formReset">내용 초기화</button>' : '<span></span>'}
         <button type="button" class="form-submit" id="formSave">저장</button>
       </div>`;
     formModal.classList.add('active');
@@ -1854,7 +1854,7 @@
       <div class="f-image">
         <div class="f-thumb square" id="fThumb">${g && g.image ? `<img src="${esc(groupImgSrc(g))}" alt="" onerror="window.__imgErr(this)">` : ''}</div>
         <div>
-          <div class="f-inline"><input type="file" id="fImage" accept="image/*"><button type="button" class="text-btn danger" id="fImageDel">삭제</button></div>
+          <div class="f-inline"><input type="file" id="fImage" accept="image/*"><button type="button" class="btn-sm danger" id="fImageDel">삭제</button></div>
           <p class="form-hint" id="fImageNote"></p>
         </div>
       </div>
@@ -1878,7 +1878,7 @@
       box.innerHTML = disco.map((d, i) => `<div class="disco-edit-row" data-i="${i}">
         <div class="f-thumb square">${d.pendingUrl ? `<img src="${d.pendingUrl}" alt="">` : (d.cover ? `<img src="${esc(discCoverSrc(d))}" alt="" onerror="window.__imgErr(this)">` : '')}</div>
         <div class="disco-edit-fields">
-          <div class="f-inline"><input type="file" data-d="file" accept="image/*"><button type="button" class="text-btn danger" data-dimgdel>이미지 삭제</button></div>
+          <div class="f-inline"><input type="file" data-d="file" accept="image/*"><button type="button" class="btn-sm danger" data-dimgdel>이미지 삭제</button></div>
           <input class="f-input" data-d="title" placeholder="음원명" value="${esc(d.title || '')}">
           <input class="f-input" data-d="date" type="date" value="${esc(d.date || '')}">
           <input class="f-input" data-d="link" placeholder="바로가기 링크" value="${esc(d.link || '')}">
@@ -2185,10 +2185,10 @@
       <button type="button" class="text-btn" id="sAddSns">+ SNS 추가</button>
       <div class="f-group">이미지</div>
       <div class="f-row"><span>로고 이미지</span>
-        <div class="f-image"><div class="f-thumb square" id="sLogoThumb">${site.logo ? `<img src="${esc(rawUrl(site.logo, site.logoV))}" alt="" onerror="window.__imgErr(this)">` : ''}</div><div class="f-inline"><input type="file" id="sLogo" accept="image/*"><button type="button" class="text-btn danger" id="sLogoDel">삭제</button></div></div>
+        <div class="f-image"><div class="f-thumb square" id="sLogoThumb">${site.logo ? `<img src="${esc(rawUrl(site.logo, site.logoV))}" alt="" onerror="window.__imgErr(this)">` : ''}</div><div class="f-inline"><input type="file" id="sLogo" accept="image/*"><button type="button" class="btn-sm danger" id="sLogoDel">삭제</button></div></div>
       </div>
       <div class="f-row"><span>파비콘</span>
-        <div class="f-image"><div class="f-thumb square" id="sFavThumb">${site.favicon ? `<img src="${esc(rawUrl(site.favicon, site.faviconV))}" alt="" onerror="window.__imgErr(this)">` : ''}</div><div class="f-inline"><input type="file" id="sFav" accept="image/*"><button type="button" class="text-btn danger" id="sFavDel">삭제</button></div></div>
+        <div class="f-image"><div class="f-thumb square" id="sFavThumb">${site.favicon ? `<img src="${esc(rawUrl(site.favicon, site.faviconV))}" alt="" onerror="window.__imgErr(this)">` : ''}</div><div class="f-inline"><input type="file" id="sFav" accept="image/*"><button type="button" class="btn-sm danger" id="sFavDel">삭제</button></div></div>
       </div>
       <div class="f-group">메인 슬라이드</div>
       <div id="sSlides"></div>
