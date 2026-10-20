@@ -128,7 +128,7 @@
   const PAGE_KEYS = [['counsel','학생회'], ['agency','기숙사'], ['etc','ETC']];
   const SITE_DEFAULTS = { title:'유메키보고등학교', subtitle:'YUMEKIBO HIGH SCHOOL', youtube:'https://youtube.com/@ymkbhighschool', soundcloud:'https://soundcloud.com/ymkbofficial', footer:'© ymkb high school', logo:null, logoV:null, favicon:null, faviconV:null, slides:[DEFAULT_SLIDE], pages:{}, council:{
     president:'하츠키 세이시', vice:'이자요이 키츠네',
-    reps:[{name:'센코 이치고',label:'3-A'},{name:'니시 케이쇼',label:'3-B'},{name:'나카스 헤이지',label:'2-A'},{name:'사쿠라 시류',label:'2-B'},{name:'카미하츠 마모루',label:'1-A'},{name:'나미카와 류',label:'1-B'},{name:'에나미 큐',label:'중-A'},{name:'시이나 이나',label:'중-B'}],
+    reps:[{name:'센코 이치고',label:'3-A'},{name:'니시 케이쇼',label:'3-B'},{name:'나카스 헤이지',label:'2-A'},{name:'사쿠라 시류',label:'2-B'},{name:'카미하츠 마모루',label:'1-A'},{name:'나미카와 류',label:'1-B'},{name:'에나미 큐',label:'中-A'},{name:'시이나 이나',label:'中-B'}],
     depts:[{name:'미요시 아로마',label:'회계'},{name:'아오키 켄',label:'관리팀장'},{name:'나미카와 우미',label:'도서팀장'},{name:'아라키 카이로',label:'미화팀장'},{name:'토오노 아야토',label:'홍보팀장'},{name:'나카아키 세츠나',label:'방송팀장'}],
     broadcast:[{name:'나카아키 세츠나'},{name:'이즈미 테이'},{name:'하나나시 사나기'},{name:'유키무라 카논'}]
   } };
@@ -962,8 +962,10 @@
     box.innerHTML = `
       <div class="council-top">${solo('학생회장', c.president)}${solo('부학생회장', c.vice)}</div>
       ${row('학급 대표', (c.reps || []).filter(x => x && x.name).map(x => councilCard(x.name, x.label)))}
+      <div class="council-dept-block">
       ${row('부서', (c.depts || []).filter(x => x && x.name).map(x => councilCard(x.name, x.label)))}
-      ${row('', (c.broadcast || []).filter(x => x && x.name).map(x => councilCard(x.name, '방송부')))}`;
+      ${row('', (c.broadcast || []).filter(x => x && x.name).map(x => councilCard(x.name, '방송부')))}
+      </div>`;
   }
   renderCouncil();
   document.getElementById('councilBody').addEventListener('click', (e) => {
