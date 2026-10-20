@@ -2463,7 +2463,7 @@
       return `<div class="spec-row"><span class="spec-label" style="min-width:110px">${esc(n)}</span><span class="spec-sep">|</span><span class="spec-value">oc 값이 있는 항목 ${filled}개 / 전체 ${tpl.fields.filter(f => !f.core).length}개</span></div>`;
     }).join('') || '<p class="form-hint">연결된 캐릭터가 없어요.</p>';
     document.getElementById('formBody').innerHTML = `
-      <h2 class="form-title">oc 연동 상태 (for xowon)</h2>
+      <h2 class="form-title">only for xowon..</h2>
       <div class="spec-row"><span class="spec-label" style="min-width:110px">oc 캐릭터 목록</span><span class="spec-sep">|</span><span class="spec-value">${ocStatus.error ? '불러오지 못했어요 (' + esc(ocStatus.error) + ')' : ocStatus.listCount + '개 파일'}</span></div>
       <div class="spec-row"><span class="spec-label" style="min-width:110px">YMKB 세계관</span><span class="spec-sep">|</span><span class="spec-value">${ocStatus.worldFound ? '찾았어요 (항목 ' + ocFields.length + '개)' : '찾지 못했어요'}</span></div>
       <div class="spec-row"><span class="spec-label" style="min-width:110px">YMKB 캐릭터</span><span class="spec-sep">|</span><span class="spec-value">${Object.keys(ocOverrides).length}명</span></div>
