@@ -297,11 +297,6 @@
         "type": "collapse"
       },
       {
-        "key": "f_1792500789295",
-        "label": "캐릭터 이야기 4",
-        "type": "text"
-      },
-      {
         "key": "f_1790490342827",
         "label": "보컬",
         "type": "rating"
