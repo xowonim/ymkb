@@ -37,9 +37,9 @@ a{ color:inherit; text-decoration:none; }
 .logo{
   flex:0 0 96px;
   height:96px;
-  border-radius:50%;
-  background:var(--surface);
-  border:1px solid var(--line);
+  border-radius:0;
+  background:none;
+  border:none;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -48,7 +48,7 @@ a{ color:inherit; text-decoration:none; }
   color:var(--accent);
   transition:border-color .2s ease, transform .2s ease;
 }
-.header-row:hover .logo{ border-color:var(--accent); transform:scale(1.02); }
+.header-row:hover .logo{ transform:scale(1.02); }
 .title-bar{
   flex:1;
   background:none;
@@ -59,7 +59,7 @@ a{ color:inherit; text-decoration:none; }
   gap:4px;
   padding:10px 4px;
 }
-.title-bar h1{ font-size:24px; font-weight:700; color:var(--ink); }
+.title-bar h1{ font-size:24px; font-weight:700; color:var(--ink); letter-spacing:0.08em; }
 .title-bar span{ font-size:11px; letter-spacing:0.16em; color:var(--muted); font-weight:500; }
 
 /* ---------- Category menu (plain text, evenly spaced, underline on active) ---------- */
@@ -500,7 +500,7 @@ textarea.f-input{ resize:vertical; line-height:1.6; }
 
 /* ---------- Site / class editor ---------- */
 .logo{ overflow:hidden; }
-.logo img{ width:100%; height:100%; object-fit:cover; display:block; }
+.logo img{ width:100%; height:100%; object-fit:contain; display:block; }
 .page-body{ text-align:left; max-width:640px; margin:12px auto 0; }
 .f-thumb.wide{ width:120px; aspect-ratio:16 / 9; }
 .slide-row{ display:flex; gap:14px; align-items:flex-start; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--line); }
@@ -637,3 +637,5 @@ a.disco-title:hover{ color:var(--accent); }
 .tpl-hr + .f-group{ border-top:0; margin-top:8px; padding-top:0; }
 .tpl-owner{ margin-top:18px; }
 .tpl-btns .text-btn{ font-size:18px; line-height:1; padding:0 6px; }
+
+.profile-text + .profile-rows{ margin-top:22px; padding-top:20px; border-top:1px solid var(--line); }
