@@ -316,8 +316,10 @@
       const all = await Promise.all(
         jsonFiles.map(async (f) => {
           try {
-            const raw = await fetch(f.download_url);
-            return await raw.json();
+            const raw = await fetch(`${f.download_url}${f.download_url.includes('?') ? '&' : '?'}v=${f.sha || Date.now()}`);
+            const j = await raw.json();
+            if(j && typeof j === 'object') j._path = f.path;
+            return j;
           } catch (e) {
             console.warn('oc 캐릭터 파일을 불러오지 못했어요:', f.name, e);
             return null;
@@ -1123,7 +1125,8 @@
       const v = valueOf(info, f);
       if(f.type === 'text' || f.type === 'tags'){
         if(stars.length) flush();
-        const txt = v === undefined ? '' : (Array.isArray(v) ? v.map(x => esc(typeof x === 'object' ? JSON.stringify(x) : x)).join(', ') : esc(typeof v === 'object' ? JSON.stringify(v) : v));
+        const plain = (x) => String(x).replace(/<br\s*\/?>/gi, ' ').replace(/<\/?[a-z][^>]*>/gi, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+        const txt = v === undefined ? '' : (Array.isArray(v) ? v.map(x => esc(plain(typeof x === 'object' ? JSON.stringify(x) : x))).join(', ') : esc(plain(typeof v === 'object' ? JSON.stringify(v) : v)));
         rows.push(infoRow(esc(f.label), txt));
       } else if(f.type === 'rating'){
         if(rows.length) flush();
@@ -2466,22 +2469,45 @@
   function showOcStatus(){
     const matched = Object.keys(ocOverrides).filter(n => masterCharacters[n]);
     const unmatched = Object.keys(ocOverrides).filter(n => !masterCharacters[n]);
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const fmtDate = (d) => `${d.getFullYear()}.${pad2(d.getMonth() + 1)}.${pad2(d.getDate())}`;
+    const fmtDateTime = (d) => `${fmtDate(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
     const rows = matched.map(n => {
       const info = masterCharacters[n];
       const tpl = templateFor(info);
       const filled = tpl.fields.filter(f => !f.core && ocValue(info, f) !== undefined).length;
-      return `<div class="spec-row"><span class="spec-label" style="min-width:110px">${esc(n)}</span><span class="spec-sep">|</span><span class="spec-value">oc 값이 있는 항목 ${filled}개 / 전체 ${tpl.fields.filter(f => !f.core).length}개</span></div>`;
+      return `<div class="spec-row oc-row" data-ocname="${esc(n)}"><span class="spec-label" style="min-width:110px">${esc(n)}</span><span class="spec-sep">|</span><span class="spec-value">연동된 항목 ${filled}개 / 전체 항목 ${tpl.fields.filter(f => !f.core).length}개</span><span class="oc-date">-</span></div>`;
     }).join('') || '<p class="form-hint">연결된 캐릭터가 없어요.</p>';
     document.getElementById('formBody').innerHTML = `
       <h2 class="form-title">only for xowon..</h2>
-      <div class="spec-row"><span class="spec-label" style="min-width:110px">oc 캐릭터 목록</span><span class="spec-sep">|</span><span class="spec-value">${ocStatus.error ? '불러오지 못했어요 (' + esc(ocStatus.error) + ')' : ocStatus.listCount + '개 파일'}</span></div>
-      <div class="spec-row"><span class="spec-label" style="min-width:110px">YMKB 세계관</span><span class="spec-sep">|</span><span class="spec-value">${ocStatus.worldFound ? '찾았어요 (항목 ' + ocFields.length + '개)' : '찾지 못했어요'}</span></div>
-      <div class="spec-row"><span class="spec-label" style="min-width:110px">YMKB 캐릭터</span><span class="spec-sep">|</span><span class="spec-value">${Object.keys(ocOverrides).length}명</span></div>
-      <div class="f-group">ymkb와 이름이 같아 연결된 캐릭터</div>
+      <div class="spec-row"><span class="spec-label" style="min-width:110px">YMKB 캐릭터</span><span class="spec-sep">|</span><span class="spec-value">${ocStatus.error ? '불러오지 못했어요 (' + esc(ocStatus.error) + ')' : Object.keys(ocOverrides).length + '명'}</span></div>
+      <div class="spec-row"><span class="spec-label" style="min-width:110px">마지막 업데이트</span><span class="spec-sep">|</span><span class="spec-value" id="ocLastUpdate">불러오는 중...</span></div>
+      <hr class="soft-divider oc-hr">
+      <div class="f-group oc-group">연결된 캐릭터</div>
       ${rows}
       ${ocSkipped.length ? `<div class="f-group">오너가 호원이 아니라 연동하지 않은 캐릭터</div><p class="form-hint">${ocSkipped.map(esc).join(', ')}</p>` : ''}
       ${unmatched.length ? `<div class="f-group">oc에는 있지만 ymkb에서 이름이 맞지 않는 캐릭터</div><p class="form-hint">${unmatched.map(esc).join(', ')}<br>ymkb의 이름을 oc와 똑같이 맞춰 주세요.</p>` : ''}`;
     formModal.classList.add('active');
+    // 캐릭터 파일별 마지막 저장 시각은 oc 저장소의 커밋 기록에서 가져온다.
+    const dates = [];
+    const lastEl = document.getElementById('ocLastUpdate');
+    Promise.all(Object.keys(ocOverrides).map(async (n) => {
+      const path = ocOverrides[n] && ocOverrides[n]._path;
+      if(!path) return;
+      try {
+        const res = await ghGet(`https://api.github.com/repos/${OC_OWNER}/${OC_REPO}/commits?path=${encodeURIComponent(path)}&sha=${OC_BRANCH}&per_page=1`);
+        if(!res.ok) return;
+        const arr = await res.json();
+        const dt = arr && arr[0] && arr[0].commit && (arr[0].commit.committer || arr[0].commit.author);
+        if(!dt || !dt.date) return;
+        const d = new Date(dt.date); dates.push(d);
+        const row = document.querySelector(`#formBody .oc-row[data-ocname="${CSS.escape(n)}"] .oc-date`);
+        if(row) row.textContent = `(${fmtDate(d)})`;
+      } catch(e){}
+    })).then(() => {
+      if(!lastEl) return;
+      lastEl.textContent = dates.length ? fmtDateTime(new Date(Math.max(...dates.map(d => d.getTime())))) : '-';
+    });
   }
   document.getElementById('ocStatusBtn').addEventListener('click', showOcStatus);
 
