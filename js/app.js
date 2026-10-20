@@ -113,7 +113,7 @@
   const DEFAULT_SLIDE = { id:'s0', date:'', title:'plz wait a little bit of..♡', image:null };
   const SLIDE_GRADIENT = 'linear-gradient(160deg,#c6b8d4,#9B85AD)';
   const PAGE_KEYS = [['counsel','학생회'], ['agency','기숙사'], ['etc','ETC']];
-  const SITE_DEFAULTS = { title:'유메키보고등학교', subtitle:'YUMEKIBO HIGH SCHOOL', youtube:'https://youtube.com/@ymkbhighschool', soundcloud:'https://soundcloud.com/ymkbofficial', footer:'© ymkb high school', logo:null, logoV:null, slides:[DEFAULT_SLIDE], pages:{} };
+  const SITE_DEFAULTS = { title:'유메키보고등학교', subtitle:'YUMEKIBO HIGH SCHOOL', youtube:'https://youtube.com/@ymkbhighschool', soundcloud:'https://soundcloud.com/ymkbofficial', footer:'© ymkb high school', logo:null, logoV:null, favicon:null, faviconV:null, slides:[DEFAULT_SLIDE], pages:{} };
 
   const GROUP_DIR = 'data/groups';
   function apiHeaders(){ const h = { Accept:'application/vnd.github+json' }; const t = getToken(); if(t) h.Authorization = 'Bearer ' + t; return h; }
@@ -423,14 +423,33 @@
   if(!Array.isArray(site.slides) || !site.slides.length) site.slides = [DEFAULT_SLIDE];
   site.pages = site.pages || {};
 
+  const SNS_ICONS = {
+    yt:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M21.6 7.2s-.2-1.5-.8-2.1c-.8-.8-1.7-.8-2.1-.9C15.9 4 12 4 12 4s-3.9 0-6.7.2c-.4 0-1.3.1-2.1.9-.6.6-.8 2.1-.8 2.1S2.2 9 2.2 10.7v1.6c0 1.7.2 3.5.2 3.5s.2 1.5.8 2.1c.8.8 1.9.8 2.4.9C7.5 19 12 19 12 19s3.9 0 6.7-.2c.4 0 1.3-.1 2.1-.9.6-.6.8-2.1.8-2.1s.2-1.7.2-3.5v-1.6c0-1.7-.2-3.5-.2-3.5zM9.9 14.6V8.9l5.4 2.9-5.4 2.8z"/></svg>',
+    sc:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2 15.5c0 1.9 1.6 3.5 3.5 3.5H18c2.2 0 4-1.8 4-4 0-1.9-1.4-3.5-3.2-3.9-.3-2.8-2.6-5-5.5-5-2 0-3.7 1.1-4.6 2.7-.2 0-.3-.1-.5-.1C6 8.7 4.4 10.2 4.2 12.1 2.9 12.5 2 13.9 2 15.5z"/></svg>',
+    etc:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>'
+  };
+  // SNS 목록: 새 형식(sns)이 없으면 예전 YouTube/Soundcloud 칸으로 만든다.
+  function snsOf(st){
+    if(Array.isArray(st.sns)) return st.sns.filter(x => x && (x.name || x.url));
+    return [{ name:'YouTube', url:st.youtube || '' }, { name:'Soundcloud', url:st.soundcloud || '' }].filter(x => x.url);
+  }
   (function applySite(){
     document.title = site.title;
     document.querySelector('.title-bar h1').textContent = site.title;
     document.querySelector('.title-bar span').textContent = site.subtitle;
-    const links = document.querySelectorAll('.link-row');
-    if(links[0]) links[0].href = site.youtube;
-    if(links[1]) links[1].href = site.soundcloud;
+    const snsList = snsOf(site);
+    const side = document.querySelector('.side-col');
+    if(side) side.innerHTML = snsList.map(x => {
+      const kind = /youtube|youtu\.be/i.test(x.url + x.name) ? 'yt' : /soundcloud/i.test(x.url + x.name) ? 'sc' : 'etc';
+      const icon = kind === 'yt' ? SNS_ICONS.yt : kind === 'sc' ? SNS_ICONS.sc : SNS_ICONS.etc;
+      return `<a class="link-row" href="${esc(safeUrl(x.url) || '#')}" target="_blank" rel="noopener noreferrer"><div class="icon-box ${kind}">${icon}</div><span>${esc(x.name)}</span></a>`;
+    }).join('');
     document.querySelector('footer').textContent = site.footer;
+    if(site.favicon){
+      let fl = document.querySelector('link[rel~="icon"]');
+      if(!fl){ fl = document.createElement('link'); fl.rel = 'icon'; document.head.appendChild(fl); }
+      fl.href = rawUrl(site.favicon, site.faviconV);
+    }
     if(site.logo) document.querySelector('.logo').innerHTML = `<img src="${esc(rawUrl(site.logo, site.logoV))}" alt="" onerror="window.__imgErr(this)">`;
     PAGE_KEYS.forEach(([k, label]) => {
       const box = document.querySelector(`#page-${k} .placeholder`);
@@ -483,11 +502,11 @@
     const g = groups.find(x => x.id === gf.id);
     if(g){
       if(g.name !== gf.name) groupRename[g.name] = gf.name;
-      ['name','concept','genre','fandom','intro','image','imageV'].forEach(k => { if(gf[k] !== undefined) g[k] = gf[k]; });
+      ['name','concept','genre','fandom','intro','image','imageV','discography'].forEach(k => { if(gf[k] !== undefined) g[k] = gf[k]; });
       if(Array.isArray(gf.colors)) g.colors = gf.colors;
       g.file = gf;
     } else {
-      groups.push({ id:gf.id, name:gf.name, colors:Array.isArray(gf.colors) ? gf.colors : [], concept:gf.concept || '', genre:gf.genre || '', fandom:gf.fandom || '', intro:gf.intro || '', image:gf.image || null, imageV:gf.imageV || null, members:[], manager:null, base:false, file:gf });
+      groups.push({ id:gf.id, name:gf.name, colors:Array.isArray(gf.colors) ? gf.colors : [], concept:gf.concept || '', genre:gf.genre || '', fandom:gf.fandom || '', intro:gf.intro || '', image:gf.image || null, imageV:gf.imageV || null, discography:Array.isArray(gf.discography) ? gf.discography : [], members:[], manager:null, base:false, file:gf });
     }
   });
 
@@ -700,7 +719,25 @@
     document.getElementById('gdMembersSec').style.display = plain.length ? '' : 'none';
     document.getElementById('gdManagerGallery').innerHTML = mgrs.map(charCard).join('');
     document.getElementById('gdManagerSec').style.display = mgrs.length ? '' : 'none';
+    const discs = Array.isArray(g.discography) ? g.discography.filter(d => d && (d.title || d.cover)) : [];
+    document.getElementById('gdDiscoGallery').innerHTML = discs.map(d => {
+      const cover = d.cover ? `<img src="${esc(discCoverSrc(d))}" alt="" onerror="window.__imgErr(this)">` : '';
+      const link = safeUrl(d.link);
+      const wrap = (inner, cls) => link ? `<a class="${cls}" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${inner}</a>` : `<span class="${cls}">${inner}</span>`;
+      return `<div class="disco-item">${wrap(cover, 'disco-cover')}${wrap(esc(d.title || ''), 'disco-title')}${d.date ? `<span class="disco-date">${esc(d.date)}</span>` : ''}</div>`;
+    }).join('');
+    document.getElementById('gdDiscoSec').style.display = discs.length ? '' : 'none';
     groupModal.classList.add('active');
+  }
+  function safeUrl(u){
+    u = String(u || '').trim(); if(!u) return '';
+    if(/^https?:\/\//i.test(u)) return u;
+    if(/^[a-z][a-z0-9+.-]*:/i.test(u)) return ''; // javascript: 같은 주소는 막는다
+    return 'https://' + u;
+  }
+  function discCoverSrc(d){
+    const f = freshImg(d.cover); if(f) return f;
+    return `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${assetPath(d.cover)}?v=${d.coverV || ''}`;
   }
   const saveMemberOrder = () => {
     if(!currentGroup) return;
@@ -1745,6 +1782,55 @@
 
 
   /* ----- 그룹 추가 / 수정 / 삭제 ----- */
+  /* 색 이름 -> 색깔 자동 찾기 (한국어/영어 이름, '연한', '진한' 같은 꾸밈말 지원) */
+  const KO_COLORS = {
+    '빨강':'#E53935','빨간':'#E53935','레드':'#E53935','적':'#D32F2F','주황':'#FB8C00','주황색':'#FB8C00','오렌지':'#FB8C00','노랑':'#FDD835','노란':'#FDD835','옐로우':'#FDD835','옐로':'#FDD835','황':'#F9A825','초록':'#43A047','초록색':'#43A047','그린':'#43A047','녹':'#2E7D32','녹색':'#43A047',
+    '파랑':'#1E88E5','파란':'#1E88E5','블루':'#1E88E5','청':'#2196F3','남색':'#1A237E','네이비':'#1A237E','군청':'#283593','보라':'#8E24AA','보라색':'#8E24AA','퍼플':'#8E24AA','바이올렛':'#7E57C2','분홍':'#F06292','분홍색':'#F06292','핑크':'#F06292','하늘':'#4FC3F7','하늘색':'#4FC3F7','스카이':'#4FC3F7','스카이블루':'#4FC3F7','민트':'#3EB489','청록':'#00897B','터콰이즈':'#30D5C8','터쿼이즈':'#30D5C8','티얼':'#00897B','시안':'#00BCD4','사이언':'#00BCD4','아쿠아':'#4DD0E1','연두':'#9CCC65','연두색':'#9CCC65','라임':'#C0CA33','올리브':'#808000','카키':'#8A9A5B','에메랄드':'#50C878',
+    '갈색':'#795548','브라운':'#795548','밤색':'#6D4C41','카멜':'#C19A6B','초콜릿':'#5D4037','초코':'#5D4037','베이지':'#D9C3A0','샌드':'#E2CA76','크림':'#FFF3C4','아이보리':'#FFFFF0','살구':'#FFAB91','살구색':'#FFAB91','피치':'#FFAB91','코랄':'#FF6F61','연어':'#FA8072','살몬':'#FA8072','로즈':'#E91E63','체리':'#D2042D','크림슨':'#DC143C','스칼렛':'#FF2400','루비':'#E0115F','자주':'#8E244C','자주색':'#8E244C','마젠타':'#D81B60','와인':'#722F37','버건디':'#800020','적갈색':'#8D3B2E','라벤더':'#B39DDB','라일락':'#C8A2C8','연보라':'#C3B1E1','인디고':'#3F51B5','사파이어':'#0F52BA','앰버':'#FFC107','호박색':'#FFB300','골드':'#D4AF37','금':'#D4AF37','금색':'#D4AF37','실버':'#C0C0C0','은':'#C0C0C0','은색':'#C0C0C0',
+    '검정':'#212121','검정색':'#212121','검은':'#212121','블랙':'#212121','흑':'#212121','흑색':'#212121','차콜':'#36454F','회색':'#9E9E9E','회':'#9E9E9E','그레이':'#9E9E9E','그레이색':'#9E9E9E','하양':'#FFFFFF','하얀':'#FFFFFF','흰':'#FFFFFF','흰색':'#FFFFFF','화이트':'#FFFFFF','백':'#FFFFFF','백색':'#FFFFFF','투명':'#FFFFFF'
+  };
+  const LIGHT_WORDS = ['연한','옅은','연','밝은','라이트','파스텔','pale','light'];
+  const DARK_WORDS = ['진한','짙은','진','어두운','다크','딥','dark','deep'];
+  function mixHex(hex, to, amt){
+    const n = (h, i) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
+    const c = [0, 1, 2].map(i => Math.round(n(hex, i) * (1 - amt) + n(to, i) * amt).toString(16).padStart(2, '0'));
+    return '#' + c.join('').toUpperCase();
+  }
+  function cssColor(name){
+    try {
+      const cx = document.createElement('canvas').getContext('2d');
+      cx.fillStyle = '#010203'; cx.fillStyle = name; const a = cx.fillStyle;
+      cx.fillStyle = '#fefdfc'; cx.fillStyle = name; const b = cx.fillStyle;
+      if(a !== b) return null; // 이름을 못 알아봤다
+      if(/^#/.test(a)) return a.toUpperCase();
+      const m = /^rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(a);
+      if(m) return '#' + [m[1], m[2], m[3]].map(x => Number(x).toString(16).padStart(2, '0')).join('').toUpperCase();
+    } catch(e){}
+    return null;
+  }
+  function resolveColor(raw){
+    let name = String(raw || '').trim();
+    if(!name) return null;
+    if(colorMap[name]) return colorMap[name];
+    let key = name.replace(/\s+/g, '').toLowerCase().replace(/[(){}]/g, '');
+    if(KO_COLORS[key]) return KO_COLORS[key];
+    const hexm = /^#?([0-9a-f]{6})$/i.exec(key); if(hexm) return '#' + hexm[1].toUpperCase();
+    const css = cssColor(key); if(css && !/^(inherit|initial|unset|currentcolor)$/.test(key)) return css;
+    for(const [words, to, amt] of [[LIGHT_WORDS, '#FFFFFF', 0.5], [DARK_WORDS, '#000000', 0.35]]){
+      for(const w of words){
+        if(key.startsWith(w) && key.length > w.length){
+          const rest = key.slice(w.length);
+          const base = KO_COLORS[rest] || cssColor(rest);
+          if(base) return mixHex(base, to, amt);
+        }
+      }
+    }
+    // 끝의 '색'을 떼고 한 번 더 찾는다
+    const t = key.replace(/(색|빛)$/, '');
+    if(t !== key && t){ const r = resolveColor(t); if(r) return r; }
+    return null;
+  }
+
   function openGroupForm(g){
     pendingImage = null; removeImage = false;
     const isEdit = !!g;
@@ -1762,7 +1848,7 @@
       ${fInput('장르', 'gGenre', g ? g.genre : '')}
       ${fInput('팬덤명', 'gFandom', g ? g.fandom : '')}
       <div class="f-row"><span>대표 컬러</span><div class="color-picks" id="gColors">${chipHtml()}</div>
-        <div class="f-inline color-add"><input class="f-input" id="gNewColorName" placeholder="색 이름"><input type="color" id="gNewColorHex" value="#8899aa"><button type="button" class="text-btn" id="gAddColor">색 추가</button></div></div>
+        <div class="color-name-row"><input class="f-input" id="gNewColorName" placeholder="색 이름"><span class="gd-color-dot" id="gNewColorDot" style="background:transparent"></span><button type="button" class="text-btn" id="gAddColor">색 추가</button></div></div>
       <div class="f-row"><span>소개</span><textarea class="f-input" rows="3" id="gIntro">${esc(g ? g.intro : '')}</textarea></div>
       <div class="f-group">이미지</div>
       <div class="f-image">
@@ -1772,9 +1858,49 @@
           <p class="form-hint" id="fImageNote"></p>
         </div>
       </div>
+      <div class="f-group">디스코그래피</div>
+      <div id="gDisco"></div>
+      <button type="button" class="text-btn" id="gAddDisco">+ 음원 추가</button>
       <p class="form-error" id="formError"></p>
       <div class="form-actions"><span></span><button type="button" class="form-submit" id="formSave">저장</button></div>`;
     formModal.classList.add('active');
+    const disco = (g && Array.isArray(g.discography) ? g.discography : []).map(d => Object.assign({}, d));
+    const syncDisco = () => {
+      document.querySelectorAll('#gDisco .disco-edit-row').forEach(row => {
+        const d = disco[Number(row.dataset.i)]; if(!d) return;
+        d.title = row.querySelector('[data-d=title]').value.trim();
+        d.date = row.querySelector('[data-d=date]').value;
+        d.link = row.querySelector('[data-d=link]').value.trim();
+      });
+    };
+    const drawDisco = () => {
+      const box = document.getElementById('gDisco');
+      box.innerHTML = disco.map((d, i) => `<div class="disco-edit-row" data-i="${i}">
+        <div class="f-thumb square">${d.pendingUrl ? `<img src="${d.pendingUrl}" alt="">` : (d.cover ? `<img src="${esc(discCoverSrc(d))}" alt="" onerror="window.__imgErr(this)">` : '')}</div>
+        <div class="disco-edit-fields">
+          <div class="f-inline"><input type="file" data-d="file" accept="image/*"><button type="button" class="text-btn danger" data-dimgdel>이미지 삭제</button></div>
+          <input class="f-input" data-d="title" placeholder="음원명" value="${esc(d.title || '')}">
+          <input class="f-input" data-d="date" type="date" value="${esc(d.date || '')}">
+          <input class="f-input" data-d="link" placeholder="바로가기 링크" value="${esc(d.link || '')}">
+        </div>
+        <button type="button" class="x-btn" data-ddel title="삭제" aria-label="삭제">&times;</button>
+      </div>`).join('');
+      box.querySelectorAll('.disco-edit-row').forEach(row => {
+        const i = Number(row.dataset.i);
+        row.querySelector('[data-d=file]').addEventListener('change', (e) => {
+          const f = e.target.files[0]; if(!f) return;
+          openCrop(f, (blob, ext) => { syncDisco(); disco[i].pending = { blob, ext }; disco[i].pendingUrl = URL.createObjectURL(blob); drawDisco(); }, { aspect:1, noOriginal:true });
+        });
+      });
+    };
+    drawDisco();
+    document.getElementById('gAddDisco').addEventListener('click', () => { syncDisco(); disco.push({ id:'d' + Date.now().toString(36) + disco.length, title:'', date:'', link:'', cover:null, coverV:null }); drawDisco(); });
+    document.getElementById('gDisco').addEventListener('click', (e) => {
+      const row = e.target.closest('.disco-edit-row'); if(!row) return;
+      const i = Number(row.dataset.i);
+      if(e.target.closest('[data-ddel]')){ syncDisco(); disco.splice(i, 1); drawDisco(); }
+      else if(e.target.closest('[data-dimgdel]')){ syncDisco(); disco[i].cover = null; disco[i].coverV = null; disco[i].pending = null; disco[i].pendingUrl = null; drawDisco(); }
+    });
     document.getElementById('gColors').addEventListener('click', (e) => {
       const del = e.target.closest('[data-del]');
       if(del){
@@ -1791,14 +1917,19 @@
     });
     document.getElementById('gAddColor').addEventListener('click', () => {
       const nm = document.getElementById('gNewColorName').value.trim();
-      const hx = document.getElementById('gNewColorHex').value;
       if(!nm) return;
+      const hx = resolveColor(nm) || '#CCCCCC';
       if(!colorMap[nm]){ colorMap[nm] = hx; newColors[nm] = hx; }
       removed.delete(nm);
       if(!sel.includes(nm)) sel.push(nm);
       document.getElementById('gColors').innerHTML = chipHtml();
       document.getElementById('gNewColorName').value = '';
+      document.getElementById('gNewColorDot').style.background = 'transparent';
     });
+    document.getElementById('gNewColorName').addEventListener('input', (e) => {
+      document.getElementById('gNewColorDot').style.background = resolveColor(e.target.value) || 'transparent';
+    });
+    document.getElementById('gNewColorName').addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('gAddColor').click(); } });
     document.getElementById('fImageDel').addEventListener('click', () => {
       pendingImage = null; removeImage = true;
       document.getElementById('fImage').value = '';
@@ -1813,10 +1944,10 @@
         document.getElementById('fImageNote').textContent = '';
       }, { aspect:1, noOriginal:true });
     });
-    document.getElementById('formSave').addEventListener('click', () => submitGroupForm(g, () => sel, newColors, removed));
+    document.getElementById('formSave').addEventListener('click', () => submitGroupForm(g, () => sel, newColors, removed, () => { syncDisco(); return disco; }));
   }
 
-  async function submitGroupForm(g, getSel, newColors, removed){
+  async function submitGroupForm(g, getSel, newColors, removed, getDisco){
     const err = document.getElementById('formError');
     err.textContent = '';
     const name = document.getElementById('gName').value.trim();
@@ -1835,6 +1966,8 @@
       image: g && !removeImage ? g.image || null : null,
       imageV: g && !removeImage ? g.imageV || null : null
     };
+    const discoList = getDisco ? getDisco() : [];
+    const oldCovers = (g && Array.isArray(g.discography) ? g.discography : []).map(d => d.cover).filter(Boolean);
     const btn = document.getElementById('formSave');
     btn.disabled = true; btn.textContent = '저장 중...';
     let oldImage = null;
@@ -1857,8 +1990,21 @@
         data.image = imgPath; data.imageV = Date.now();
       }
       if(removeImage && g && g.file && g.file.image && g.file.image === g.image) oldImage = g.image;
+      const outDisco = [];
+      for(const d of discoList){
+        const item = { id:d.id, title:d.title || '', date:d.date || '', link:d.link || '', cover:d.cover || null, coverV:d.coverV || null };
+        if(d.pending){
+          const cp = `assets/ymkb_disc_${id}_${d.id}.${d.pending.ext}`;
+          await ghPut(cp, await blobToBase64(d.pending.blob), `Update cover: ${item.title}`);
+          item.cover = cp; item.coverV = Date.now();
+        }
+        if(item.title || item.cover || item.link) outDisco.push(item);
+      }
+      data.discography = outDisco;
       await ghPut(`${GROUP_DIR}/${id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `${g ? 'Update' : 'Add'} group: ${name}`);
       if(oldImage && oldImage !== data.image){ try { await ghDelete(oldImage, `Replace group image: ${name}`); } catch(e){} }
+      const keep = new Set(outDisco.map(d => d.cover).filter(Boolean));
+      for(const c of oldCovers){ if(!keep.has(c)){ try { await ghDelete(c, 'Remove cover'); } catch(e){} } }
       reloadKeepingView();
     } catch(e){
       btn.disabled = false; btn.textContent = '저장';
@@ -1995,7 +2141,6 @@
     }, `Delete class: ${sec.id}`);
     if(ok) reloadKeepingView();
   }
-  document.getElementById('addClassBtn').addEventListener('click', () => openClassForm(null));
   document.getElementById('clEdit').addEventListener('click', () => { if(currentSection) openClassForm(currentSection); });
   document.getElementById('clDelete').addEventListener('click', () => { if(currentSection) deleteClass(currentSection); });
 
@@ -2009,7 +2154,7 @@
       <div class="slide-fields">
         <input class="f-input" data-s="title" placeholder="슬라이드 제목" value="${esc(sl.title || '')}">
         <input class="f-input" data-s="date" placeholder="날짜 (선택)" value="${esc(sl.date || '')}">
-        <div class="f-inline"><input type="file" data-s="file" accept="image/*"><button type="button" class="text-btn danger" data-simgdel>이미지 삭제</button><button type="button" class="text-btn danger" data-sdel>슬라이드 삭제</button></div>
+        <input type="file" data-s="file" accept="image/*"><div class="slide-btns"><button type="button" class="btn-sm" data-simgdel>이미지 삭제</button><button type="button" class="btn-sm danger" data-sdel>슬라이드 삭제</button></div>
       </div></div>`;
     const syncSlides = () => {
       document.querySelectorAll('#sSlides .slide-row').forEach(row => {
@@ -2034,26 +2179,38 @@
       <div class="f-group">기본</div>
       ${fInput('제목', 'sTitle', site.title)}
       ${fInput('부제', 'sSub', site.subtitle)}
-      ${fInput('YouTube 링크', 'sYt', site.youtube)}
-      ${fInput('Soundcloud 링크', 'sSc', site.soundcloud)}
-      ${fInput('맨 아래 문구', 'sFoot', site.footer)}
+      ${fInput('바닥글 문구', 'sFoot', site.footer)}
+      <div class="f-group">SNS</div>
+      <div id="sSns"></div>
+      <button type="button" class="text-btn" id="sAddSns">+ SNS 추가</button>
+      <div class="f-group">이미지</div>
       <div class="f-row"><span>로고 이미지</span>
         <div class="f-image"><div class="f-thumb square" id="sLogoThumb">${site.logo ? `<img src="${esc(rawUrl(site.logo, site.logoV))}" alt="" onerror="window.__imgErr(this)">` : ''}</div><div class="f-inline"><input type="file" id="sLogo" accept="image/*"><button type="button" class="text-btn danger" id="sLogoDel">삭제</button></div></div>
+      </div>
+      <div class="f-row"><span>파비콘</span>
+        <div class="f-image"><div class="f-thumb square" id="sFavThumb">${site.favicon ? `<img src="${esc(rawUrl(site.favicon, site.faviconV))}" alt="" onerror="window.__imgErr(this)">` : ''}</div><div class="f-inline"><input type="file" id="sFav" accept="image/*"><button type="button" class="text-btn danger" id="sFavDel">삭제</button></div></div>
       </div>
       <div class="f-group">메인 슬라이드</div>
       <div id="sSlides"></div>
       <button type="button" class="text-btn" id="sAddSlide">+ 슬라이드 추가</button>
-      <div class="f-group">빈 페이지 내용</div>
-      ${PAGE_KEYS.map(([k, label]) => {
-        const pg = site.pages[k] || {};
-        return `<div class="f-row"><span>${label} 페이지 제목</span><input class="f-input" id="pt_${k}" value="${esc(pg.title || '')}" placeholder="${label}"></div>
-        <div class="f-row"><span>${label} 페이지 본문</span>${widgetHtml({ key:'page_' + k, type:'textarea' }, pg.body || '')}</div>`;
-      }).join('')}
       <p class="form-error" id="formError"></p>
       <div class="form-actions"><span></span><button type="button" class="form-submit" id="formSave">저장</button></div>`;
     formModal.classList.add('active');
-    wireWidgets(document.getElementById('formBody'), { fields:[] }, {});
     drawSlides();
+    let sns = snsOf(site).map(x => Object.assign({}, x));
+    const syncSns = () => { document.querySelectorAll('#sSns .sns-row').forEach(row => { const x = sns[Number(row.dataset.i)]; if(!x) return; x.name = row.querySelector('[data-n=name]').value.trim(); x.url = row.querySelector('[data-n=url]').value.trim(); }); };
+    const drawSns = () => {
+      document.getElementById('sSns').innerHTML = sns.map((x, i) => `<div class="tpl-row sns-row" data-i="${i}"><input class="f-input sns-name" data-n="name" placeholder="이름" value="${esc(x.name || '')}"><input class="f-input" data-n="url" placeholder="링크 주소" value="${esc(x.url || '')}"><button type="button" class="x-btn" data-sndel title="삭제" aria-label="삭제">&times;</button></div>`).join('');
+    };
+    drawSns();
+    document.getElementById('sAddSns').addEventListener('click', () => { syncSns(); sns.push({ name:'', url:'' }); drawSns(); });
+    document.getElementById('sSns').addEventListener('click', (e) => { const b = e.target.closest('[data-sndel]'); if(!b) return; syncSns(); sns.splice(Number(b.closest('.sns-row').dataset.i), 1); drawSns(); });
+    let pendingFav = null, removeFav = false;
+    document.getElementById('sFavDel').addEventListener('click', () => { pendingFav = null; removeFav = true; document.getElementById('sFav').value = ''; document.getElementById('sFavThumb').innerHTML = ''; });
+    document.getElementById('sFav').addEventListener('change', (e) => {
+      const f = e.target.files[0]; if(!f) return;
+      openCrop(f, (blob, ext) => { pendingFav = { blob, ext }; removeFav = false; document.getElementById('sFavThumb').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`; }, { aspect:1, noOriginal:true });
+    });
     document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ id:'s' + Date.now(), title:'', date:'', image:null }); drawSlides(); });
     document.getElementById('sSlides').addEventListener('click', (e) => {
       const ib = e.target.closest('[data-simgdel]');
@@ -2072,24 +2229,29 @@
     document.getElementById('formSave').addEventListener('click', async () => {
       const err = document.getElementById('formError'); err.textContent = '';
       if(!getToken()){ err.textContent = '먼저 저장 설정에서 토큰을 등록해 주세요.'; return; }
-      syncSlides();
+      syncSlides(); syncSns();
       const btn = document.getElementById('formSave'); btn.disabled = true; btn.textContent = '저장 중...';
       try {
         const next = {
           title: document.getElementById('sTitle').value.trim() || SITE_DEFAULTS.title,
           subtitle: document.getElementById('sSub').value.trim(),
-          youtube: document.getElementById('sYt').value.trim(),
-          soundcloud: document.getElementById('sSc').value.trim(),
+          sns: sns.filter(x => x.name || x.url).map(x => ({ name:x.name, url:x.url })),
           footer: document.getElementById('sFoot').value.trim(),
+          favicon: removeFav ? null : (site.favicon || null), faviconV: removeFav ? null : (site.faviconV || null),
           logo: removeLogo ? null : (site.logo || null), logoV: removeLogo ? null : (site.logoV || null),
           colors: site.colors || {},
           hiddenColors: [...hiddenColors],
-          slides: [], pages: {}
+          slides: []
         };
         if(pendingLogo){
           const lp = `assets/ymkb_logo.${pendingLogo.ext}`;
           await ghPut(lp, await blobToBase64(pendingLogo.blob), 'Update logo');
           next.logo = lp; next.logoV = Date.now();
+        }
+        if(pendingFav){
+          const fp = `assets/ymkb_favicon.${pendingFav.ext}`;
+          await ghPut(fp, await blobToBase64(pendingFav.blob), 'Update favicon');
+          next.favicon = fp; next.faviconV = Date.now();
         }
         for(let i = 0; i < slides.length; i++){
           const sl = slides[i];
@@ -2101,11 +2263,7 @@
           }
           next.slides.push(out);
         }
-        PAGE_KEYS.forEach(([k]) => {
-          const t = document.getElementById('pt_' + k).value.trim();
-          const body = cleanHtml(document.querySelector(`[data-fkey="page_${k}"]`).innerHTML);
-          if(t || !isEmptyVal(body)) next.pages[k] = { title:t, body:isEmptyVal(body) ? '' : body };
-        });
+        next.pages = site.pages || {}; // 학생회/기숙사/ETC 페이지 내용은 지금 만지지 않고 그대로 보존한다.
         const ok = await jsonChange(SITE_PATH, () => ({}), (d) => { const keepOrder = d.order; Object.keys(d).forEach(key => delete d[key]); Object.assign(d, next); if(keepOrder) d.order = keepOrder; }, 'Update site settings');
         if(ok) reloadKeepingView(); else { btn.disabled = false; btn.textContent = '저장'; }
       } catch(e){
@@ -2132,14 +2290,19 @@
   document.getElementById('editPill').addEventListener('click', toggleEditMode);
   document.getElementById('editBannerOff').addEventListener('click', toggleEditMode);
   applyEditMode();
-  document.getElementById('menuBtn').addEventListener('click', () => { applyEditMode(); menuModal.classList.add('active'); });
+  // 토큰이 없으면 저장 설정만, 토큰이 있으면 편집 모드가 꺼져 있을 때 일부만, 켜져 있을 때 전부 보여 준다.
+  function applyMenuLevel(){
+    const lvl = getToken() ? (editModeOn() ? 2 : 1) : 0;
+    menuModal.querySelectorAll('[data-need]').forEach(el => { el.style.display = lvl >= Number(el.dataset.need) ? '' : 'none'; });
+  }
+  document.getElementById('menuBtn').addEventListener('click', () => { applyEditMode(); applyMenuLevel(); menuModal.classList.add('active'); });
   document.getElementById('menuClose').addEventListener('click', () => menuModal.classList.remove('active'));
   menuModal.addEventListener('click', (e) => {
     if(e.target === menuModal){ menuModal.classList.remove('active'); return; }
     const b = e.target.closest('.menu-item');
     if(!b) return;
     if(b.id === 'editModeBtn'){
-      toggleEditMode();
+      toggleEditMode(); applyMenuLevel();
       return;
     }
     menuModal.classList.remove('active');
@@ -2155,7 +2318,7 @@
       return `<div class="spec-row"><span class="spec-label" style="min-width:110px">${esc(n)}</span><span class="spec-sep">|</span><span class="spec-value">oc 값이 있는 항목 ${filled}개 / 전체 ${tpl.fields.filter(f => !f.core).length}개</span></div>`;
     }).join('') || '<p class="form-hint">연결된 캐릭터가 없어요.</p>';
     document.getElementById('formBody').innerHTML = `
-      <h2 class="form-title">oc 연동 상태</h2>
+      <h2 class="form-title">oc 연동 상태 (for xowon)</h2>
       <div class="spec-row"><span class="spec-label" style="min-width:110px">oc 캐릭터 목록</span><span class="spec-sep">|</span><span class="spec-value">${ocStatus.error ? '불러오지 못했어요 (' + esc(ocStatus.error) + ')' : ocStatus.listCount + '개 파일'}</span></div>
       <div class="spec-row"><span class="spec-label" style="min-width:110px">YMKB 세계관</span><span class="spec-sep">|</span><span class="spec-value">${ocStatus.worldFound ? '찾았어요 (항목 ' + ocFields.length + '개)' : '찾지 못했어요'}</span></div>
       <div class="spec-row"><span class="spec-label" style="min-width:110px">YMKB 캐릭터</span><span class="spec-sep">|</span><span class="spec-value">${Object.keys(ocOverrides).length}명</span></div>
