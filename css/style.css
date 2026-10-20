@@ -573,3 +573,29 @@ body.sorting{ user-select:none; -webkit-user-select:none; cursor:grabbing; }
 #clGallery .photo-card .p-overlay{ padding:7cqw; }
 #clGallery .photo-card .p-name{ font-size:min(14.5px, 9.4cqw); white-space:nowrap; letter-spacing:-0.02em; overflow:hidden; text-overflow:ellipsis; }
 #clGallery .photo-card .p-cat{ font-size:min(11px, 8cqw); white-space:nowrap; }
+
+/* ================= DISCOGRAPHY ================= */
+.disco-gallery{ display:grid; grid-template-columns:repeat(4, 1fr); gap:18px 14px; }
+@media (max-width: 700px){ .disco-gallery{ grid-template-columns:repeat(3, 1fr); gap:14px 10px; } }
+.disco-item{ min-width:0; }
+.disco-cover{ display:block; width:100%; aspect-ratio:1/1; border-radius:10px; background:#ececea; overflow:hidden; }
+.disco-cover img{ width:100%; height:100%; object-fit:cover; display:block; }
+.disco-title{ display:block; margin-top:8px; font-size:13px; font-weight:700; color:var(--ink); line-height:1.35; word-break:keep-all; }
+a.disco-title:hover{ color:var(--accent); }
+.disco-date{ display:block; margin-top:2px; font-size:11px; color:#b5b3ad; }
+.disco-edit-row{ border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px; display:flex; gap:12px; align-items:flex-start; }
+.disco-edit-row .f-thumb{ width:72px; height:72px; flex:0 0 72px; }
+.disco-edit-fields{ flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
+.disco-edit-fields .f-inline{ justify-content:space-between; }
+@media (max-width: 560px){ .disco-edit-row{ flex-wrap:wrap; } }
+.color-name-row{ display:flex; align-items:center; gap:8px; margin-top:8px; }
+.color-name-row .f-input{ flex:1; min-width:0; }
+.color-name-row .gd-color-dot{ width:22px; height:22px; }
+
+.icon-box.etc{ color:var(--accent); }
+.sns-row .sns-name{ flex:0 0 110px; }
+.slide-btns{ display:flex; justify-content:flex-end; gap:8px; margin-top:6px; }
+.btn-sm{ background:var(--surface); border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:6px 12px; font-size:12px; font-weight:600; font-family:inherit; cursor:pointer; }
+.btn-sm:hover{ border-color:var(--accent); }
+.btn-sm.danger{ color:#d64545; }
+.btn-sm.danger:hover{ border-color:#d64545; }
