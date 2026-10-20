@@ -126,7 +126,12 @@
   const DEFAULT_SLIDE = { id:'s0', date:'', title:'plz wait a little bit of..♡', image:null };
   const SLIDE_GRADIENT = 'linear-gradient(160deg,#c6b8d4,#9B85AD)';
   const PAGE_KEYS = [['counsel','학생회'], ['agency','기숙사'], ['etc','ETC']];
-  const SITE_DEFAULTS = { title:'유메키보고등학교', subtitle:'YUMEKIBO HIGH SCHOOL', youtube:'https://youtube.com/@ymkbhighschool', soundcloud:'https://soundcloud.com/ymkbofficial', footer:'© ymkb high school', logo:null, logoV:null, favicon:null, faviconV:null, slides:[DEFAULT_SLIDE], pages:{} };
+  const SITE_DEFAULTS = { title:'유메키보고등학교', subtitle:'YUMEKIBO HIGH SCHOOL', youtube:'https://youtube.com/@ymkbhighschool', soundcloud:'https://soundcloud.com/ymkbofficial', footer:'© ymkb high school', logo:null, logoV:null, favicon:null, faviconV:null, slides:[DEFAULT_SLIDE], pages:{}, council:{
+    president:'하츠키 세이시', vice:'이자요이 키츠네',
+    reps:[{name:'센코 이치고',label:'3-A'},{name:'니시 케이쇼',label:'3-B'},{name:'나카스 헤이지',label:'2-A'},{name:'사쿠라 시류',label:'2-B'},{name:'카미하츠 마모루',label:'1-A'},{name:'나미카와 류',label:'1-B'},{name:'에나미 큐',label:'중-A'},{name:'시이나 이나',label:'중-B'}],
+    depts:[{name:'미요시 아로마',label:'회계'},{name:'아오키 켄',label:'관리팀장'},{name:'나미카와 우미',label:'도서팀장'},{name:'아라키 카이로',label:'미화팀장'},{name:'토오노 아야토',label:'홍보팀장'},{name:'나카아키 세츠나',label:'방송팀장'}],
+    broadcast:[{name:'나카아키 세츠나'},{name:'이즈미 테이'},{name:'하나나시 사나기'},{name:'유키무라 카논'}]
+  } };
 
   const GROUP_DIR = 'data/groups';
   function apiHeaders(){ const h = { Accept:'application/vnd.github+json' }; const t = getToken(); if(t) h.Authorization = 'Bearer ' + t; return h; }
@@ -165,6 +170,13 @@
 
   // 캐시가 있으면 바로 보여주고, 뒤에서 최신 내용을 확인한다. 달라졌을 때만 한 번 새로 고친다.
   const stripSha = (v) => JSON.stringify(v, (k, x) => k === '_sha' ? undefined : x);
+  // 바뀐 내용을 발견했는데 지금은 다시 불러올 수 없는 때(창이 열려 있거나, 방금 한 번 불러온 직후)에는 잠시 뒤에 다시 시도한다.
+  let autoReloadTries = 0, autoReloadTimer = null;
+  function autoReloadSoon(){
+    if(canAutoReload()){ reloadKeepingView(); return; }
+    if(autoReloadTimer || autoReloadTries >= 8) return;
+    autoReloadTimer = setTimeout(() => { autoReloadTimer = null; autoReloadTries++; autoReloadSoon(); }, 4000);
+  }
   function canAutoReload(){
     if(document.querySelector('.modal-overlay.active')) return false;
     try {
@@ -220,7 +232,7 @@
       if(v === undefined || v === null) return cached;
       v = applyRecent(key, v);
       cacheSet(key, v);
-      if(before !== null && stripSha(v) !== before && canAutoReload()) reloadKeepingView();
+      if(before !== null && stripSha(v) !== before) autoReloadSoon();
       return v;
     }).catch((err) => { console.warn(key + ' 를 불러오지 못했어요.', err); if(/ (403|429)\b/.test(String(err && err.message))) swrFailNotice(); return cached; });
     return cached !== null ? Promise.resolve(cached) : live;
@@ -371,7 +383,7 @@
   const ocBefore = ocCached ? stripSha(ocCached.byName) : null;
   const ocReadyPromise = (ocCached && ocCached.byName ? Promise.resolve() : ocLive.then(() => {}));
   ocLive.then((map) => { if(ownersReady) filterOcByOwner();
-    if(ocBefore !== null && !ocStatus.error && stripSha(map) !== ocBefore && canAutoReload()) reloadKeepingView(); });
+    if(ocBefore !== null && !ocStatus.error && stripSha(map) !== ocBefore) autoReloadSoon(); });
 
   /* ---------------- 데이터 불러오기 (groups / classes / profiles) ----------------
      예전에는 이 셋이 코드 안에 통째로 박혀있었는데, 이제 data 폴더의 JSON 파일로 분리했다.
@@ -932,6 +944,31 @@
     makeSortable(box, '.club-block', (items) => saveOrder('clubs', items.map(b => b.dataset.club)), { handle:'.club-title' });
     box.querySelectorAll('.char-gallery').forEach(g => makeSortable(g, '.photo-card', (items) => saveOrder('club:' + g.dataset.club, items.map(c => c.dataset.name))));
   })();
+
+  /* ---------------- 학생회 페이지 ---------------- */
+  function councilCard(name, sub){
+    const info = masterCharacters[name];
+    const hex = info ? (colorMap[info.color] || '#b7b7b7') : '#b7b7b7';
+    const imgSrc = info ? imgSrcFor(info.name, info.file) : '';
+    return `<div class="council-item${info ? ' linked' : ''}" data-name="${esc(name)}">
+      <div class="photo-card ratio-3x4"><div class="p-thumb" style="background:${colorGradient(hex)}">${imgSrc ? `<img src="${esc(imgSrc)}" alt="${esc(name)}" onerror="window.__imgErr(this)">` : ''}</div></div>
+      <div class="council-name">${esc(name)}</div>${sub ? `<div class="council-sub">${esc(sub)}</div>` : ''}</div>`;
+  }
+  function renderCouncil(){
+    const box = document.getElementById('councilBody'); if(!box) return;
+    const c = site.council || SITE_DEFAULTS.council;
+    const solo = (label, name) => name ? `<div class="council-solo"><span class="council-label">${esc(label)}</span>${councilCard(name, '')}</div>` : '';
+    const row = (label, items) => items.length ? `<div class="council-row"><span class="council-label${label ? '' : ' ghost'}">${esc(label || '부서')}</span><div class="council-grid">${items.join('')}</div></div>` : '';
+    box.innerHTML = `
+      <div class="council-top">${solo('학생회장', c.president)}${solo('부학생회장', c.vice)}</div>
+      ${row('학급 대표', (c.reps || []).filter(x => x && x.name).map(x => councilCard(x.name, x.label)))}
+      ${row('부서', (c.depts || []).filter(x => x && x.name).map(x => councilCard(x.name, x.label)))}
+      ${row('', (c.broadcast || []).filter(x => x && x.name).map(x => councilCard(x.name, '방송부')))}`;
+  }
+  renderCouncil();
+  document.getElementById('councilBody').addEventListener('click', (e) => {
+    const it = e.target.closest('.council-item.linked'); if(it) openProfile(it.dataset.name);
+  });
 
   /* ---------------- ROSTER CARD (class gallery, shares style with charCard) ---------------- */
   function rosterCard(r){
@@ -2421,7 +2458,7 @@
           next.slides.push(out);
         }
         next.pages = site.pages || {}; // 학생회/기숙사/ETC 페이지 내용은 지금 만지지 않고 그대로 보존한다.
-        const ok = await jsonChange(SITE_PATH, () => ({}), (d) => { const keepOrder = d.order; Object.keys(d).forEach(key => delete d[key]); Object.assign(d, next); if(keepOrder) d.order = keepOrder; }, 'Update site settings');
+        const ok = await jsonChange(SITE_PATH, () => ({}), (d) => { const keepOrder = d.order, keepCouncil = d.council; Object.keys(d).forEach(key => delete d[key]); Object.assign(d, next); if(keepOrder) d.order = keepOrder; if(keepCouncil) d.council = keepCouncil; }, 'Update site settings');
         if(ok) reloadKeepingView(); else { btn.disabled = false; btn.textContent = '저장'; }
       } catch(e){
         btn.disabled = false; btn.textContent = '저장';
