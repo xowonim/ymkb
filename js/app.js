@@ -1736,6 +1736,7 @@
       <datalist id="fColorNames">${colorNames.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
 
       <div class="f-group">CLASS · 카테고리 설정용 <span class="f-group-note">(프로필에 안 떠요!!)</span></div>
+      <label class="f-row"><span>학급</span><input class="f-input" value="${esc(info && info.classId ? info.classId : '미지정')}" readonly></label>
       <div class="f-checks" id="fClassFlags">${CLASS_FLAGS.map(fl => `<label class="f-check"><input type="checkbox" data-cflag="${fl}" ${((info && info.classFlags) || []).includes(fl) ? 'checked' : ''}><span>${fl}</span></label>`).join('')}</div>
 
       <div class="f-group">PROFILE</div>
