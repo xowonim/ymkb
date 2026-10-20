@@ -641,7 +641,7 @@ a.disco-title:hover{ color:var(--accent); }
 .profile-photo-wrap .p-thumb img{ cursor:zoom-in; }
 
 .slide.clickable{ cursor:pointer; }
-.slide-box{ max-width:640px; padding:0; overflow:hidden; }
+.slide-box{ max-width:640px; padding:0; overflow-x:hidden; overflow-y:auto; }
 .slide-box .modal-close{ color:#fff; text-shadow:0 1px 4px rgba(0,0,0,0.5); }
 .slide-box-img{ display:block; width:100%; aspect-ratio:16 / 9; object-fit:cover; }
 .slide-box-link{ text-align:right; padding:12px 24px 0; font-size:12px; }
