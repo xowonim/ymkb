@@ -675,3 +675,4 @@ body{ min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; 
   .spec-label{ min-width:0; white-space:nowrap; }
   .profile-rows.cols2 .spec-row{ gap:5px; }
 }
+.f-group-note{ font-weight:400; color:var(--muted); letter-spacing:0; }
