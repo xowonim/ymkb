@@ -1071,7 +1071,7 @@
       ${renderTemplateBody(info)}
 
       <div class="profile-actions">
-        ${info.owner ? `<span class="profile-owner">오너 ${esc(info.owner)}</span>` : '<span></span>'}
+        ${info.owner ? `<span class="profile-owner">OWNER ${esc(info.owner)}</span>` : '<span></span>'}
         <span class="edit-only">
           <button type="button" class="btn-sm" data-act="edit" data-name="${esc(info.name)}">수정</button>
           <button type="button" class="btn-sm danger" data-act="delete" data-name="${esc(info.name)}">삭제</button>
