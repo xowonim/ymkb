@@ -16,6 +16,13 @@
   document.getElementById('headerHome').addEventListener('click', () => goPage('main'));
 
   /* ---------------- CAROUSEL ---------------- */
+  function openSlideBox(s, url, body){
+    const box = document.getElementById('slideBoxBody');
+    box.innerHTML = `${s.image ? `<img class="slide-box-img" src="${esc(s.image)}" alt="">` : ''}
+      ${url ? `<div class="slide-box-link"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">바로가기 &#8599;</a></div>` : ''}
+      <hr class="slide-box-line"><div class="slide-box-text">${esc(body)}</div>`;
+    document.getElementById('slideModal').classList.add('active');
+  }
   function initCarousel(slidesData){
     const stage = document.getElementById('carouselStage');
     const ticksWrap = document.getElementById('carouselTicks');
@@ -25,6 +32,12 @@
       const el = document.createElement('div');
       el.className = 'slide' + (i === 0 ? ' active' : '');
       el.style.background = s.image ? `url("${s.image}") center / cover no-repeat, ${s.gradient}` : s.gradient;
+      const sUrl = safeUrl(s.link), sBody = String(s.body || '').trim();
+      if(sBody || sUrl) el.classList.add('clickable');
+      el.addEventListener('click', () => {
+        if(sBody){ openSlideBox(s, sUrl, sBody); }
+        else if(sUrl){ window.open(sUrl, '_blank', 'noopener'); }
+      });
       el.innerHTML = `<div class="slide-overlay">${s.date ? `<div class="date">${esc(s.date)}</div>` : ''}<div class="title">${esc(s.title)}</div></div>`;
       stage.appendChild(el);
       const tick = document.createElement('div');
@@ -464,7 +477,7 @@
       if(pg.title) box.querySelector('h2').textContent = pg.title;
       if(!isEmptyVal(pg.body)) box.innerHTML = `<h2>${esc(pg.title || label)}</h2><div class="profile-text rich page-body">${toRich(pg.body)}</div>`;
     });
-    initCarousel(site.slides.map(sl => ({ date:sl.date || '', title:sl.title || '', gradient:SLIDE_GRADIENT, image:sl.image ? rawUrl(sl.image, sl.imageV) : null })));
+    initCarousel(site.slides.map(sl => ({ date:sl.date || '', title:sl.title || '', gradient:SLIDE_GRADIENT, image:sl.image ? rawUrl(sl.image, sl.imageV) : null, link:sl.link || '', body:sl.body || '' })));
   })();
 
   /* 값 정리용 유틸: 리치 텍스트는 허용한 태그만 남기고 속성은 모두 지운다. */
@@ -752,6 +765,10 @@
   };
   makeSortable(document.getElementById('gdCharGallery'), '.photo-card', saveMemberOrder);
   makeSortable(document.getElementById('gdManagerGallery'), '.photo-card', saveMemberOrder);
+  const slideModal = document.getElementById('slideModal');
+  document.getElementById('slideModalClose').addEventListener('click', () => slideModal.classList.remove('active'));
+  slideModal.addEventListener('click', (e) => { if(e.target === slideModal) slideModal.classList.remove('active'); });
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && slideModal.classList.contains('active')){ e.stopImmediatePropagation(); slideModal.classList.remove('active'); } }, true);
   document.getElementById('groupModalClose').addEventListener('click', () => groupModal.classList.remove('active'));
   groupModal.addEventListener('click', (e) => { if(e.target === groupModal) groupModal.classList.remove('active'); });
 
@@ -2278,6 +2295,8 @@
       <div class="slide-fields">
         <input class="f-input" data-s="title" placeholder="슬라이드 제목" value="${esc(sl.title || '')}">
         <input class="f-input" data-s="date" placeholder="날짜 (선택)" value="${esc(sl.date || '')}">
+        <input class="f-input" data-s="link" placeholder="바로가기 링크 (선택)" value="${esc(sl.link || '')}">
+        <textarea class="f-input" data-s="body" rows="3" placeholder="본문 (선택)">${esc(sl.body || '')}</textarea>
         <input type="file" data-s="file" accept="image/*"><div class="slide-btns"><button type="button" class="btn-sm" data-simgdel>이미지 삭제</button><button type="button" class="btn-sm danger" data-sdel>슬라이드 삭제</button></div>
       </div></div>`;
     const syncSlides = () => {
@@ -2285,6 +2304,8 @@
         const sl = slides[Number(row.dataset.i)]; if(!sl) return;
         sl.title = row.querySelector('[data-s=title]').value.trim();
         sl.date = row.querySelector('[data-s=date]').value.trim();
+        sl.link = row.querySelector('[data-s=link]').value.trim();
+        sl.body = row.querySelector('[data-s=body]').value;
       });
     };
     const drawSlides = () => {
@@ -2335,7 +2356,7 @@
       const f = e.target.files[0]; if(!f) return;
       openCrop(f, (blob, ext) => { pendingFav = { blob, ext }; removeFav = false; document.getElementById('sFavThumb').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`; }, { aspect:1, noOriginal:true });
     });
-    document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ id:'s' + Date.now(), title:'', date:'', image:null }); drawSlides(); });
+    document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ id:'s' + Date.now(), title:'', date:'', link:'', body:'', image:null }); drawSlides(); });
     document.getElementById('sSlides').addEventListener('click', (e) => {
       const ib = e.target.closest('[data-simgdel]');
       if(ib){ syncSlides(); const sl = slides[Number(ib.closest('.slide-row').dataset.i)]; if(sl){ sl.image = null; sl.imageV = null; sl.pending = null; sl.pendingUrl = null; } drawSlides(); return; }
@@ -2379,7 +2400,7 @@
         }
         for(let i = 0; i < slides.length; i++){
           const sl = slides[i];
-          const out = { id:sl.id || ('s' + Date.now() + i), title:sl.title || '', date:sl.date || '', image:sl.image || null, imageV:sl.imageV || null };
+          const out = { id:sl.id || ('s' + Date.now() + i), title:sl.title || '', date:sl.date || '', link:sl.link || '', body:String(sl.body || '').trim(), image:sl.image || null, imageV:sl.imageV || null };
           if(sl.pending){
             const ip = `assets/ymkb_slide_${out.id}.${sl.pending.ext}`;
             await ghPut(ip, await blobToBase64(sl.pending.blob), `Update slide image: ${out.title}`);
