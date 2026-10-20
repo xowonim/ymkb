@@ -1,0 +1,16 @@
+{
+  "id": "shiro",
+  "name": "하쿠노 시로",
+  "file": "shiro",
+  "group": "Amuse",
+  "role": "매니저",
+  "color": null,
+  "owner": "",
+  "template": "t_dowon",
+  "clubHead": false,
+  "classFlags": [],
+  "image": null,
+  "imageV": null,
+  "noImage": false,
+  "fields": {}
+}
