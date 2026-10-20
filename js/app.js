@@ -373,7 +373,13 @@
       throw new Error('templates');
     }).then(v => v || defaultTemplates());
   }
-  let templates = await remoteP.templates;
+  // 호원 템플릿은 oc에서 불러온 프로필 항목을 따로 갖지 않는다. 기본 항목은 비우고, 직접 추가한 항목(ymkb 전용)만 남긴다.
+  const DEFAULT_KEYS = new Set(DEFAULT_FIELDS.map(f => f.key));
+  function normalizeTemplates(arr){
+    (arr || []).forEach(t => { if(t && t.name === '호원' && Array.isArray(t.fields)) t.fields = t.fields.filter(f => f.core || !DEFAULT_KEYS.has(f.key)); });
+    return arr;
+  }
+  let templates = normalizeTemplates(await remoteP.templates);
 
   const RICH_OK = ['b','i','u','strong','em','br','div','p','span'];
 
@@ -1057,7 +1063,7 @@
   function templateFor(info){
     if(ocOverrides[info.name] && ocFields.length){
       const ot = templates.find(t => t.name === info.owner) || templates.find(t => t.id === info.template) || templates[0];
-      const gal = ot ? ot.fields.filter(f => f.type === 'gallery') : [];
+      const gal = ot ? ot.fields.filter(f => !f.core) : [];
       return ({ id:'__oc', name:'oc', fields: ocFields.map(f => ({ key:f.key, label:f.label, type:['text','tags','textarea','collapse','rating'].includes(f.type) ? f.type : 'text', core:!!f.core })).concat(gal) });
     }
     const t = templates.find(t => t.name === info.owner) || templates.find(t => t.id === info.template) || templates[0];
@@ -1378,6 +1384,7 @@
     for(let attempt = 0; attempt < 8; attempt++){
       try {
         const { data, sha } = await fetchLiveTemplates();
+        normalizeTemplates(data);
         mutate(data);
         const res = await fetch(apiBase + TEMPLATE_PATH, {
           method:'PUT',
@@ -1410,6 +1417,7 @@
   function renderTplMgr(){
     if(!templates.find(t => t.id === mgrSel)) mgrSel = templates[0].id;
     const t = templates.find(x => x.id === mgrSel);
+    const isHowon = t.name === '호원';
     const typeOpts = Object.keys(FIELD_TYPES).map(k => `<option value="${k}">${FIELD_TYPES[k]}</option>`).join('');
     document.getElementById('tplBody').innerHTML = `
       <h2 class="form-title">템플릿 관리</h2>
@@ -1424,8 +1432,12 @@
         <button type="button" class="text-btn" data-tact="tplRight">뒤로</button>
         <button type="button" class="text-btn danger" data-tact="delTpl">템플릿 삭제</button>
       </div>
+      ${isHowon ? `<div class="tpl-fields-core">${t.fields.filter(f => f.core).map(f => `<div class="tpl-row"><span class="tpl-grip off"></span><input class="f-input tpl-label" value="${esc(f.label)}" readonly><span class="tpl-type">필수</span><span class="tpl-btns"></span></div>`).join('')}</div>
+      <p class="tpl-origin">다른 저장소에 있는 프로필 템플릿을 사용하고 있습니다.</p>
+      <hr class="soft-divider tpl-hr">
+      <div class="f-group">추가 템플릿</div>` : ''}
       <div class="tpl-fields">
-        ${t.fields.map(f => `
+        ${t.fields.filter(f => !isHowon || !f.core).map(f => `
           <div class="tpl-row" data-rkey="${esc(f.key)}">
             ${f.core ? '<span class="tpl-grip off"></span>' : '<span class="tpl-grip" title="끌어서 순서 변경">&#8942;&#8942;</span>'}
             <input class="f-input tpl-label" data-key="${esc(f.key)}" value="${esc(f.label)}" ${f.core ? 'readonly' : ''}>
@@ -1658,7 +1670,7 @@
     return templates.map(t => `<option value="${esc(t.id)}" ${t.id === selectedId ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
   }
 
-  function tplByOwner(owner){ const t = templates.find(t => t.name === owner) || templates[0]; return owner === '호원' ? profileOnly(t) : t; }
+  function tplByOwner(owner){ return templates.find(t => t.name === owner) || templates[0]; }
 
   function openForm(name){
     const info = name ? masterCharacters[name] : null;
