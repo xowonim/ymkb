@@ -20,7 +20,7 @@
     const box = document.getElementById('slideBoxBody');
     box.innerHTML = `${s.image ? `<img class="slide-box-img" src="${esc(s.image)}" alt="">` : ''}
       ${url ? `<div class="slide-box-link"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">바로가기 &#8599;</a></div>` : ''}
-      <hr class="slide-box-line"><div class="slide-box-text">${esc(body)}</div>`;
+      <hr class="slide-box-line"><div class="slide-box-text profile-text rich">${toRich(body)}</div>`;
     document.getElementById('slideModal').classList.add('active');
   }
   function initCarousel(slidesData){
@@ -32,7 +32,7 @@
       const el = document.createElement('div');
       el.className = 'slide' + (i === 0 ? ' active' : '');
       el.style.background = s.image ? `url("${s.image}") center / cover no-repeat, ${s.gradient}` : s.gradient;
-      const sUrl = safeUrl(s.link), sBody = String(s.body || '').trim();
+      const sUrl = safeUrl(s.link), sBody = isEmptyVal(s.body) ? '' : String(s.body).trim();
       if(sBody || sUrl) el.classList.add('clickable');
       el.addEventListener('click', () => {
         if(sBody){ openSlideBox(s, sUrl, sBody); }
@@ -394,7 +394,15 @@
   }
   let templates = normalizeTemplates(await remoteP.templates);
 
-  const RICH_OK = ['b','i','u','strong','em','br','div','p','span'];
+  const RICH_OK = ['b','i','u','s','strike','del','strong','em','br','div','p','span','h3'];
+  const rtToolbarHtml = () => '<div class="rt-toolbar"><button type="button" data-rt="bold" title="굵게"><b>B</b></button><button type="button" data-rt="italic" title="기울임"><i>I</i></button><button type="button" data-rt="underline" title="밑줄"><u>U</u></button><button type="button" data-rt="strikeThrough" title="취소선"><s>S</s></button><button type="button" data-rt="header" title="제목">H</button><button type="button" data-rt="removeFormat">서식 지우기</button></div>';
+  function rtExec(cmd){
+    if(cmd === 'header'){
+      const sel = window.getSelection(); let n = sel && sel.anchorNode; if(n && n.nodeType === 3) n = n.parentNode;
+      const inH = n && n.closest && n.closest('h3');
+      document.execCommand('formatBlock', false, inH ? 'div' : 'h3');
+    } else document.execCommand(cmd, false, null);
+  }
 
   /* ---------------- 사이트 설정 (data/site.json): 제목, 링크, 푸터, 로고, 캐러셀, 빈 페이지 본문 ---------------- */
   function loadSite(){
@@ -1573,7 +1581,7 @@
     if(f.type === 'rating') return `<div class="f-rating" data-fkey="${k}" data-ftype="rating" data-val="${Number(val) || 0}"></div>`;
     if(f.type === 'gallery') return `<div class="f-gallery" data-fkey="${k}" data-ftype="gallery"></div>`;
     // textarea / collapse
-    return `<div class="rt-wrap"><div class="rt-toolbar"><button type="button" data-rt="bold"><b>B</b></button><button type="button" data-rt="italic"><i>I</i></button><button type="button" data-rt="underline"><u>U</u></button><button type="button" data-rt="removeFormat">서식 지우기</button></div><div class="rt-edit f-input" contenteditable="true" data-fkey="${k}" data-ftype="rich">${val ? toRich(val) : ''}</div></div>`;
+    return `<div class="rt-wrap">${rtToolbarHtml()}<div class="rt-edit f-input" contenteditable="true" data-fkey="${k}" data-ftype="rich">${val ? toRich(val) : ''}</div></div>`;
   }
 
   function wireWidgets(root, tpl, values){
@@ -1630,7 +1638,7 @@
       }
     });
     root.querySelectorAll('.rt-toolbar button').forEach(b => {
-      b.addEventListener('mousedown', ev => { ev.preventDefault(); document.execCommand(b.dataset.rt, false, null); });
+      b.addEventListener('mousedown', ev => { ev.preventDefault(); rtExec(b.dataset.rt); });
     });
   }
 
@@ -2296,7 +2304,7 @@
         <input class="f-input" data-s="title" placeholder="슬라이드 제목" value="${esc(sl.title || '')}">
         <input class="f-input" data-s="date" placeholder="날짜 (선택)" value="${esc(sl.date || '')}">
         <input class="f-input" data-s="link" placeholder="바로가기 링크 (선택)" value="${esc(sl.link || '')}">
-        <textarea class="f-input" data-s="body" rows="3" placeholder="본문 (선택)">${esc(sl.body || '')}</textarea>
+        <div class="rt-wrap">${rtToolbarHtml()}<div class="rt-edit f-input" contenteditable="true" data-s="body" data-ph="본문 (선택)">${sl.body ? toRich(sl.body) : ''}</div></div>
         <input type="file" data-s="file" accept="image/*"><div class="slide-btns"><button type="button" class="btn-sm" data-simgdel>이미지 삭제</button><button type="button" class="btn-sm danger" data-sdel>슬라이드 삭제</button></div>
       </div></div>`;
     const syncSlides = () => {
@@ -2305,7 +2313,7 @@
         sl.title = row.querySelector('[data-s=title]').value.trim();
         sl.date = row.querySelector('[data-s=date]').value.trim();
         sl.link = row.querySelector('[data-s=link]').value.trim();
-        sl.body = row.querySelector('[data-s=body]').value;
+        sl.body = cleanHtml(row.querySelector('[data-s=body]').innerHTML);
       });
     };
     const drawSlides = () => {
@@ -2313,6 +2321,7 @@
       box.innerHTML = slides.map(slideHtml).join('');
       box.querySelectorAll('.slide-row').forEach(row => {
         const i = Number(row.dataset.i);
+        row.querySelectorAll('.rt-toolbar button').forEach(b => b.addEventListener('mousedown', ev => { ev.preventDefault(); rtExec(b.dataset.rt); }));
         row.querySelector('[data-s=file]').addEventListener('change', (e) => {
           const f = e.target.files[0]; if(!f) return;
           openCrop(f, (blob, ext) => { syncSlides(); slides[i].pending = { blob, ext }; slides[i].pendingUrl = URL.createObjectURL(blob); drawSlides(); });
@@ -2400,7 +2409,7 @@
         }
         for(let i = 0; i < slides.length; i++){
           const sl = slides[i];
-          const out = { id:sl.id || ('s' + Date.now() + i), title:sl.title || '', date:sl.date || '', link:sl.link || '', body:String(sl.body || '').trim(), image:sl.image || null, imageV:sl.imageV || null };
+          const out = { id:sl.id || ('s' + Date.now() + i), title:sl.title || '', date:sl.date || '', link:sl.link || '', body:isEmptyVal(sl.body) ? '' : String(sl.body).trim(), image:sl.image || null, imageV:sl.imageV || null };
           if(sl.pending){
             const ip = `assets/ymkb_slide_${out.id}.${sl.pending.ext}`;
             await ghPut(ip, await blobToBase64(sl.pending.blob), `Update slide image: ${out.title}`);
