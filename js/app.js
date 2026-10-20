@@ -2467,8 +2467,8 @@
   });
 
   function showOcStatus(){
-    const matched = Object.keys(ocOverrides).filter(n => masterCharacters[n]);
-    const unmatched = Object.keys(ocOverrides).filter(n => !masterCharacters[n]);
+    const matched = Object.keys(ocOverrides).filter(n => masterCharacters[n]).sort((a, b) => a.localeCompare(b, 'ko'));
+    const unmatched = Object.keys(ocOverrides).filter(n => !masterCharacters[n]).sort((a, b) => a.localeCompare(b, 'ko'));
     const pad2 = (n) => String(n).padStart(2, '0');
     const fmtDate = (d) => `${d.getFullYear()}.${pad2(d.getMonth() + 1)}.${pad2(d.getDate())}`;
     const fmtDateTime = (d) => `${fmtDate(d)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
@@ -2502,7 +2502,7 @@
         if(!dt || !dt.date) return;
         const d = new Date(dt.date); dates.push(d);
         const row = document.querySelector(`#formBody .oc-row[data-ocname="${CSS.escape(n)}"] .oc-date`);
-        if(row) row.textContent = `(${fmtDate(d)})`;
+        if(row) row.textContent = `last updated : ${fmtDate(d)}`;
       } catch(e){}
     })).then(() => {
       if(!lastEl) return;
