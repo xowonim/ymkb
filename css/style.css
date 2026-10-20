@@ -599,3 +599,8 @@ a.disco-title:hover{ color:var(--accent); }
 .btn-sm:hover{ border-color:var(--accent); }
 .btn-sm.danger{ color:#d64545; }
 .btn-sm.danger:hover{ border-color:#d64545; }
+
+.profile-actions .btn-sm{ margin-left:8px; }
+.f-image > div:not(.f-thumb){ flex:1; min-width:0; }
+.f-image .f-inline{ width:100%; }
+.f-inline .btn-sm{ margin-left:auto; flex:0 0 auto; white-space:nowrap; }
