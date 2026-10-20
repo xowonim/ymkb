@@ -1060,6 +1060,7 @@
   function profileOnly(tpl){
     return Object.assign({}, tpl, { fields: tpl.fields.filter(f => f.core || !['textarea', 'collapse'].includes(f.type)) });
   }
+  function ownerShown(owner){ const t = templates.find(x => x.name === owner); return (t && t.ownerLabel) || owner; }
   function templateFor(info){
     if(ocOverrides[info.name] && ocFields.length){
       const ot = templates.find(t => t.name === info.owner) || templates.find(t => t.id === info.template) || templates[0];
@@ -1125,7 +1126,7 @@
       ${renderTemplateBody(info)}
 
       <div class="profile-actions">
-        ${info.owner ? `<span class="profile-owner">OWNER · ${esc(info.owner)}</span>` : '<span></span>'}
+        ${info.owner ? `<span class="profile-owner">OWNER · ${esc(ownerShown(info.owner))}</span>` : '<span></span>'}
         <span class="edit-only">
           <button type="button" class="btn-sm" data-act="edit" data-name="${esc(info.name)}">수정</button>
           <button type="button" class="btn-sm danger" data-act="delete" data-name="${esc(info.name)}">삭제</button>
@@ -1424,14 +1425,9 @@
       <p class="form-hint">프로필 템플릿을 자유롭게 수정하세요.</p>
       <div class="tpl-tabs">
         ${templates.map(x => `<button type="button" class="tpl-tab${x.id === mgrSel ? ' active' : ''}" data-tact="sel" data-tid="${esc(x.id)}">${esc(x.name)}</button>`).join('')}
-        <button type="button" class="text-btn" data-tact="addTpl">+ 템플릿 추가</button>
       </div>
-      <div class="tpl-tools">
-        <button type="button" class="text-btn" data-tact="renameTpl">이름 변경</button>
-        <button type="button" class="text-btn" data-tact="tplLeft">앞으로</button>
-        <button type="button" class="text-btn" data-tact="tplRight">뒤로</button>
-        <button type="button" class="text-btn danger" data-tact="delTpl">템플릿 삭제</button>
-      </div>
+      <label class="f-row tpl-owner"><span>오너명 표기</span><input class="f-input" id="tplOwnerLabel" value="${esc(t.ownerLabel || '')}" placeholder="${esc(t.name)}"></label>
+      <hr class="soft-divider tpl-hr">
       ${isHowon ? `<div class="tpl-fields-core">${t.fields.filter(f => f.core).map(f => `<div class="tpl-row"><span class="tpl-grip off"></span><input class="f-input tpl-label" value="${esc(f.label)}" readonly><span class="tpl-type">필수</span><span class="tpl-btns"></span></div>`).join('')}</div>
       <p class="tpl-origin">다른 저장소에 있는 프로필 템플릿을 사용하고 있습니다.</p>
       <hr class="soft-divider tpl-hr">
@@ -1443,7 +1439,7 @@
             <input class="f-input tpl-label" data-key="${esc(f.key)}" value="${esc(f.label)}" ${f.core ? 'readonly' : ''}>
             <span class="tpl-type">${f.core ? '필수' : FIELD_TYPES[f.type] || f.type}</span>
             <span class="tpl-btns">
-              ${f.core ? '' : `<button type="button" class="text-btn danger" data-tact="delField" data-key="${esc(f.key)}">삭제</button>`}
+              ${f.core ? '' : `<button type="button" class="text-btn danger" data-tact="delField" data-key="${esc(f.key)}" aria-label="삭제">x</button>`}
             </span>
           </div>`).join('')}
       </div>
@@ -1529,6 +1525,11 @@
     }
   });
   document.getElementById('tplBody').addEventListener('change', async (e) => {
+    if(e.target.id === 'tplOwnerLabel'){
+      const v = e.target.value.trim();
+      await tplDo(d => { const t = withTpl(d); if(t){ if(v) t.ownerLabel = v; else delete t.ownerLabel; } });
+      return;
+    }
     const inp = e.target.closest('.tpl-label');
     if(!inp || inp.readOnly) return;
     const label = inp.value.trim(), key = inp.dataset.key;
