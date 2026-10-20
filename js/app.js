@@ -132,9 +132,9 @@
   function apiHeaders(){ const h = { Accept:'application/vnd.github+json' }; const t = getToken(); if(t) h.Authorization = 'Bearer ' + t; return h; }
   async function ghGet(url){
     const h = apiHeaders();
-    let res = await fetch(url, { headers:h, cache:'no-store' });
+    let res = await fetch(url, { headers:h, cache:'no-cache' });
     if((res.status === 401 || res.status === 403) && h.Authorization){
-      res = await fetch(url, { headers:{ Accept:h.Accept }, cache:'no-store' });
+      res = await fetch(url, { headers:{ Accept:h.Accept }, cache:'no-cache' });
     }
     return res;
   }
@@ -208,6 +208,11 @@
     } catch(e){}
     return v;
   }
+  let swrNoticed = false;
+  function swrFailNotice(){
+    if(swrNoticed) return; swrNoticed = true;
+    setTimeout(() => { showToast('최신 내용을 불러오지 못했어요. 깃허브 요청 한도에 걸렸을 수 있어요. 잠시 뒤 다시 열어 주세요.', 6000); }, 600);
+  }
   function swr(key, fetcher){
     const cached = cacheGet(key);
     const before = cached !== null ? stripSha(cached) : null;
@@ -217,7 +222,7 @@
       cacheSet(key, v);
       if(before !== null && stripSha(v) !== before && canAutoReload()) reloadKeepingView();
       return v;
-    }).catch((err) => { console.warn(key + ' 를 불러오지 못했어요.', err); return cached; });
+    }).catch((err) => { console.warn(key + ' 를 불러오지 못했어요.', err); if(/ (403|429)\b/.test(String(err && err.message))) swrFailNotice(); return cached; });
     return cached !== null ? Promise.resolve(cached) : live;
   }
   function fetchJsonDir(dir, cacheKey, idFrom){
@@ -612,11 +617,11 @@
   }
 
   /* ---------------- 알림 / 드래그로 순서 바꾸기 ---------------- */
-  function showToast(msg){
+  function showToast(msg, ms){
     let t = document.getElementById('toast');
     if(!t){ t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; document.body.appendChild(t); }
     t.textContent = msg; t.classList.add('show');
-    clearTimeout(showToast._t); showToast._t = setTimeout(() => t.classList.remove('show'), 1800);
+    clearTimeout(showToast._t); showToast._t = setTimeout(() => t.classList.remove('show'), ms || 1800);
   }
   let dragSuppress = false;
   document.addEventListener('click', (e) => { if(dragSuppress){ e.stopPropagation(); e.preventDefault(); dragSuppress = false; } }, true);
