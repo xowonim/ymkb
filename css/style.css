@@ -457,8 +457,8 @@ textarea.f-input{ resize:vertical; line-height:1.6; }
 /* ---------- Template-driven profile / editor ---------- */
 .modal-overlay.layer3b{ z-index:450; background:rgba(15,15,15,0.6); }
 .profile-rows{ margin-top:16px; }
-.profile-rows.cols2{ column-count:2; column-gap:28px; }
-.profile-rows.cols2 .spec-row{ break-inside:avoid; }
+.profile-rows.cols2{ display:grid; grid-template-columns:1fr 1fr; gap:7px 28px; align-items:start; }
+.profile-rows.cols2 .spec-row{ margin-bottom:0; }
 .profile-stars{ margin-top:18px; padding-top:14px; border-top:1px solid var(--line); gap:2px 16px; }
 .profile-text.rich{ white-space:normal; }
 .profile-collapse{ margin-top:0; padding:12px 0; border-top:1px solid var(--line); }
@@ -490,7 +490,7 @@ textarea.f-input{ resize:vertical; line-height:1.6; }
 .tpl-add{ display:flex; gap:8px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
 .tpl-add .f-input:first-child{ flex:1; }
 .tpl-add select{ width:110px; flex:0 0 auto; }
-@media (max-width: 560px){ .profile-rows.cols2{ column-count:1; } .tpl-row{ flex-wrap:wrap; } }
+@media (max-width: 560px){ .profile-rows.cols2{ grid-template-columns:1fr; } .tpl-row{ flex-wrap:wrap; } }
 
 /* ---------- Group editor ---------- */
 .f-thumb.square{ aspect-ratio:1 / 1; }
