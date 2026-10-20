@@ -538,7 +538,10 @@
 
   function imgSrcFor(name, file){
     const cf = charFiles[name];
-    if(cf && cf.noImage && !cf.image) return ''; // 이미지를 일부러 지운 캐릭터
+    if(cf && cf.noImage && !cf.image){ // 이미지를 일부러 지운 캐릭터: oc와 연동된 캐릭터는 oc 사진을 따라가고, 아니면 비워 둔다
+      const oc0 = ocOverrides[name]; const p0 = oc0 && (oc0.image || oc0.profileImage);
+      return p0 ? ocAssetUrl(p0) : '';
+    }
     if(cf && cf.image){ const f = freshImg(cf.image); if(f) return f; }
     if(!(cf && cf.image)){
       const oc = ocOverrides[name];
