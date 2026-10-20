@@ -14,7 +14,6 @@ body{
   background:var(--bg);
   color:var(--ink);
   font-family:'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-  min-height:100vh;
 }
 h1,h2,h3{ margin:0; letter-spacing:-0.01em; }
 button{ font-family:inherit; cursor:pointer; }
@@ -664,4 +663,15 @@ a.disco-title:hover{ color:var(--accent); }
   .side-col{ flex-direction:row; flex-wrap:nowrap; overflow-x:auto; gap:20px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
   .side-col::-webkit-scrollbar{ display:none; }
   .side-col .link-row{ flex:0 0 auto; white-space:nowrap; }
+}
+
+/* 바닥글을 항상 화면 맨 아래에 붙여 아래 여백이 생기지 않게 한다. */
+body{ min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; }
+.wrap{ flex:1 0 auto; width:100%; box-sizing:border-box; display:flex; flex-direction:column; }
+.wrap > .page{ flex:0 0 auto; }
+.wrap > footer{ margin-top:auto; }
+@media (max-width: 560px){
+  .spec-row{ gap:4px; }
+  .spec-label{ min-width:0; white-space:nowrap; }
+  .profile-rows.cols2 .spec-row{ gap:5px; }
 }
