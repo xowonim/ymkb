@@ -970,7 +970,7 @@
   const lb = { items:[], i:0 };
   function lbShow(){
     const it = lb.items[lb.i]; if(!it) return;
-    document.getElementById('lbImg').src = galOrigSrc(it);
+    document.getElementById('lbImg').src = it.src || galOrigSrc(it);
     document.getElementById('lbCount').textContent = lb.items.length > 1 ? `${lb.i + 1} / ${lb.items.length}` : '';
     document.getElementById('lbPrev').style.display = document.getElementById('lbNext').style.display = lb.items.length > 1 ? '' : 'none';
   }
@@ -998,6 +998,10 @@
     const v = valueOf(info, f);
     const items = Array.isArray(v) ? v.filter(x => x && (x.thumb || x.orig)) : [];
     lbOpen(items, Number(c.dataset.gi) || 0);
+  });
+  document.addEventListener('click', (e) => {
+    const im = e.target.closest('.profile-photo-wrap .p-thumb img'); if(!im || !im.getAttribute('src')) return;
+    lbOpen([{ src: im.currentSrc || im.src }], 0);
   });
   function photoBlock(info){
     const hex = colorMap[info.color] || '#b7b7b7';
@@ -1353,7 +1357,7 @@
     fresh('cropReset').addEventListener('click', () => activeCropper && activeCropper.reset());
     fresh('cropApply').addEventListener('click', () => {
       if(!activeCropper) return;
-      activeCropper.getCroppedCanvas({ maxWidth:opts.aspect ? 1000 : 1600, maxHeight:opts.aspect ? 1000 : 1600, imageSmoothingQuality:'high' }).toBlob(b => { onApply(b, 'png'); closeCrop(); }, 'image/png');
+      activeCropper.getCroppedCanvas({ maxWidth:opts.aspect ? 1000 : 4000, maxHeight:opts.aspect ? 1000 : 4000, imageSmoothingQuality:'high' }).toBlob(b => { onApply(b, 'png'); closeCrop(); }, 'image/png');
     });
     const origBtn = fresh('cropOriginal');
     origBtn.style.display = opts.noOriginal ? 'none' : '';
