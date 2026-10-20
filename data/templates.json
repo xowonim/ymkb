@@ -287,6 +287,11 @@
         "type": "collapse"
       },
       {
+        "key": "f_1792500738713",
+        "label": "특기",
+        "type": "text"
+      },
+      {
         "key": "f_1790490342827",
         "label": "보컬",
         "type": "rating"
@@ -320,11 +325,6 @@
         "key": "f_1790492394900",
         "label": "체력",
         "type": "rating"
-      },
-      {
-        "key": "f_1792500738713",
-        "label": "특기",
-        "type": "text"
       }
     ]
   },
