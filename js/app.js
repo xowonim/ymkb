@@ -665,7 +665,7 @@
   }
   function saveOrder(key, arr){
     orderMap[key] = arr;
-    if(!getToken()){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return; }
+    if(!getToken()){ alert('먼저 토큰 설정에서 토큰을 등록해 주세요.'); return; }
     jsonChange(SITE_PATH, () => ({}), (d) => { d.order = d.order || {}; d.order[key] = arr; }, 'Update order').then(ok => { if(ok) showToast('순서를 저장했어요.'); });
   }
 
@@ -1314,7 +1314,7 @@
   function openSettings(){
     const has = !!getToken();
     document.getElementById('settingsBody').innerHTML = `
-      <h2 class="form-title">저장 설정</h2>
+      <h2 class="form-title">토큰 설정</h2>
       <p class="form-hint">토큰은 사이트에서 저장할 때 쓰는 열쇠예요. 이 기기에서 한 번만 등록하면 돼요. 이 브라우저에만 보관되고 깃허브에는 올라가지 않아요.</p>
       <ol class="form-hint steps">
         <li>먼저 저장소 주인(호원)에게 ${GH_OWNER}/${GH_REPO} 저장소 초대를 받아 주세요. 메일의 Accept invitation을 눌러 수락하면 돼요.</li>
@@ -1402,7 +1402,7 @@
   }
   async function applyTemplatesChange(mutate){
     const token = getToken();
-    if(!token){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return false; }
+    if(!token){ alert('먼저 토큰 설정에서 토큰을 등록해 주세요.'); return false; }
     for(let attempt = 0; attempt < 8; attempt++){
       try {
         const { data, sha } = await fetchLiveTemplates();
@@ -1442,7 +1442,7 @@
     const isHowon = t.name === '호원';
     const typeOpts = Object.keys(FIELD_TYPES).map(k => `<option value="${k}">${FIELD_TYPES[k]}</option>`).join('');
     document.getElementById('tplBody').innerHTML = `
-      <h2 class="form-title">템플릿 관리</h2>
+      <h2 class="form-title">프로필 템플릿 관리</h2>
       <p class="form-hint">프로필 템플릿을 자유롭게 수정하세요.</p>
       <div class="tpl-tabs">
         ${templates.map(x => `<button type="button" class="tpl-tab${x.id === mgrSel ? ' active' : ''}" data-tact="sel" data-tid="${esc(x.id)}">${esc(x.name)}</button>`).join('')}
@@ -1788,7 +1788,7 @@
     if(!name){ err.textContent = '이름을 입력해 주세요.'; return; }
     const same = masterCharacters[name];
     if(same && (!info || same.name !== info.name)){ err.textContent = '같은 이름의 캐릭터가 이미 있어요.'; return; }
-    if(!getToken()){ err.textContent = '먼저 저장 설정에서 토큰을 등록해 주세요.'; return; }
+    if(!getToken()){ err.textContent = '먼저 토큰 설정에서 토큰을 등록해 주세요.'; return; }
 
     const fields = Object.assign({}, (charFiles[info && info.name] || {}).fields || {}, collectFields(formTpl));
     // oc에서 불러온 값을 그대로 둔 항목은 저장하지 않아서, oc 쪽에서 나중에 바뀌어도 계속 따라간다.
@@ -1881,7 +1881,7 @@
       reloadKeepingView({ profile:name });
     } catch(e){
       btn.disabled = false; btn.textContent = '저장';
-      err.textContent = e.message === 'NO_TOKEN' ? '먼저 저장 설정에서 토큰을 등록해 주세요.' : '저장에 실패했어요: ' + e.message;
+      err.textContent = e.message === 'NO_TOKEN' ? '먼저 토큰 설정에서 토큰을 등록해 주세요.' : '저장에 실패했어요: ' + e.message;
     }
   }
 
@@ -1889,7 +1889,7 @@
   async function resetCharacter(info){
     const cf = charFiles[info.name];
     if(!cf) return;
-    if(!getToken()){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return; }
+    if(!getToken()){ alert('먼저 토큰 설정에서 토큰을 등록해 주세요.'); return; }
     if(!confirm(`"${info.name}"의 ymkb 프로필 내용을 모두 비울까요?\n이름, 그룹, 오너, 사진은 그대로 남아요.`)) return;
     const data = { id:cf.id, name:cf.name, file:cf.file || cf.id, group:cf.group || '', role:cf.role || '', color:cf.color || null, owner:cf.owner || '', template:cf.template || '', image:cf.image || null, imageV:cf.imageV || null, noImage:!!cf.noImage, fields:{} };
     try {
@@ -1904,7 +1904,7 @@
     const info = masterCharacters[name];
     if(!info) return;
     const cf = charFiles[name];
-    if(!getToken()){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return; }
+    if(!getToken()){ alert('먼저 토큰 설정에서 토큰을 등록해 주세요.'); return; }
     if(!confirm(`"${name}" 캐릭터를 삭제할까요?\n사이트에서 보이지 않게 돼요.`)) return;
     try {
       const id = info.id || info.file;
@@ -2094,7 +2094,7 @@
     const name = document.getElementById('gName').value.trim();
     if(!name){ err.textContent = '이름을 입력해 주세요.'; return; }
     if(groups.some(x => x.name === name && (!g || x.id !== g.id))){ err.textContent = '같은 이름의 그룹이 이미 있어요.'; return; }
-    if(!getToken()){ err.textContent = '먼저 저장 설정에서 토큰을 등록해 주세요.'; return; }
+    if(!getToken()){ err.textContent = '먼저 토큰 설정에서 토큰을 등록해 주세요.'; return; }
     const colors = getSel();
     const id = g ? g.id : (slugOf(name) && !groups.some(x => x.id === slugOf(name)) ? slugOf(name) : 'group-' + Date.now());
     const data = {
@@ -2149,12 +2149,12 @@
       reloadKeepingView();
     } catch(e){
       btn.disabled = false; btn.textContent = '저장';
-      err.textContent = e.message === 'NO_TOKEN' ? '먼저 저장 설정에서 토큰을 등록해 주세요.' : '저장에 실패했어요: ' + e.message;
+      err.textContent = e.message === 'NO_TOKEN' ? '먼저 토큰 설정에서 토큰을 등록해 주세요.' : '저장에 실패했어요: ' + e.message;
     }
   }
 
   async function deleteGroup(g){
-    if(!getToken()){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return; }
+    if(!getToken()){ alert('먼저 토큰 설정에서 토큰을 등록해 주세요.'); return; }
     const n = g.members.length;
     if(!confirm(`"${g.name}" 그룹을 삭제할까요?${n ? `\n소속된 캐릭터 ${n}명도 이 그룹과 함께 보이지 않게 돼요.` : ''}`)) return;
     try {
@@ -2176,7 +2176,7 @@
   /* ----- JSON 파일 한 개를 안전하게 고치기 (최신 내용을 다시 받아 이번 변경만 적용, 충돌이면 재시도) ----- */
   async function jsonChange(path, fallbackFn, mutate, message){
     const token = getToken();
-    if(!token){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return false; }
+    if(!token){ alert('먼저 토큰 설정에서 토큰을 등록해 주세요.'); return false; }
     return queued(async () => {
     for(let attempt = 0; attempt < 8; attempt++){
       try {
@@ -2255,7 +2255,7 @@
         }
       } catch(e){
         btn.disabled = false; btn.textContent = '저장';
-        err.textContent = e.message === 'NO_TOKEN' ? '먼저 저장 설정에서 토큰을 등록해 주세요.' : '캐릭터 프로필을 만들지 못했어요: ' + e.message;
+        err.textContent = e.message === 'NO_TOKEN' ? '먼저 토큰 설정에서 토큰을 등록해 주세요.' : '캐릭터 프로필을 만들지 못했어요: ' + e.message;
         return;
       }
       const ok = await jsonChange('data/classes.json', () => JSON.parse(JSON.stringify(classesBase)), (data) => {
@@ -2274,7 +2274,7 @@
     });
   }
   async function deleteClass(sec){
-    if(!getToken()){ alert('먼저 저장 설정에서 토큰을 등록해 주세요.'); return; }
+    if(!getToken()){ alert('먼저 토큰 설정에서 토큰을 등록해 주세요.'); return; }
     if(!confirm(`"${sec.id}" 학급을 삭제할까요?\n캐릭터는 지워지지 않고, 학급 명단만 사라져요.`)) return;
     const ok = await jsonChange('data/classes.json', () => JSON.parse(JSON.stringify(classesBase)), (data) => {
       data.forEach(gr => { gr.sections = gr.sections.filter(s => s.id !== sec.id); });
@@ -2320,7 +2320,7 @@
       });
     };
     document.getElementById('formBody').innerHTML = `
-      <h2 class="form-title">사이트 설정</h2>
+      <h2 class="form-title">메인 화면 관리</h2>
       <div class="f-group">기본</div>
       ${fInput('제목', 'sTitle', site.title)}
       ${fInput('부제', 'sSub', site.subtitle)}
@@ -2373,7 +2373,7 @@
     });
     document.getElementById('formSave').addEventListener('click', async () => {
       const err = document.getElementById('formError'); err.textContent = '';
-      if(!getToken()){ err.textContent = '먼저 저장 설정에서 토큰을 등록해 주세요.'; return; }
+      if(!getToken()){ err.textContent = '먼저 토큰 설정에서 토큰을 등록해 주세요.'; return; }
       syncSlides(); syncSns();
       const btn = document.getElementById('formSave'); btn.disabled = true; btn.textContent = '저장 중...';
       try {
