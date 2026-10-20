@@ -630,3 +630,8 @@ a.disco-title:hover{ color:var(--accent); }
 .lb-nav.prev{ left:8px; } .lb-nav.next{ right:8px; }
 .lb-count{ position:absolute; bottom:16px; left:0; right:0; text-align:center; color:rgba(255,255,255,0.7); font-size:12px; }
 @media (max-width: 560px){ .lb-stage{ padding:56px 8px; } .lb-nav{ width:36px; font-size:36px; } }
+
+.tpl-origin{ font-size:13px; color:var(--muted); margin:14px 0 0; }
+.tpl-hr{ margin:14px 0 8px; }
+.tpl-hr + .f-group + .tpl-fields{ border-top:0; margin-top:0; padding-top:0; }
+.tpl-hr + .f-group{ border-top:0; margin-top:8px; padding-top:0; }
