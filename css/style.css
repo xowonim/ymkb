@@ -654,3 +654,8 @@ a.disco-title:hover{ color:var(--accent); }
 #slideBoxBody > .slide-box-text:first-child{ padding-top:46px; }
 .slide:not(.active){ pointer-events:none; }
 .slide-box:not(:has(.slide-box-img)) .modal-close{ color:var(--ink); text-shadow:none; }
+
+.profile-text.rich h3, .slide-box-text h3{ font-size:17px; font-weight:700; margin:14px 0 6px; line-height:1.5; }
+.slide-box-text{ white-space:normal; }
+.rt-edit h3{ font-size:17px; font-weight:700; margin:8px 0 4px; }
+.rt-edit[data-ph]:empty::before{ content:attr(data-ph); color:var(--muted); }
