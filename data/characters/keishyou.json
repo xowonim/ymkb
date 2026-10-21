@@ -11,8 +11,8 @@
   "classFlags": [
     "회장"
   ],
-  "image": null,
-  "imageV": null,
+  "image": "assets/ymkb_icon_keishyou.png",
+  "imageV": 1792589160688,
   "noImage": false,
   "fields": {
     "f_1792438847898": "西 圭将",
