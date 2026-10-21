@@ -5,12 +5,22 @@
   "group": "Tsicro",
   "role": "매니저",
   "color": null,
-  "owner": "",
-  "template": "t_dowon",
+  "owner": "세잇",
+  "template": "t_seit",
   "clubHead": false,
   "classFlags": [],
-  "image": null,
-  "imageV": null,
+  "image": "assets/ymkb_icon_uzuki.png",
+  "imageV": 1792607535718,
   "noImage": false,
-  "fields": {}
+  "fields": {
+    "f_1792438847898": "白野 卯月",
+    "f_1790459852228": "Hakuno Uzuki",
+    "f_1790459909805": "17세",
+    "f_1790485356104": "10월 25일",
+    "f_1790485416027": "164cm",
+    "f_1790460026132": "매니저과",
+    "f_1790460191966": "1학년",
+    "f_1790477497994": "A반",
+    "f_1790484157581": "토끼관찰및자애부"
+  }
 }
