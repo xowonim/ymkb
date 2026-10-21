@@ -17,7 +17,11 @@
   "logo": "assets/ymkb_logo.png",
   "logoV": 1792516068215,
   "colors": {},
-  "hiddenColors": [],
+  "hiddenColors": [
+    "다이아몬드",
+    "하트",
+    "스페이스"
+  ],
   "slides": [
     {
       "id": "s0",
