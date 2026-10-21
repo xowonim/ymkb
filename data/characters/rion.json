@@ -1,0 +1,16 @@
+{
+  "id": "rion",
+  "name": "타카자쿠라 리온",
+  "file": "rion",
+  "group": "kowiis",
+  "role": "",
+  "color": "♡3",
+  "owner": "",
+  "template": "t_dowon",
+  "clubHead": false,
+  "classFlags": [],
+  "image": null,
+  "imageV": null,
+  "noImage": false,
+  "fields": {}
+}
