@@ -336,7 +336,8 @@
         "label": "성적",
         "type": "rating"
       }
-    ]
+    ],
+    "ownerLabel": "It"
   },
   {
     "id": "t_haewon",
