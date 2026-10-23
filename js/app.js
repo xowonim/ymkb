@@ -946,6 +946,36 @@
     box.querySelectorAll('.char-gallery').forEach(g => makeSortable(g, '.photo-card', (items) => saveOrder('club:' + g.dataset.club, items.map(c => c.dataset.name))));
   })();
 
+
+  /* ---------------- 메인 화면 디스코그래피 (최신순, 여러 개면 자동으로 넘어간다) ---------------- */
+  (function renderHomeDisco(){
+    const box = document.getElementById('homeDisco'); if(!box) return;
+    const items = [];
+    groups.forEach(g => (Array.isArray(g.discography) ? g.discography : []).forEach(d => { if(d && (d.title || d.cover)) items.push({ g, d }); }));
+    items.sort((a, b) => String(b.d.date || '').localeCompare(String(a.d.date || '')));
+    const list = items.slice(0, 12);
+    if(!list.length){ box.style.display = 'none'; return; }
+    box.style.display = '';
+    box.innerHTML = `<div class="hd-view"><div class="hd-track">${list.map((x, i) => `<div class="hd-item" data-i="${i}">
+      <div class="hd-cover">${x.d.cover ? `<img src="${esc(discCoverSrc(x.d))}" alt="" onerror="window.__imgErr(this)">` : ''}</div>
+      <div class="hd-title">${esc(x.d.title || '')}</div>
+      <div class="hd-meta">${esc(x.g.name)}${x.d.date ? ` · ${esc(String(x.d.date).replace(/-/g, '.'))}` : ''}</div></div>`).join('')}</div></div>
+      ${list.length > 1 ? `<div class="carousel-ticks hd-ticks">${list.map((_, i) => `<span class="tick${i ? '' : ' active'}"></span>`).join('')}</div>` : ''}`;
+    const track = box.querySelector('.hd-track');
+    const ticks = [...box.querySelectorAll('.tick')];
+    let cur = 0, timer = null;
+    const go = (i) => { cur = (i + list.length) % list.length; track.style.transform = `translateX(-${cur * 100}%)`; ticks.forEach((t, k) => t.classList.toggle('active', k === cur)); };
+    const start = () => { if(list.length > 1 && !timer) timer = setInterval(() => go(cur + 1), 4000); };
+    const stop = () => { clearInterval(timer); timer = null; };
+    box.addEventListener('mouseenter', stop); box.addEventListener('mouseleave', start);
+    ticks.forEach((t, k) => t.addEventListener('click', () => { stop(); go(k); start(); }));
+    box.addEventListener('click', (e) => {
+      const it = e.target.closest('.hd-item'); if(!it) return;
+      const x = list[+it.dataset.i]; if(x) openGroupDetail(x.g);
+    });
+    start();
+  })();
+
   /* ---------------- 학생회 페이지 ---------------- */
   function councilCard(name, sub){
     const info = masterCharacters[name];
