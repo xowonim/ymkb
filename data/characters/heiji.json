@@ -1,0 +1,18 @@
+{
+  "id": "heiji",
+  "name": "나카스 헤이지",
+  "file": "heiji",
+  "group": "Tonic",
+  "role": "",
+  "color": "블랙",
+  "owner": "호원",
+  "template": "t_howon",
+  "clubHead": false,
+  "classFlags": [
+    "회장"
+  ],
+  "image": null,
+  "imageV": null,
+  "noImage": false,
+  "fields": {}
+}
