@@ -487,7 +487,7 @@
     if(side) side.innerHTML = snsList.map(x => {
       const kind = /youtube|youtu\.be/i.test(x.url + x.name) ? 'yt' : /soundcloud/i.test(x.url + x.name) ? 'sc' : 'etc';
       const icon = kind === 'yt' ? SNS_ICONS.yt : kind === 'sc' ? SNS_ICONS.sc : SNS_ICONS.etc;
-      return `<a class="link-row" href="${esc(safeUrl(x.url) || '#')}" target="_blank" rel="noopener noreferrer"><div class="icon-box ${kind}">${icon}</div><span>${esc(x.name)}</span></a>`;
+      return `<a class="link-row" href="${esc(safeUrl(x.url) || '#')}" target="_blank" rel="noopener noreferrer" title="${esc(x.name)}" aria-label="${esc(x.name)}"><div class="icon-box ${kind}">${icon}</div><span>${esc(x.name)}</span></a>`;
     }).join('');
     document.querySelector('footer').textContent = site.footer;
     if(site.favicon){
@@ -957,9 +957,8 @@
     if(!list.length){ box.style.display = 'none'; return; }
     box.style.display = '';
     box.innerHTML = `<div class="hd-view"><div class="hd-track">${list.map((x, i) => `<div class="hd-item" data-i="${i}">
-      <div class="hd-cover">${x.d.cover ? `<img src="${esc(discCoverSrc(x.d))}" alt="" onerror="window.__imgErr(this)">` : ''}</div>
-      <div class="hd-title">${esc(x.d.title || '')}</div>
-      <div class="hd-meta">${esc(x.g.name)}${x.d.date ? ` · ${esc(String(x.d.date).replace(/-/g, '.'))}` : ''}</div></div>`).join('')}</div></div>
+      <div class="hd-cover">${x.d.cover ? `<img src="${esc(discCoverSrc(x.d))}" alt="" onerror="window.__imgErr(this)">` : ''}
+      <div class="hd-over"><div class="hd-meta">${esc(x.g.name)}</div><div class="hd-title">${esc(x.d.title || '')}</div></div></div></div>`).join('')}</div></div>
       ${list.length > 1 ? `<div class="carousel-ticks hd-ticks">${list.map((_, i) => `<span class="tick${i ? '' : ' active'}"></span>`).join('')}</div>` : ''}`;
     const track = box.querySelector('.hd-track');
     const ticks = [...box.querySelectorAll('.tick')];
