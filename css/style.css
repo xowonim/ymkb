@@ -703,3 +703,23 @@ body{ min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; 
   .council-name{ font-size:11px; letter-spacing:-0.02em; }
   .council-sub{ font-size:10px; }
 }
+
+/* group tags trio */
+.gd-trio{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:7px 16px; align-items:start; }
+.gd-trio .spec-row{ margin-bottom:0; min-width:0; }
+/* dorm */
+.dorm-body{ max-width:760px; }
+.dorm-building + .dorm-building{ margin-top:90px; }
+.dorm-title{ font-size:16px; font-weight:600; margin:0 0 14px; color:var(--ink); }
+.dorm-floor{ margin-bottom:12px; }
+.dorm-floor > summary{ cursor:pointer; list-style:none; font-size:13px; color:var(--ink); padding:6px 0; }
+.dorm-floor > summary::-webkit-details-marker{ display:none; }
+.dorm-floor > summary::before{ content:''; display:inline-block; width:0; height:0; border-left:6px solid var(--accent); border-top:4px solid transparent; border-bottom:4px solid transparent; margin-right:8px; vertical-align:1px; transition:transform .15s; }
+.dorm-floor[open] > summary::before{ transform:rotate(90deg); }
+.dorm-rooms{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; margin-top:8px; }
+.dorm-room{ display:flex; gap:8px; align-items:flex-start; border:1px solid var(--line); border-radius:12px; padding:10px 8px; min-width:0; }
+.dorm-no{ writing-mode:vertical-rl; font-size:11px; letter-spacing:0.1em; color:var(--accent); flex:0 0 auto; padding-top:2px; }
+.dorm-people{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; flex:1; min-width:0; }
+.dorm-people .council-item{ width:auto; }
+.dorm-people .council-name{ font-size:11.5px; margin-top:6px; }
+@media (max-width:700px){ .dorm-rooms{ grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; } .dorm-room{ padding:8px 6px; gap:5px; } .dorm-people{ gap:5px; } .dorm-people .council-name{ font-size:10px; letter-spacing:-0.03em; } .gd-trio{ gap:7px 8px; } }
