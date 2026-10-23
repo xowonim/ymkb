@@ -125,7 +125,7 @@
   const SITE_PATH = 'data/site.json';
   const DEFAULT_SLIDE = { id:'s0', date:'', title:'plz wait a little bit of..♡', image:null };
   const SLIDE_GRADIENT = 'linear-gradient(160deg,#c6b8d4,#9B85AD)';
-  const PAGE_KEYS = [['counsel','COUNCIL'], ['agency','DORM'], ['etc','ETC']];
+  const PAGE_KEYS = [['counsel','COUNCIL'], ['agency','DORMITORY'], ['etc','ETC']];
   const SITE_DEFAULTS = { title:'유메키보고등학교', subtitle:'YUMEKIBO HIGH SCHOOL', youtube:'https://youtube.com/@ymkbhighschool', soundcloud:'https://soundcloud.com/ymkbofficial', footer:'© ymkb high school', logo:null, logoV:null, favicon:null, faviconV:null, slides:[DEFAULT_SLIDE], pages:{}, council:{
     president:'하츠키 세이시', vice:'이자요이 키츠네',
     reps:[{name:'센코 이치고',label:'3-A'},{name:'니시 케이쇼',label:'3-B'},{name:'나카스 헤이지',label:'2-A'},{name:'사쿠라 시류',label:'2-B'},{name:'카미하츠 마모루',label:'1-A'},{name:'나미카와 류',label:'1-B'},{name:'에나미 큐',label:'中-A'},{name:'시이나 이나',label:'中-B'}],
