@@ -125,7 +125,7 @@
   const SITE_PATH = 'data/site.json';
   const DEFAULT_SLIDE = { id:'s0', date:'', title:'plz wait a little bit of..♡', image:null };
   const SLIDE_GRADIENT = 'linear-gradient(160deg,#c6b8d4,#9B85AD)';
-  const PAGE_KEYS = [['counsel','학생회'], ['agency','기숙사'], ['etc','ETC']];
+  const PAGE_KEYS = [['counsel','COUNCIL'], ['agency','DORM'], ['etc','ETC']];
   const SITE_DEFAULTS = { title:'유메키보고등학교', subtitle:'YUMEKIBO HIGH SCHOOL', youtube:'https://youtube.com/@ymkbhighschool', soundcloud:'https://soundcloud.com/ymkbofficial', footer:'© ymkb high school', logo:null, logoV:null, favicon:null, faviconV:null, slides:[DEFAULT_SLIDE], pages:{}, council:{
     president:'하츠키 세이시', vice:'이자요이 키츠네',
     reps:[{name:'센코 이치고',label:'3-A'},{name:'니시 케이쇼',label:'3-B'},{name:'나카스 헤이지',label:'2-A'},{name:'사쿠라 시류',label:'2-B'},{name:'카미하츠 마모루',label:'1-A'},{name:'나미카와 류',label:'1-B'},{name:'에나미 큐',label:'中-A'},{name:'시이나 이나',label:'中-B'}],
@@ -744,9 +744,11 @@
       return `<span class="gd-color-chip" style="color:${textColor}"><span class="gd-color-dot" style="background:${hex}"></span>${esc(c)}</span>`;
     }).join('');
     const tagRows = [];
-    if(g.concept) tagRows.push(infoRow('컨셉', esc(g.concept)));
-    if(g.genre) tagRows.push(infoRow('장르', esc(g.genre)));
-    if(g.fandom) tagRows.push(infoRow('팬덤명', esc(g.fandom)));
+    const trio = [];
+    if(g.concept) trio.push(infoRow('컨셉', esc(g.concept)));
+    if(g.genre) trio.push(infoRow('주력 장르', esc(g.genre)));
+    if(g.fandom) trio.push(infoRow('팬덤명', esc(g.fandom)));
+    if(trio.length) tagRows.push(`<div class="gd-trio">${trio.join('')}</div>`);
     if(colorsValue) tagRows.push(infoRow('대표 컬러', colorsValue));
     const tagsEl = document.getElementById('gdTags');
     tagsEl.innerHTML = tagRows.join('');
@@ -767,7 +769,7 @@
       const cover = d.cover ? `<img src="${esc(discCoverSrc(d))}" alt="" onerror="window.__imgErr(this)">` : '';
       const link = safeUrl(d.link);
       const wrap = (inner, cls) => link ? `<a class="${cls}" href="${esc(link)}" target="_blank" rel="noopener noreferrer">${inner}</a>` : `<span class="${cls}">${inner}</span>`;
-      return `<div class="disco-item">${wrap(cover, 'disco-cover')}${wrap(esc(d.title || ''), 'disco-title')}${d.date ? `<span class="disco-date">${esc(d.date)}</span>` : ''}</div>`;
+      return `<div class="disco-item">${wrap(cover, 'disco-cover')}${wrap(esc(d.title || ''), 'disco-title')}${d.date ? `<span class="disco-date">${esc(String(d.date).replace(/-/g, '.'))}</span>` : ''}</div>`;
     }).join('');
     document.getElementById('gdDiscoSec').style.display = discs.length ? '' : 'none';
     groupModal.classList.add('active');
@@ -934,14 +936,13 @@
     if(!box) return;
     const map = {};
     Object.values(masterCharacters).forEach(info => clubNamesOf(info).forEach(c => { const arr = (map[c.name] = map[c.name] || []); if(!arr.some(x => x.info === info)) arr.push({ info, head:c.head }); }));
-    const names = applyOrder(Object.keys(map), n => n, 'clubs');
+    const names = Object.keys(map).sort((a, b) => a.localeCompare(b, 'ko'));
     if(!names.length){ box.innerHTML = '<p style="color:var(--muted);font-size:13px;">동아리 정보가 아직 준비되지 않았습니다.</p>'; return; }
     box.innerHTML = names.map(n => {
       const list = applyOrder(map[n], i => i.info.name, 'club:' + n);
       list.sort((a, b) => (b.head ? 1 : 0) - (a.head ? 1 : 0));
       return `<div class="club-block" data-club="${esc(n)}"><h3 class="club-title">${esc(n)}</h3><div class="char-gallery cols-8" data-club="${esc(n)}">${list.map(clubCard).join('')}</div><hr class="soft-divider"></div>`;
     }).join('');
-    makeSortable(box, '.club-block', (items) => saveOrder('clubs', items.map(b => b.dataset.club)), { handle:'.club-title' });
     box.querySelectorAll('.char-gallery').forEach(g => makeSortable(g, '.photo-card', (items) => saveOrder('club:' + g.dataset.club, items.map(c => c.dataset.name))));
   })();
 
@@ -969,6 +970,25 @@
   }
   renderCouncil();
   document.getElementById('councilBody').addEventListener('click', (e) => {
+    const it = e.target.closest('.council-item.linked'); if(it) openProfile(it.dataset.name);
+  });
+
+
+  /* ---------------- 기숙사 페이지 ---------------- */
+  const DORM = [
+    { name:'유메관', floors:[
+      { f:'3F', rooms:[['301','아키호 모치','시노하라 츄시로'],['302','에나미 타츠로','나카아키 세츠나'],['303','신도 카이','노하라 켄타'],['304','테츠라 유키','미도리카와 토오루'],['305','카자마 미로','나나미 신지'],['306','나미카와 우미']] },
+      { f:'1F', rooms:[['101','카미하츠 마모루','하루이 루키하'],['102','오카다 아츠시','하야시 미츠키'],['103','데오다토 아트','원주율'],['104','이토 레이센','후쿠오 로나'],['105','코이즈미 아키라','하쿠노 우즈키'],['106','시토 레미','하야시 미츠루']] } ] },
+    { name:'키보관', floors:[
+      { f:'2F', rooms:[['201','에모토 루이','하시모토 소우'],['202','하이바라 토마','하기 유우토'],['203','아오키 켄','타카자쿠라 리온'],['204','사쿠라 시류','스즈키 잇세이'],['205','오모 토시미','카게야마 시온'],['206','미요시 아로마','유키무라 카논'],['207','카게노 히라시','신타니 츠토무'],['208','아라키 카이로','코이즈미 아카리']] },
+      { f:'1F', rooms:[['101','시이나 이나','하나나시 사나기'],['102','도코 치리','타카나시 유타'],['103','아이사와 키미','하네다 아이리'],['104','아사히나 노조미','사츠키 레이무'],['105','에나미 큐','루리코 사에'],['106','시오자키 아우라','하라 세이카']] } ] }
+  ];
+  function renderDorm(){
+    const box = document.getElementById('dormBody'); if(!box) return;
+    box.innerHTML = DORM.map(b => `<section class="dorm-building"><h3 class="dorm-title">${esc(b.name)}</h3>${b.floors.map(fl => `<details class="dorm-floor"><summary>${esc(fl.f)}</summary><div class="dorm-rooms">${fl.rooms.map(r => `<div class="dorm-room"><span class="dorm-no">${esc(r[0])}</span><div class="dorm-people">${r.slice(1).map(n => councilCard(n, '')).join('')}</div></div>`).join('')}</div></details>`).join('')}</section>`).join('');
+  }
+  renderDorm();
+  document.getElementById('dormBody').addEventListener('click', (e) => {
     const it = e.target.closest('.council-item.linked'); if(it) openProfile(it.dataset.name);
   });
 
@@ -2035,7 +2055,7 @@
       <h2 class="form-title">${isEdit ? '그룹 수정' : '그룹 추가'}</h2>
       ${fInput('이름', 'gName', g ? g.name : '')}
       ${fInput('컨셉', 'gConcept', g ? g.concept : '')}
-      ${fInput('장르', 'gGenre', g ? g.genre : '')}
+      ${fInput('주력 장르', 'gGenre', g ? g.genre : '')}
       ${fInput('팬덤명', 'gFandom', g ? g.fandom : '')}
       <div class="f-row"><span>대표 컬러</span><div class="color-picks" id="gColors">${chipHtml()}</div>
         <div class="color-name-row"><input class="f-input" id="gNewColorName" placeholder="색 이름"><span class="gd-color-dot" id="gNewColorDot" style="background:transparent"></span><button type="button" class="text-btn" id="gAddColor">색 추가</button></div></div>
@@ -2048,7 +2068,7 @@
           <p class="form-hint" id="fImageNote"></p>
         </div>
       </div>
-      <div class="f-group">디스코그래피</div>
+      <div class="f-group">DISCOGRAPHY</div>
       <div id="gDisco"></div>
       <button type="button" class="text-btn" id="gAddDisco">+ 음원 추가</button>
       <p class="form-error" id="formError"></p>
@@ -2259,7 +2279,7 @@
 
   /* ----- 학급 추가 / 수정 / 삭제 (data/classes.json) ----- */
   function rosterRowHtml(r){
-    return `<div class="tpl-row roster-row"><input class="f-input" list="charNames" data-r="name" placeholder="학생 이름" value="${esc(r.name || '')}"><button type="button" class="x-btn" data-rdel title="삭제" aria-label="삭제">&times;</button></div>`;
+    return `<div class="tpl-row roster-row"><input class="f-input" data-r="name" autocomplete="off" placeholder="학생 이름" value="${esc(r.name || '')}"><button type="button" class="x-btn" data-rdel title="삭제" aria-label="삭제">&times;</button></div>`;
   }
   function openClassForm(sec){
     const grade = sec ? classes.find(g => g.sections.includes(sec)).grade : (classes[0] ? classes[0].grade : '');
@@ -2270,7 +2290,6 @@
       ${fInput('학급 이름', 'cId', sec ? sec.id : '', '예: 3-A')}
       ${fInput('담당 교사', 'cTeacher', sec ? sec.teacher : '')}
       <div class="f-group">학생 명단</div>
-      <datalist id="charNames">${Object.keys(masterCharacters).sort((a, b) => a.localeCompare(b, 'ko')).map(n => `<option value="${esc(n)}">`).join('')}</datalist>
       <div id="cRoster">${(sec ? sec.roster : []).map(rosterRowHtml).join('')}</div>
       <button type="button" class="text-btn" id="cAddRow">+ 학생 추가</button>
       <p class="form-error" id="formError"></p>
