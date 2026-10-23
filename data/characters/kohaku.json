@@ -1,0 +1,16 @@
+{
+  "id": "kohaku",
+  "name": "쿠키 코하쿠",
+  "file": "kohaku",
+  "group": "FLUID",
+  "role": "",
+  "color": "옐로우",
+  "owner": "세잇",
+  "template": "t_seit",
+  "clubHead": false,
+  "classFlags": [],
+  "image": "assets/ymkb_icon_kohaku.png",
+  "imageV": 1792768218412,
+  "noImage": false,
+  "fields": {}
+}
