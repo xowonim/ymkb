@@ -24,7 +24,7 @@
 <title>YMKB</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
-<link rel="stylesheet" href="css/style.css?v=60">
+<link rel="stylesheet" href="css/style.css?v=61">
 </head>
 <body>
 
@@ -42,8 +42,8 @@
     <button class="nav-btn" data-page="group">GROUP</button>
     <button class="nav-btn" data-page="class">CLASS</button>
     <button class="nav-btn" data-page="club">CLUB</button>
-    <button class="nav-btn" data-page="counsel">학생회</button>
-    <button class="nav-btn" data-page="agency">기숙사</button>
+    <button class="nav-btn" data-page="counsel">COUNCIL</button>
+    <button class="nav-btn" data-page="agency">DORM</button>
     <button class="nav-btn" data-page="etc">ETC</button>
   </div>
 
@@ -95,11 +95,12 @@
     <div id="clubList"></div>
   </div>
   <div class="page" id="page-counsel">
-    <h2 class="class-page-title">학생회</h2>
+    <h2 class="class-page-title">COUNCIL</h2>
     <div id="councilBody"></div>
   </div>
   <div class="page" id="page-agency">
-    <div class="placeholder"><h2>기숙사</h2><p>기숙사 페이지는 준비 중입니다.</p></div>
+    <h2 class="class-page-title">DORM</h2>
+    <div id="dormBody" class="dorm-body"></div>
   </div>
   <div class="page" id="page-etc">
     <div class="placeholder"><h2>ETC</h2><p>기타 페이지는 준비 중입니다.</p></div>
@@ -126,7 +127,7 @@
     <div id="gdMembersSec">
       <hr class="soft-divider">
       <div class="section-label">
-        <h3>소속 멤버</h3>
+        <h3>MEMBER</h3>
       </div>
       <div class="char-gallery" id="gdCharGallery"></div>
     </div>
@@ -134,7 +135,7 @@
     <div id="gdManagerSec">
       <hr class="soft-divider">
       <div class="section-label">
-        <h3>매니저</h3>
+        <h3>MANAGER</h3>
       </div>
       <div class="char-gallery" id="gdManagerGallery"></div>
     </div>
@@ -142,7 +143,7 @@
     <div id="gdDiscoSec">
       <hr class="soft-divider">
       <div class="section-label">
-        <h3>디스코그래피</h3>
+        <h3>DISCOGRAPHY</h3>
       </div>
       <div class="disco-gallery" id="gdDiscoGallery"></div>
     </div>
@@ -266,6 +267,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
-<script src="js/app.js?v=60"></script>
+<script src="js/app.js?v=61"></script>
 </body>
 </html>
