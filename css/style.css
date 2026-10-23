@@ -501,7 +501,8 @@ textarea.f-input{ resize:vertical; line-height:1.6; }
 .logo img{ width:100%; height:100%; object-fit:contain; display:block; }
 .page-body{ text-align:left; max-width:640px; margin:12px auto 0; }
 .f-thumb.wide{ width:120px; aspect-ratio:16 / 9; }
-.slide-row{ display:flex; gap:14px; align-items:flex-start; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--line); }
+.slide-row{ margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--line); }
+.slide-main{ display:flex; gap:14px; align-items:flex-start; }
 .slide-fields{ flex:1; display:flex; flex-direction:column; gap:6px; }
 .roster-officer{ width:140px; flex:0 0 auto; }
 .tool-row{ flex-wrap:wrap; }
@@ -750,3 +751,12 @@ body:has(#page-main.active) .fab-sns{ display:flex; }
 .fab-sns .icon-box{ background:none !important; color:#fff !important; width:auto; height:auto; border-radius:0; box-shadow:none; filter:drop-shadow(0 1px 2px rgba(0,0,0,0.7)) drop-shadow(0 2px 5px rgba(0,0,0,0.35)); }
 .fab-sns .icon-box svg{ width:28px; height:28px; display:block; }
 @media (max-width:900px){ .fab-sns{ flex-direction:column; overflow:visible; } }
+
+/* site form: folding + slide drag */
+.slide-head{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.slide-grip{ cursor:grab; touch-action:none; font-size:20px; line-height:1; color:var(--muted); padding:2px 6px; user-select:none; }
+.slide-name{ flex:1; min-width:0; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.body-fold{ background:none; border:none; padding:4px 0; cursor:pointer; font-family:inherit; font-size:12px; font-weight:600; color:var(--ink); display:flex; align-items:center; gap:7px; text-align:left; }
+.body-fold::before{ content:''; border-left:6px solid var(--ink); border-top:4px solid transparent; border-bottom:4px solid transparent; transform:rotate(90deg); transition:transform .15s; }
+.body-fold.folded::before{ transform:none; }
+.body-fold.folded + .rt-wrap{ display:none; }
