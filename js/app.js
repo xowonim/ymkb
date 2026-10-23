@@ -57,10 +57,6 @@
     document.getElementById('bannerPrev').addEventListener('click', () => setSlide(current - 1));
     document.getElementById('bannerNext').addEventListener('click', () => setSlide(current + 1));
 
-    let autoTimer = setInterval(() => setSlide(current + 1), 5000);
-    stage.addEventListener('mouseenter', () => clearInterval(autoTimer));
-    stage.addEventListener('mouseleave', () => { autoTimer = setInterval(() => setSlide(current + 1), 5000); });
-
   }
 
   /* ---------------- COLOR HELPERS ---------------- */
