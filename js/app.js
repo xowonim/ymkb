@@ -2388,14 +2388,15 @@
     let pendingLogo = null, removeLogo = false;
     let slides = site.slides.map(x => Object.assign({}, x));
     const slideHtml = (sl, i) => `<div class="slide-row" data-i="${i}">
-      <div class="f-thumb wide">${sl.pendingUrl ? `<img src="${sl.pendingUrl}" alt="">` : (sl.image ? `<img src="${esc(rawUrl(sl.image, sl.imageV))}" alt="" onerror="window.__imgErr(this)">` : '')}</div>
+      <div class="slide-head"><span class="slide-grip" title="끌어서 순서 변경">&#8801;</span><span class="slide-name">${esc(sl.title || '(제목 없음)')}</span></div>
+      <div class="slide-main"><div class="f-thumb wide">${sl.pendingUrl ? `<img src="${sl.pendingUrl}" alt="">` : (sl.image ? `<img src="${esc(rawUrl(sl.image, sl.imageV))}" alt="" onerror="window.__imgErr(this)">` : '')}</div>
       <div class="slide-fields">
         <input class="f-input" data-s="title" placeholder="슬라이드 제목" value="${esc(sl.title || '')}">
         <input class="f-input" data-s="date" placeholder="날짜 (선택)" value="${esc(sl.date || '')}">
         <div class="sns-row"><input class="f-input" data-s="linkText" placeholder="링크 표시 글자 (선택)" value="${esc(sl.linkText || '')}"><input class="f-input" data-s="link" placeholder="링크 주소 (선택)" value="${esc(sl.link || '')}"></div>
-        <div class="rt-wrap">${rtToolbarHtml()}<div class="rt-edit f-input" contenteditable="true" data-s="body" data-ph="본문 (선택)">${sl.body ? toRich(sl.body) : ''}</div></div>
+        <button type="button" class="body-fold${sl._open ? '' : ' folded'}" data-sfold>본문</button><div class="rt-wrap">${rtToolbarHtml()}<div class="rt-edit f-input" contenteditable="true" data-s="body" data-ph="본문 (선택)">${sl.body ? toRich(sl.body) : ''}</div></div>
         <input type="file" data-s="file" accept="image/*"><div class="slide-btns"><button type="button" class="btn-sm" data-simgdel>이미지 삭제</button><button type="button" class="btn-sm danger" data-sdel>슬라이드 삭제</button></div>
-      </div></div>`;
+      </div></div></div>`;
     const syncSlides = () => {
       document.querySelectorAll('#sSlides .slide-row').forEach(row => {
         const sl = slides[Number(row.dataset.i)]; if(!sl) return;
@@ -2409,6 +2410,7 @@
     const drawSlides = () => {
       const box = document.getElementById('sSlides');
       box.innerHTML = slides.map(slideHtml).join('');
+      makeSortable(box, '.slide-row', (items) => { syncSlides(); slides = items.map(r => slides[Number(r.dataset.i)]).filter(Boolean); drawSlides(); }, { handle:'.slide-grip', always:true });
       box.querySelectorAll('.slide-row').forEach(row => {
         const i = Number(row.dataset.i);
         row.querySelectorAll('.rt-toolbar button').forEach(b => b.addEventListener('mousedown', ev => { ev.preventDefault(); rtExec(b.dataset.rt); }));
@@ -2455,8 +2457,10 @@
       const f = e.target.files[0]; if(!f) return;
       openCrop(f, (blob, ext) => { pendingFav = { blob, ext }; removeFav = false; document.getElementById('sFavThumb').innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`; }, { aspect:1, noOriginal:true });
     });
-    document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ id:'s' + Date.now(), title:'', date:'', link:'', linkText:'', body:'', image:null }); drawSlides(); });
+    document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ _open:true, id:'s' + Date.now(), title:'', date:'', link:'', linkText:'', body:'', image:null }); drawSlides(); });
     document.getElementById('sSlides').addEventListener('click', (e) => {
+      const fb = e.target.closest('[data-sfold]');
+      if(fb){ const sl = slides[Number(fb.closest('.slide-row').dataset.i)]; const folded = fb.classList.toggle('folded'); if(sl) sl._open = !folded; return; }
       const ib = e.target.closest('[data-simgdel]');
       if(ib){ syncSlides(); const sl = slides[Number(ib.closest('.slide-row').dataset.i)]; if(sl){ sl.image = null; sl.imageV = null; sl.pending = null; sl.pendingUrl = null; } drawSlides(); return; }
       const b = e.target.closest('[data-sdel]'); if(!b) return;
