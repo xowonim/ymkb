@@ -1,0 +1,16 @@
+{
+  "id": "rona",
+  "name": "후쿠오 로나",
+  "file": "rona",
+  "group": "Tsicro",
+  "role": "",
+  "color": null,
+  "owner": "세잇",
+  "template": "t_seit",
+  "clubHead": false,
+  "classFlags": [],
+  "image": "assets/ymkb_icon_rona.png",
+  "imageV": 1792816134609,
+  "noImage": false,
+  "fields": {}
+}
