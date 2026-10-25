@@ -442,6 +442,13 @@
   const TEXT_COLORS = { red:'#d64545', green:'#2f9e5b', blue:'#3b6fd4', gray:'#9a9a9a', white:'#ffffff', black:'#1a1a1a' };
   const TEXT_COLOR_LABEL = { red:'빨강', green:'초록', blue:'파랑', gray:'회색', white:'하양', black:'검정' };
   const normColor = (c) => { const e = document.createElement('span'); e.style.color = c; return e.style.color; };
+  const SIZE_WORDS = { 'xx-small':1, 'x-small':1, 'small':2, 'medium':3, 'large':4, 'x-large':5, 'xx-large':6, 'xxx-large':7, '-webkit-xxx-large':7 };
+  const SIZE_PX = { 1:10, 2:13, 3:16, 4:18, 5:24, 6:32, 7:48 };
+  function sizeKeyOf(n){
+    let lv = parseInt(n.getAttribute('data-s'), 10);
+    if(!(lv >= 1 && lv <= 7)) lv = SIZE_WORDS[(n.style && n.style.fontSize) || ''] || parseInt(n.getAttribute('size'), 10) || 0;
+    return (lv >= 1 && lv <= 7 && lv !== 3) ? String(lv) : '';
+  }
   function colorKeyOf(n){
     const dk = n.getAttribute('data-c'); if(dk && TEXT_COLORS[dk]) return dk;
     const raw = (n.style && n.style.color) || n.getAttribute('color') || '';
@@ -562,7 +569,10 @@
             else if(/^assets\/[\w\-.\/]+$/.test(ip) && !ip.includes('..')) out += `<img src="${ip}"${wa}>`;
           }
           else if(t === 'hr') out += '<hr>';
-          else if(t === 'font' || t === 'span'){ const ck = colorKeyOf(n); out += ck ? `<span data-c="${ck}">${walk(n)}</span>` : walk(n); }
+          else if(t === 'font' || t === 'span'){
+            const ck = colorKeyOf(n), sk = sizeKeyOf(n);
+            out += (ck || sk) ? `<span${ck ? ` data-c="${ck}"` : ''}${sk ? ` data-s="${sk}"` : ''}>${walk(n)}</span>` : walk(n);
+          }
           else if(RICH_OK.includes(t)){
             let al = '';
             if(t === 'div' || t === 'p' || t === 'h3'){
@@ -2469,9 +2479,9 @@
   const editorModal = document.getElementById('editorModal');
   const edBody = document.getElementById('edBody');
   let edDone = null, edStart = '', edRange = null;
-  document.getElementById('edTools').innerHTML = rtToolbarHtml() + '<button type="button" class="btn-sm al-btn" data-al="left" title="왼쪽 정렬" aria-label="왼쪽 정렬"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M1 2h14M1 5.5h9M1 9h14M1 12.5h9"/></svg></button><button type="button" class="btn-sm al-btn" data-al="center" title="가운데 정렬" aria-label="가운데 정렬"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M1 2h14M3.5 5.5h9M1 9h14M3.5 12.5h9"/></svg></button><button type="button" class="btn-sm al-btn" data-al="right" title="오른쪽 정렬" aria-label="오른쪽 정렬"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M1 2h14M6 5.5h9M1 9h14M6 12.5h9"/></svg></button><button type="button" class="btn-sm" id="edImgBtn">이미지 삽입</button><button type="button" class="btn-sm danger" id="edImgDel" style="display:none">선택한 이미지 삭제</button>' + '<button type="button" class="btn-sm al-btn" id="edFold" title="접은글" aria-label="접은글"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 2l4 2.5L2 7z" fill="currentColor"/><path d="M9 3.5h6M2 11h13" stroke-linecap="square"/></svg></button><button type="button" class="btn-sm al-btn" id="edHr" title="가로줄" aria-label="가로줄"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 7h14" stroke-linecap="square"/></svg></button>' + '<span class="ed-colors">' + Object.keys(TEXT_COLORS).map(k => `<button type="button" class="ed-swatch" data-color="${k}" title="${TEXT_COLOR_LABEL[k]}" aria-label="${TEXT_COLOR_LABEL[k]}" style="background:${TEXT_COLORS[k]}"></button>`).join('') + '</span>';
+  document.getElementById('edTools').innerHTML = rtToolbarHtml() + '<button type="button" class="btn-sm al-btn" data-al="left" title="왼쪽 정렬" aria-label="왼쪽 정렬"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M1 2h14M1 5.5h9M1 9h14M1 12.5h9"/></svg></button><button type="button" class="btn-sm al-btn" data-al="center" title="가운데 정렬" aria-label="가운데 정렬"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M1 2h14M3.5 5.5h9M1 9h14M3.5 12.5h9"/></svg></button><button type="button" class="btn-sm al-btn" data-al="right" title="오른쪽 정렬" aria-label="오른쪽 정렬"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M1 2h14M6 5.5h9M1 9h14M6 12.5h9"/></svg></button><button type="button" class="btn-sm" id="edImgBtn">이미지 삽입</button><button type="button" class="btn-sm danger" id="edImgDel" style="display:none">선택한 이미지 삭제</button>' + '<button type="button" class="btn-sm al-btn" id="edFold" title="접은글" aria-label="접은글"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 2l4 2.5L2 7z" fill="currentColor"/><path d="M9 3.5h6M2 11h13" stroke-linecap="square"/></svg></button><button type="button" class="btn-sm al-btn" id="edHr" title="가로줄" aria-label="가로줄"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 7h14" stroke-linecap="square"/></svg></button>' + '<button type="button" class="btn-sm" id="edSizeDown" title="글씨 줄이기" aria-label="글씨 줄이기">A&minus;</button><button type="button" class="btn-sm" id="edSizeUp" title="글씨 키우기" aria-label="글씨 키우기">A+</button>' + '<span class="ed-colors">' + Object.keys(TEXT_COLORS).map(k => `<button type="button" class="ed-swatch" data-color="${k}" title="${TEXT_COLOR_LABEL[k]}" aria-label="${TEXT_COLOR_LABEL[k]}" style="background:${TEXT_COLORS[k]}"></button>`).join('') + '</span>';
   const edTools = document.getElementById('edTools');
-  edTools.querySelectorAll('.rt-toolbar button').forEach(b => b.addEventListener('mousedown', (ev) => { ev.preventDefault(); edBody.focus(); rtExec(b.dataset.rt); }));
+  edTools.querySelectorAll('.rt-toolbar button').forEach(b => b.addEventListener('mousedown', (ev) => { ev.preventDefault(); restoreSel(false); rtExec(b.dataset.rt); }));
   const edPage = edBody.parentElement;
   const handles = ['nw', 'ne', 'sw', 'se'].map(c => { const h = document.createElement('div'); h.className = 'ed-handle ' + c; h.dataset.c = c; h.style.display = 'none'; edPage.appendChild(h); return h; });
   const selImg = () => edBody.querySelector('img.sel');
@@ -2512,10 +2522,26 @@
       } else { edBody.focus(); document.execCommand(v === 'left' ? 'justifyLeft' : v === 'center' ? 'justifyCenter' : 'justifyRight'); }
     });
   });
+  let edSelRange = null; // 마지막으로 드래그해 둔 글씨 범위 (버튼을 눌러도 선택이 풀리지 않게)
   document.addEventListener('selectionchange', () => {
     const sel = window.getSelection();
-    if(sel && sel.rangeCount && edBody.contains(sel.anchorNode)) edRange = sel.getRangeAt(0).cloneRange();
+    if(sel && sel.rangeCount && edBody.contains(sel.anchorNode)){
+      edRange = sel.getRangeAt(0).cloneRange();
+      if(!sel.isCollapsed) edSelRange = edRange.cloneRange();
+    }
   });
+  ['pointerdown', 'keydown', 'input'].forEach(ev => edBody.addEventListener(ev, () => { if(ev !== 'pointerdown' || true) edSelRange = null; }, true));
+  // 선택한 글씨만 바꾸기 위해, 버튼을 눌렀을 때 선택 범위를 되돌린다. 선택이 없으면 false.
+  function restoreSel(needRange){
+    const sel = window.getSelection();
+    const live = sel.rangeCount && edBody.contains(sel.anchorNode) && !sel.isCollapsed;
+    if(live) return true;
+    edBody.focus();
+    if(edSelRange){ sel.removeAllRanges(); sel.addRange(edSelRange); return true; }
+    if(needRange){ showToast('먼저 바꿀 글씨를 드래그해서 선택해 주세요.'); return false; }
+    if((!sel.rangeCount || !edBody.contains(sel.anchorNode)) && edRange){ sel.removeAllRanges(); sel.addRange(edRange); }
+    return true;
+  }
   // 접은글, 가로줄, 글씨 색
   edTools.querySelectorAll('#edFold, #edHr, .ed-swatch').forEach(b => b.addEventListener('mousedown', (ev) => ev.preventDefault()));
   document.getElementById('edHr').addEventListener('click', () => { edBody.focus(); document.execCommand('insertHorizontalRule'); });
@@ -2534,11 +2560,21 @@
     sel.removeAllRanges(); sel.addRange(r);
   });
   edTools.querySelectorAll('.ed-swatch').forEach(b => b.addEventListener('click', () => {
-    edBody.focus();
-    if(edRange){ const sel = window.getSelection(); if(!sel.rangeCount || !edBody.contains(sel.anchorNode)){ sel.removeAllRanges(); sel.addRange(edRange); } }
+    if(!restoreSel(true)) return;
     document.execCommand('styleWithCSS', false, true);
     document.execCommand('foreColor', false, TEXT_COLORS[b.dataset.color]);
   }));
+  const stepSize = (d) => {
+    if(!restoreSel(true)) return;
+    const sel = window.getSelection(); let el = sel.anchorNode; if(el && el.nodeType === 3) el = el.parentElement;
+    const px = parseFloat(getComputedStyle(el || edBody).fontSize) || 16;
+    let cur = 3, best = 1e9; Object.keys(SIZE_PX).forEach(k => { const df = Math.abs(SIZE_PX[k] - px); if(df < best){ best = df; cur = +k; } });
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('fontSize', false, String(Math.max(1, Math.min(7, cur + d))));
+  };
+  document.getElementById('edSizeUp').addEventListener('click', () => stepSize(1));
+  document.getElementById('edSizeDown').addEventListener('click', () => stepSize(-1));
+  edTools.querySelectorAll('#edSizeUp, #edSizeDown').forEach(b => b.addEventListener('mousedown', (ev) => ev.preventDefault()));
   edBody.addEventListener('click', (e) => { if(e.target.closest('summary')) e.preventDefault(); });
   // 줄에 --- 또는 — 만 적고 엔터를 치면 가로줄로 바꾼다.
   edBody.addEventListener('keydown', (e) => {
