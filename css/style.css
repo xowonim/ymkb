@@ -391,7 +391,7 @@ a{ color:inherit; text-decoration:none; }
 .grade-buttons{ display:flex; gap:12px; flex:0 0 56%; max-width:56%; }
 .class-btn{
   background:var(--surface); border:1px solid var(--line); color:var(--ink);
-  padding:22px 12px; font-size:16px; font-weight:600;
+  padding:10px 12px; font-size:15px; font-weight:600;
   flex:1; min-width:0; text-align:center; white-space:nowrap;
   border-radius:999px;
   transition:border-color .18s ease, transform .18s ease;
@@ -684,20 +684,20 @@ body{ min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; 
 
 /* ---------- 학생회 ---------- */
 #councilBody{ container-type:inline-size; --lw:14px; --lg:8px; --cg:14px; --cw:calc((100cqw - var(--lw) - var(--lg) - 7 * var(--cg)) / 8); }
-.council-top{ display:flex; justify-content:center; gap:40px; margin-bottom:34px; flex-wrap:wrap; }
+.council-top{ display:flex; justify-content:center; gap:40px; margin-bottom:60px; flex-wrap:wrap; }
 .council-solo{ display:flex; align-items:flex-start; gap:var(--lg); }
-.council-row{ display:flex; align-items:flex-start; justify-content:center; gap:var(--lg); margin-bottom:30px; }
+.council-row{ display:flex; align-items:flex-start; justify-content:center; gap:var(--lg); margin-bottom:56px; }
 .council-dept-block{ width:fit-content; max-width:100%; margin:0 auto; }
 .council-dept-block .council-row{ justify-content:flex-start; }
 .council-label{ writing-mode:vertical-rl; white-space:nowrap; font-size:11.5px; font-weight:400; letter-spacing:0.1em; color:var(--muted); flex:0 0 auto; width:var(--lw); line-height:1; padding-top:2px; }
 .council-label.ghost{ visibility:hidden; }
-.council-grid{ display:flex; flex-wrap:wrap; justify-content:center; gap:20px var(--cg); }
+.council-grid{ display:flex; flex-wrap:wrap; justify-content:center; gap:40px var(--cg); }
 .council-dept-block .council-grid{ justify-content:flex-start; }
 .council-item{ width:var(--cw); min-width:0; text-align:center; }
 .council-item.linked{ cursor:pointer; }
 .council-item .photo-card{ cursor:inherit; }
-.council-name{ margin-top:8px; font-size:12.5px; font-weight:600; color:var(--ink); }
-.council-sub{ margin-top:2px; font-size:11px; color:var(--muted); }
+.council-name{ margin-top:12px; font-size:12.5px; font-weight:600; color:var(--ink); }
+.council-sub{ margin-top:6px; font-size:11px; color:var(--muted); }
 @media (max-width: 700px){
   #councilBody{ --cw:calc((100cqw - var(--lw) - var(--lg) - 3 * var(--cg)) / 4); }
   .council-top{ gap:16px; }
@@ -722,7 +722,7 @@ body{ min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; 
 .dorm-no{ writing-mode:vertical-rl; font-size:11px; letter-spacing:0.1em; color:var(--accent); flex:0 0 auto; padding-top:2px; }
 .dorm-people{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; flex:1; min-width:0; }
 .dorm-people .council-item{ width:auto; }
-.dorm-people .council-name{ font-size:11.5px; margin-top:6px; }
+.dorm-people .council-name{ font-size:11.5px; margin-top:8px; }
 @media (max-width:700px){ .dorm-rooms{ grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; } .dorm-room{ padding:8px 6px; gap:5px; } .dorm-people{ gap:5px; } .dorm-people .council-name{ font-size:10px; letter-spacing:-0.03em; } .gd-trio{ gap:7px 8px; } }
 
 .gd-trio{ margin-bottom:12px; }
@@ -767,4 +767,21 @@ body:has(#page-main.active) .fab-sns{ display:flex; }
 .menu-fab{ border-radius:50% !important; }
 .profile-actions .btn-sm{ border-radius:8px !important; }
 .gd-color-dot{ border-radius:50% !important; }
-@media (max-width:560px){ .grade-buttons{ flex:1 1 auto; max-width:none; margin-left:16px; } .class-btn{ padding:18px 8px; font-size:15px; } }
+@media (max-width:560px){ .grade-buttons{ flex:1 1 auto; max-width:none; margin-left:16px; } .class-btn{ padding:9px 8px; font-size:14px; } }
+
+/* 편집 모드 표시/끄기 버튼은 둥글게 유지 */
+.edit-banner button, .menu-item span#editModeState.on{ border-radius:999px !important; }
+/* 기숙사 가운데 정렬 */
+.dorm-body{ margin:0 auto; }
+.dorm-title{ text-align:center; }
+.dorm-floor > summary{ text-align:center; }
+.dorm-rooms{ display:flex; flex-wrap:wrap; justify-content:center; }
+.dorm-room{ flex:0 0 calc((100% - 24px) / 3); }
+@media (max-width:700px){ .dorm-room{ flex:0 0 calc((100% - 8px) / 2); } }
+
+/* CLASS: 버튼 상자 없이 세로선으로만 구분 */
+.grade-buttons{ gap:0; }
+.class-btn{ background:none; border:none; border-left:1px solid var(--ink); padding:16px 12px; font-size:17px; }
+.class-btn:last-child{ border-right:1px solid var(--ink); }
+.class-btn:hover{ border-color:var(--ink); transform:none; color:var(--accent); }
+@media (max-width:560px){ .class-btn{ padding:14px 8px; font-size:15px; } }
