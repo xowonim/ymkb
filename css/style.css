@@ -838,3 +838,15 @@ body:has(#page-main.active) .fab-sns{ display:flex; }
 .ed-body summary, .slide-box-text summary{ cursor:pointer; padding:11px 0; font-weight:600; }
 .ed-body details[open] > summary, .slide-box-text details[open] > summary{ border-bottom:1px solid var(--line); margin-bottom:10px; }
 .ed-body details > div, .slide-box-text details > div{ padding-bottom:10px; }
+
+/* 글씨 크기 (7단계, 보통 = 3단계) */
+[data-s="1"]{ font-size:0.625rem; }
+[data-s="2"]{ font-size:0.8125rem; }
+[data-s="4"]{ font-size:1.125rem; }
+[data-s="5"]{ font-size:1.5rem; }
+[data-s="6"]{ font-size:2rem; }
+[data-s="7"]{ font-size:3rem; }
+/* 버튼 글씨는 검정으로 통일, 서식 버튼은 둥근 네모 */
+button{ color:var(--ink); }
+.rt-toolbar button, .editor-tools button, .editor-author button, .ed-swatch{ border-radius:8px !important; }
+.ed-swatch{ border-radius:6px !important; }
