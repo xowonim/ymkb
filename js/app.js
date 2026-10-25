@@ -1421,7 +1421,7 @@
     const has = !!getToken();
     document.getElementById('settingsBody').innerHTML = `
       <h2 class="form-title">토큰 설정</h2>
-      <p class="form-hint">토큰은 사이트에서 저장할 때 쓰는 열쇠예요. 이 기기에서 한 번만 등록하면 돼요. 이 브라우저에만 보관되고 깃허브에는 올라가지 않아요.</p>
+      <p class="form-hint">토큰은 사이트에서 저장할 때 쓰는 열쇠예요. 이 기기에서 한 번만 등록하면 돼요.<br>이 브라우저에만 보관되고 깃허브에는 올라가지 않아요.</p>
       <ol class="form-hint steps">
         <li>먼저 저장소 주인(호원)에게 ${GH_OWNER}/${GH_REPO} 저장소 초대를 받아 주세요. 메일의 Accept invitation을 눌러 수락하면 돼요.</li>
         <li><a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">여기</a>를 눌러 새 토큰(classic)을 만들어 주세요.</li>
