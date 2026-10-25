@@ -42,21 +42,34 @@
       stage.appendChild(el);
       const tick = document.createElement('div');
       tick.className = 'tick' + (i === 0 ? ' active' : '');
-      tick.addEventListener('click', () => setSlide(i));
+      tick.addEventListener('click', () => { setSlide(i, i > current ? 1 : -1); startAuto(); });
       ticksWrap.appendChild(tick);
     });
 
-    function setSlide(i){
-      const slides = stage.querySelectorAll('.slide');
+    function setSlide(i, dir){
+      const slides = [...stage.querySelectorAll('.slide')];
       const ticks = ticksWrap.querySelectorAll('.tick');
-      current = (i + slides.length) % slides.length;
-      slides.forEach((s, idx) => s.classList.toggle('active', idx === current));
+      const n = slides.length;
+      const next = ((i % n) + n) % n;
+      if(next === current) return;
+      if(!dir) dir = 1;
+      const cur = slides[current], nx = slides[next];
+      slides.forEach(sl => { if(sl !== cur && sl !== nx){ sl.style.transition = 'none'; sl.style.transform = 'translateX(100%)'; sl.classList.remove('active'); } });
+      nx.style.transition = 'none'; nx.style.transform = `translateX(${dir > 0 ? 100 : -100}%)`; void nx.offsetWidth;
+      nx.style.transition = ''; nx.style.transform = 'translateX(0)';
+      cur.style.transition = ''; cur.style.transform = `translateX(${dir > 0 ? -100 : 100}%)`;
+      cur.classList.remove('active'); nx.classList.add('active');
+      current = next;
       ticks.forEach((t, idx) => t.classList.toggle('active', idx === current));
     }
     if(slidesData.length < 2){ document.getElementById('bannerPrev').style.visibility = 'hidden'; document.getElementById('bannerNext').style.visibility = 'hidden'; }
-    document.getElementById('bannerPrev').addEventListener('click', () => setSlide(current - 1));
-    document.getElementById('bannerNext').addEventListener('click', () => setSlide(current + 1));
-
+    let autoTimer = null;
+    const startAuto = () => { clearInterval(autoTimer); if(slidesData.length > 1) autoTimer = setInterval(() => setSlide(current + 1, 1), 5000); };
+    document.getElementById('bannerPrev').addEventListener('click', () => { setSlide(current - 1, -1); startAuto(); });
+    document.getElementById('bannerNext').addEventListener('click', () => { setSlide(current + 1, 1); startAuto(); });
+    stage.addEventListener('mouseenter', () => clearInterval(autoTimer));
+    stage.addEventListener('mouseleave', startAuto);
+    startAuto();
   }
 
   /* ---------------- COLOR HELPERS ---------------- */
