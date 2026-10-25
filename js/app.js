@@ -2482,7 +2482,7 @@
         <input class="f-input" data-s="title" placeholder="슬라이드 제목" value="${esc(sl.title || '')}">
         <input class="f-input" data-s="date" placeholder="날짜 (선택)" value="${esc(sl.date || '')}">
         <div class="sns-row"><input class="f-input" data-s="linkText" placeholder="링크 표시 글자 (선택)" value="${esc(sl.linkText || '')}"><input class="f-input" data-s="link" placeholder="링크 주소 (선택)" value="${esc(sl.link || '')}"></div>
-        <div class="body-line"><button type="button" class="body-fold${sl._open ? '' : ' folded'}" data-sfold>본문</button><button type="button" class="btn-sm" data-sed>에디터로 열기</button></div><div class="rt-wrap">${rtToolbarHtml()}<div class="rt-edit f-input" contenteditable="true" data-s="body" data-ph="본문 (선택)">${sl.body ? toRich(sl.body) : ''}</div></div>
+        <div class="body-line"><span class="body-state">${isEmptyVal(sl.body) ? '본문 없음' : '본문 있음'}</span><button type="button" class="btn-sm" data-sed>에디터로 열기</button></div>
         <input type="file" data-s="file" accept="image/*"><div class="slide-btns"><button type="button" class="btn-sm" data-simgdel>이미지 삭제</button><button type="button" class="btn-sm danger" data-sdel>슬라이드 삭제</button></div>
       </div></div></div>`;
     const syncSlides = () => {
@@ -2492,7 +2492,7 @@
         sl.date = row.querySelector('[data-s=date]').value.trim();
         sl.link = row.querySelector('[data-s=link]').value.trim();
         sl.linkText = row.querySelector('[data-s=linkText]').value.trim();
-        sl.body = cleanHtml(row.querySelector('[data-s=body]').innerHTML);
+        const be = row.querySelector('[data-s=body]'); if(be) sl.body = cleanHtml(be.innerHTML);
       });
     };
     const drawSlides = () => {
