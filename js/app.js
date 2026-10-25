@@ -21,6 +21,20 @@
     box.innerHTML = `${s.image ? `<img class="slide-box-img" src="${esc(s.image)}" alt="">` : ''}
       ${url ? `<div class="slide-box-link"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(s.linkText || url)} &#8599;</a></div>` : ''}
       <hr class="slide-box-line"><div class="slide-box-text profile-text rich">${toRich(body)}</div>`;
+    // 제목(H)이 2개 이상이면 본문 맨 위에 목차를 만들어 준다.
+    const textEl = box.querySelector('.slide-box-text');
+    const heads = textEl ? [...textEl.querySelectorAll('h3')].filter(h => h.textContent.trim()) : [];
+    if(heads.length >= 2){
+      const toc = document.createElement('nav');
+      toc.className = 'toc';
+      toc.innerHTML = '<div class="toc-title">목차</div>' + heads.map((h, i) => `<a href="#" data-i="${i}">${esc(h.textContent.trim())}</a>`).join('');
+      toc.addEventListener('click', (e) => {
+        const l = e.target.closest('a'); if(!l) return;
+        e.preventDefault();
+        heads[Number(l.dataset.i)].scrollIntoView({ behavior:'smooth', block:'start' });
+      });
+      textEl.before(toc);
+    }
     document.getElementById('slideModal').classList.add('active');
   }
   function initCarousel(slidesData){
