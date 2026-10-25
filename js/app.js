@@ -422,6 +422,8 @@
   }
   let templates = normalizeTemplates(await remoteP.templates);
 
+  // 에디터에서 넣은 사진은 '저장'을 눌러야 올라간다. 그 전까지는 이 브라우저 안에서만 들고 있는다.
+  const pendImgs = {};
   const RICH_OK = ['b','i','u','s','strike','del','strong','em','br','div','p','span','h3'];
   const rtToolbarHtml = () => '<div class="rt-toolbar"><button type="button" data-rt="bold" title="굵게"><b>B</b></button><button type="button" data-rt="italic" title="기울임"><i>I</i></button><button type="button" data-rt="underline" title="밑줄"><u>U</u></button><button type="button" data-rt="strikeThrough" title="취소선"><s>S</s></button><button type="button" data-rt="header" title="제목">H</button><button type="button" data-rt="removeFormat">서식 지우기</button></div>';
   function rtExec(cmd){
@@ -526,6 +528,7 @@
           const t = n.tagName.toLowerCase();
           if(t === 'script' || t === 'style') return;
           if(t === 'br') out += '<br>';
+          else if(t === 'img'){ const srcAttr = n.getAttribute('src') || ''; const pid = n.getAttribute('data-pend') || (srcAttr.startsWith('pending:') ? srcAttr.slice(8) : ''); const ip = n.getAttribute('data-path') || n.getAttribute('src') || ''; if(pid){ if(pendImgs[pid]) out += `<img src="pending:${pid}">`; } else if(/^assets\/[\w\-.\/]+$/.test(ip) && !ip.includes('..')) out += `<img src="${ip}">`; }
           else if(RICH_OK.includes(t)) out += `<${t}>${walk(n)}</${t}>`;
           else out += walk(n);
         }
@@ -536,14 +539,14 @@
   }
   function toRich(v){
     const str = String(v == null ? '' : v);
-    if(/<\/?[a-z][^>]*>/i.test(str)) return cleanHtml(str);
+    if(/<\/?[a-z][^>]*>/i.test(str)) return cleanHtml(str).replace(/<img src="pending:(\w+)">/g, (m0, pid) => pendImgs[pid] ? `<img src="${pendImgs[pid].url}" data-pend="${pid}">` : '').replace(/<img src="(assets\/[^"]+)">/g, (m0, ip) => `<img src="${esc(rawUrl(ip))}" data-path="${ip}" loading="lazy" onerror="window.__imgErr(this)">`);
     return esc(str).replace(/\n/g, '<br>');
   }
   function isEmptyVal(v){
     if(v === undefined || v === null) return true;
     if(Array.isArray(v)) return v.length === 0;
     if(typeof v === 'number') return false;
-    return String(v).replace(/<[^>]*>/g, '').trim() === '';
+    return String(v).replace(/<(?!img )[^>]*>/g, '').trim() === '';
   }
 
   /* ---------------- 그룹 파일 (data/groups/*.json): 기존 그룹을 덮어쓰거나 새 그룹을 추가 ---------------- */
@@ -2392,8 +2395,84 @@
   document.getElementById('clDelete').addEventListener('click', () => { if(currentSection) deleteClass(currentSection); });
 
   /* ----- 사이트 설정: 제목, 링크, 푸터, 로고, 캐러셀, 빈 페이지 본문 ----- */
+
+  /* ---------------- 본문 에디터 (전체 화면, 이미지 삽입) ---------------- */
+  const editorModal = document.getElementById('editorModal');
+  const edBody = document.getElementById('edBody');
+  let edDone = null, edStart = '', edRange = null;
+  document.getElementById('edTools').innerHTML = rtToolbarHtml() + '<button type="button" class="btn-sm" id="edImgBtn">이미지 삽입</button><button type="button" class="btn-sm danger" id="edImgDel" style="display:none">선택한 이미지 삭제</button>';
+  const edTools = document.getElementById('edTools');
+  edTools.querySelectorAll('.rt-toolbar button').forEach(b => b.addEventListener('mousedown', (ev) => { ev.preventDefault(); edBody.focus(); rtExec(b.dataset.rt); }));
+  document.addEventListener('selectionchange', () => {
+    const sel = window.getSelection();
+    if(sel && sel.rangeCount && edBody.contains(sel.anchorNode)) edRange = sel.getRangeAt(0).cloneRange();
+  });
+  function openBodyEditor(sl, done){
+    edDone = done;
+    document.getElementById('edTitle').textContent = sl.title || '(제목 없음)';
+    edBody.innerHTML = sl.body ? toRich(sl.body) : '';
+    edStart = cleanHtml(edBody.innerHTML);
+    edRange = null;
+    document.getElementById('edImgDel').style.display = 'none';
+    editorModal.classList.add('active');
+    document.querySelector('.editor-scroll').scrollTop = 0;
+  }
+  function closeBodyEditor(){ editorModal.classList.remove('active'); edDone = null; }
+  document.getElementById('edClose').addEventListener('click', () => {
+    if(cleanHtml(edBody.innerHTML) !== edStart && !confirm('바꾼 내용이 적용되지 않아요. 그래도 닫을까요?')) return;
+    closeBodyEditor();
+  });
+  document.getElementById('edApply').addEventListener('click', () => {
+    const html = cleanHtml(edBody.innerHTML);
+    const cb = edDone; closeBodyEditor();
+    if(cb) cb(isEmptyVal(html) && !/<img /.test(html) ? '' : html);
+  });
+  edBody.addEventListener('click', (e) => {
+    edBody.querySelectorAll('img.sel').forEach(i => i.classList.remove('sel'));
+    const img = e.target.closest('img');
+    if(img) img.classList.add('sel');
+    document.getElementById('edImgDel').style.display = img ? '' : 'none';
+  });
+  document.getElementById('edImgDel').addEventListener('click', () => {
+    edBody.querySelectorAll('img.sel').forEach(i => i.remove());
+    document.getElementById('edImgDel').style.display = 'none';
+  });
+  document.getElementById('edImgBtn').addEventListener('mousedown', (ev) => ev.preventDefault());
+  document.getElementById('edImgBtn').addEventListener('click', () => { document.getElementById('edFile').click(); });
+  // 큰 사진은 가로 1600px 이하로 줄여서 올린다.
+  function shrinkImage(file){
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file); const im = new Image();
+      im.onload = () => {
+        const max = 1600, sc = Math.min(1, max / im.naturalWidth);
+        const c = document.createElement('canvas'); c.width = Math.round(im.naturalWidth * sc); c.height = Math.round(im.naturalHeight * sc);
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        const png = /png|gif|webp/i.test(file.type);
+        c.toBlob(b => { URL.revokeObjectURL(url); b ? resolve({ blob:b, ext:png ? 'png' : 'jpg' }) : reject(new Error('이미지를 처리하지 못했어요.')); }, png ? 'image/png' : 'image/jpeg', 0.88);
+      };
+      im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지를 열지 못했어요.')); };
+      im.src = url;
+    });
+  }
+  document.getElementById('edFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+    try {
+      const { blob, ext } = await shrinkImage(f);
+      const pid = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      const url = URL.createObjectURL(blob);
+      pendImgs[pid] = { blob, ext, url };
+      const html = `<div><img src="${url}" data-pend="${pid}"></div><div><br></div>`;
+      edBody.focus();
+      if(edRange){ const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(edRange); }
+      else { const r = document.createRange(); r.selectNodeContents(edBody); r.collapse(false); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+      document.execCommand('insertHTML', false, html);
+    } catch(err){ showToast('이미지를 넣지 못했어요: ' + err.message, 4000); }
+  });
+  document.addEventListener('keydown', (ev) => { if(ev.key === 'Escape' && editorModal.classList.contains('active')){ ev.stopImmediatePropagation(); document.getElementById('edClose').click(); } }, true);
+
   function openSiteForm(){
     pendingImage = null; removeImage = false;
+    Object.keys(pendImgs).forEach(k => delete pendImgs[k]);
     let pendingLogo = null, removeLogo = false;
     let slides = site.slides.map(x => Object.assign({}, x));
     const slideHtml = (sl, i) => `<div class="slide-row" data-i="${i}">
@@ -2403,7 +2482,7 @@
         <input class="f-input" data-s="title" placeholder="슬라이드 제목" value="${esc(sl.title || '')}">
         <input class="f-input" data-s="date" placeholder="날짜 (선택)" value="${esc(sl.date || '')}">
         <div class="sns-row"><input class="f-input" data-s="linkText" placeholder="링크 표시 글자 (선택)" value="${esc(sl.linkText || '')}"><input class="f-input" data-s="link" placeholder="링크 주소 (선택)" value="${esc(sl.link || '')}"></div>
-        <button type="button" class="body-fold${sl._open ? '' : ' folded'}" data-sfold>본문</button><div class="rt-wrap">${rtToolbarHtml()}<div class="rt-edit f-input" contenteditable="true" data-s="body" data-ph="본문 (선택)">${sl.body ? toRich(sl.body) : ''}</div></div>
+        <div class="body-line"><button type="button" class="body-fold${sl._open ? '' : ' folded'}" data-sfold>본문</button><button type="button" class="btn-sm" data-sed>에디터로 열기</button></div><div class="rt-wrap">${rtToolbarHtml()}<div class="rt-edit f-input" contenteditable="true" data-s="body" data-ph="본문 (선택)">${sl.body ? toRich(sl.body) : ''}</div></div>
         <input type="file" data-s="file" accept="image/*"><div class="slide-btns"><button type="button" class="btn-sm" data-simgdel>이미지 삭제</button><button type="button" class="btn-sm danger" data-sdel>슬라이드 삭제</button></div>
       </div></div></div>`;
     const syncSlides = () => {
@@ -2468,6 +2547,8 @@
     });
     document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ _open:true, id:'s' + Date.now(), title:'', date:'', link:'', linkText:'', body:'', image:null }); drawSlides(); });
     document.getElementById('sSlides').addEventListener('click', (e) => {
+      const edb = e.target.closest('[data-sed]');
+      if(edb){ syncSlides(); const idx = Number(edb.closest('.slide-row').dataset.i); const sl = slides[idx]; if(sl) openBodyEditor(sl, (html) => { sl.body = html; sl._open = true; drawSlides(); }); return; }
       const fb = e.target.closest('[data-sfold]');
       if(fb){ const sl = slides[Number(fb.closest('.slide-row').dataset.i)]; const folded = fb.classList.toggle('folded'); if(sl) sl._open = !folded; return; }
       const ib = e.target.closest('[data-simgdel]');
@@ -2517,6 +2598,16 @@
             const ip = `assets/ymkb_slide_${out.id}.${sl.pending.ext}`;
             await ghPut(ip, await blobToBase64(sl.pending.blob), `Update slide image: ${out.title}`);
             out.image = ip; out.imageV = Date.now();
+          }
+          if(out.body){
+            const ids = [...new Set([...out.body.matchAll(/pending:(\w+)/g)].map(m => m[1]))];
+            for(const id of ids){
+              const pi = pendImgs[id];
+              if(!pi){ out.body = out.body.split(`<img src="pending:${id}">`).join(''); continue; }
+              const bp = `assets/ymkb_post_${id}.${pi.ext}`;
+              await ghPut(bp, await blobToBase64(pi.blob), 'Add post image');
+              out.body = out.body.split(`pending:${id}`).join(bp);
+            }
           }
           next.slides.push(out);
         }
