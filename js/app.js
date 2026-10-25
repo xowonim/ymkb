@@ -528,8 +528,23 @@
           const t = n.tagName.toLowerCase();
           if(t === 'script' || t === 'style') return;
           if(t === 'br') out += '<br>';
-          else if(t === 'img'){ const srcAttr = n.getAttribute('src') || ''; const pid = n.getAttribute('data-pend') || (srcAttr.startsWith('pending:') ? srcAttr.slice(8) : ''); const ip = n.getAttribute('data-path') || n.getAttribute('src') || ''; if(pid){ if(pendImgs[pid]) out += `<img src="pending:${pid}">`; } else if(/^assets\/[\w\-.\/]+$/.test(ip) && !ip.includes('..')) out += `<img src="${ip}">`; }
-          else if(RICH_OK.includes(t)) out += `<${t}>${walk(n)}</${t}>`;
+          else if(t === 'img'){
+            const srcAttr = n.getAttribute('src') || '';
+            const pid = n.getAttribute('data-pend') || (srcAttr.startsWith('pending:') ? srcAttr.slice(8) : '');
+            const ip = n.getAttribute('data-path') || srcAttr;
+            let wv = parseInt(n.getAttribute('data-w'), 10); if(!(wv >= 5 && wv <= 100)) wv = 0;
+            const wa = wv ? ` data-w="${wv}"` : '';
+            if(pid){ if(pendImgs[pid]) out += `<img src="pending:${pid}"${wa}>`; }
+            else if(/^assets\/[\w\-.\/]+$/.test(ip) && !ip.includes('..')) out += `<img src="${ip}"${wa}>`;
+          }
+          else if(RICH_OK.includes(t)){
+            let al = '';
+            if(t === 'div' || t === 'p' || t === 'h3'){
+              const ta = (n.style && n.style.textAlign) || n.getAttribute('align') || n.getAttribute('data-a') || '';
+              if(ta === 'center' || ta === 'right') al = ` data-a="${ta}"`;
+            }
+            out += `<${t}${al}>${walk(n)}</${t}>`;
+          }
           else out += walk(n);
         }
       });
@@ -539,7 +554,11 @@
   }
   function toRich(v){
     const str = String(v == null ? '' : v);
-    if(/<\/?[a-z][^>]*>/i.test(str)) return cleanHtml(str).replace(/<img src="pending:(\w+)">/g, (m0, pid) => pendImgs[pid] ? `<img src="${pendImgs[pid].url}" data-pend="${pid}">` : '').replace(/<img src="(assets\/[^"]+)">/g, (m0, ip) => `<img src="${esc(rawUrl(ip))}" data-path="${ip}" loading="lazy" onerror="window.__imgErr(this)">`);
+    if(/<\/?[a-z][^>]*>/i.test(str)) return cleanHtml(str).replace(/<img src="(pending:\w+|assets\/[^"]+)"(?: data-w="(\d+)")?>/g, (m0, src, w) => {
+      const st = w ? ` data-w="${w}" style="width:${w}%"` : '';
+      if(src.startsWith('pending:')){ const pid = src.slice(8); return pendImgs[pid] ? `<img src="${pendImgs[pid].url}" data-pend="${pid}"${st}>` : ''; }
+      return `<img src="${esc(rawUrl(src))}" data-path="${src}" loading="lazy" onerror="window.__imgErr(this)"${st}>`;
+    });
     return esc(str).replace(/\n/g, '<br>');
   }
   function isEmptyVal(v){
@@ -1303,7 +1322,7 @@
     if(cropModal.classList.contains('active')) { closeCrop(); return; }
     if(menuModal.classList.contains('active')) { menuModal.classList.remove('active'); return; }
     if(tplModal.classList.contains('active')) { closeTplMgr(); return; }
-    if(formModal.classList.contains('active')) { formModal.classList.remove('active'); return; }
+    if(formModal.classList.contains('active')) { closeFormModal(); return; }
     if(settingsModal.classList.contains('active')) { settingsModal.classList.remove('active'); return; }
     if(profileModal.classList.contains('active')) profileModal.classList.remove('active');
     else if(classModal.classList.contains('active')) classModal.classList.remove('active');
@@ -1312,6 +1331,30 @@
 
   /* ================= 캐릭터 추가 / 수정 / 삭제 (깃허브 직접 저장) ================= */
   const formModal = document.getElementById('formModal');
+  // 입력 창을 저장하지 않고 닫으려 하면 한 번 물어본다.
+  let formDirty = false;
+  const alertModal = document.createElement('div');
+  alertModal.className = 'modal-overlay alert-overlay';
+  alertModal.innerHTML = '<div class="alert-box"><p>아직 저장하지 않은 내용이 있습니다.</p><div class="alert-btns"><button type="button" class="btn-sm" id="alNo">취소</button><button type="button" class="btn-sm danger" id="alYes">닫기</button></div></div>';
+  document.body.appendChild(alertModal);
+  let alertYes = null;
+  const alertHide = () => { alertModal.classList.remove('active'); alertYes = null; };
+  document.getElementById('alNo').addEventListener('click', alertHide);
+  document.getElementById('alYes').addEventListener('click', () => { const f = alertYes; alertHide(); if(f) f(); });
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && alertModal.classList.contains('active')){ e.stopImmediatePropagation(); alertHide(); } }, true);
+  function askDiscard(onYes){ alertYes = onYes; alertModal.classList.add('active'); }
+  function closeFormModal(){
+    if(formDirty){
+      // 캐릭터와 그룹 정보는 닫을 때 자동으로 저장한다.
+      if(document.getElementById('fName') || document.getElementById('gName')){ const sb = document.getElementById('formSave'); if(sb && !sb.disabled){ sb.click(); return; } }
+      askDiscard(() => { formDirty = false; formModal.classList.remove('active'); });
+      return;
+    }
+    formModal.classList.remove('active');
+  }
+  new MutationObserver(() => { if(formModal.classList.contains('active')) formDirty = false; }).observe(formModal, { attributes:true, attributeFilter:['class'] });
+  ['input', 'change'].forEach(ev => document.getElementById('formBody').addEventListener(ev, () => { formDirty = true; }));
+  document.getElementById('formBody').addEventListener('click', (e) => { if(e.target.closest('.text-btn, .btn-sm, .x-btn, .tpl-tab, .rt-toolbar button')) formDirty = true; });
   const settingsModal = document.getElementById('settingsModal');
   const cropModal = document.getElementById('cropModal');
   let pendingImage = null; // { blob }
@@ -2400,9 +2443,49 @@
   const editorModal = document.getElementById('editorModal');
   const edBody = document.getElementById('edBody');
   let edDone = null, edStart = '', edRange = null;
-  document.getElementById('edTools').innerHTML = rtToolbarHtml() + '<button type="button" class="btn-sm" id="edImgBtn">이미지 삽입</button><button type="button" class="btn-sm danger" id="edImgDel" style="display:none">선택한 이미지 삭제</button>';
+  document.getElementById('edTools').innerHTML = rtToolbarHtml() + '<button type="button" class="btn-sm" data-al="left">왼쪽</button><button type="button" class="btn-sm" data-al="center">가운데</button><button type="button" class="btn-sm" data-al="right">오른쪽</button><button type="button" class="btn-sm" id="edImgBtn">이미지 삽입</button><button type="button" class="btn-sm danger" id="edImgDel" style="display:none">선택한 이미지 삭제</button>';
   const edTools = document.getElementById('edTools');
   edTools.querySelectorAll('.rt-toolbar button').forEach(b => b.addEventListener('mousedown', (ev) => { ev.preventDefault(); edBody.focus(); rtExec(b.dataset.rt); }));
+  const edPage = edBody.parentElement;
+  const handles = ['nw', 'ne', 'sw', 'se'].map(c => { const h = document.createElement('div'); h.className = 'ed-handle ' + c; h.dataset.c = c; h.style.display = 'none'; edPage.appendChild(h); return h; });
+  const selImg = () => edBody.querySelector('img.sel');
+  function placeHandles(){
+    const img = selImg();
+    if(!img){ handles.forEach(h => { h.style.display = 'none'; }); return; }
+    const r = img.getBoundingClientRect(), pr = edPage.getBoundingClientRect();
+    handles.forEach(h => {
+      h.style.display = '';
+      h.style.left = (r.left - pr.left + (h.dataset.c.includes('e') ? r.width : 0)) + 'px';
+      h.style.top = (r.top - pr.top + (h.dataset.c.includes('s') ? r.height : 0)) + 'px';
+    });
+  }
+  window.addEventListener('resize', placeHandles);
+  document.querySelector('.editor-scroll').addEventListener('scroll', placeHandles);
+  handles.forEach(h => h.addEventListener('pointerdown', (ev) => {
+    const img = selImg(); if(!img) return;
+    ev.preventDefault(); h.setPointerCapture(ev.pointerId);
+    const x0 = ev.clientX, w0 = img.getBoundingClientRect().width, left = h.dataset.c.includes('w');
+    const move = (e) => {
+      const dx = (e.clientX - x0) * (left ? -1 : 1);
+      const pct = Math.max(5, Math.min(100, (w0 + dx) / edBody.clientWidth * 100));
+      img.style.width = pct + '%'; img.setAttribute('data-w', String(Math.round(pct)));
+      placeHandles();
+    };
+    const up = () => { h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up); };
+    h.addEventListener('pointermove', move); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
+  }));
+  edTools.querySelectorAll('[data-al]').forEach(b => {
+    b.addEventListener('mousedown', (ev) => ev.preventDefault());
+    b.addEventListener('click', () => {
+      const v = b.dataset.al, img = selImg();
+      if(img){
+        let blk = img.parentElement;
+        if(blk === edBody){ blk = document.createElement('div'); img.replaceWith(blk); blk.appendChild(img); }
+        blk.style.textAlign = v === 'left' ? '' : v;
+        placeHandles();
+      } else { edBody.focus(); document.execCommand(v === 'left' ? 'justifyLeft' : v === 'center' ? 'justifyCenter' : 'justifyRight'); }
+    });
+  });
   document.addEventListener('selectionchange', () => {
     const sel = window.getSelection();
     if(sel && sel.rangeCount && edBody.contains(sel.anchorNode)) edRange = sel.getRangeAt(0).cloneRange();
@@ -2414,12 +2497,12 @@
     edStart = cleanHtml(edBody.innerHTML);
     edRange = null;
     document.getElementById('edImgDel').style.display = 'none';
-    editorModal.classList.add('active');
+    editorModal.classList.add('active'); placeHandles();
     document.querySelector('.editor-scroll').scrollTop = 0;
   }
   function closeBodyEditor(){ editorModal.classList.remove('active'); edDone = null; }
   document.getElementById('edClose').addEventListener('click', () => {
-    if(cleanHtml(edBody.innerHTML) !== edStart && !confirm('바꾼 내용이 적용되지 않아요. 그래도 닫을까요?')) return;
+    if(cleanHtml(edBody.innerHTML) !== edStart){ askDiscard(closeBodyEditor); return; }
     closeBodyEditor();
   });
   document.getElementById('edApply').addEventListener('click', () => {
@@ -2432,10 +2515,11 @@
     const img = e.target.closest('img');
     if(img) img.classList.add('sel');
     document.getElementById('edImgDel').style.display = img ? '' : 'none';
+    placeHandles();
   });
   document.getElementById('edImgDel').addEventListener('click', () => {
     edBody.querySelectorAll('img.sel').forEach(i => i.remove());
-    document.getElementById('edImgDel').style.display = 'none';
+    document.getElementById('edImgDel').style.display = 'none'; placeHandles();
   });
   document.getElementById('edImgBtn').addEventListener('mousedown', (ev) => ev.preventDefault());
   document.getElementById('edImgBtn').addEventListener('click', () => { document.getElementById('edFile').click(); });
@@ -2498,7 +2582,7 @@
     const drawSlides = () => {
       const box = document.getElementById('sSlides');
       box.innerHTML = slides.map(slideHtml).join('');
-      makeSortable(box, '.slide-row', (items) => { syncSlides(); slides = items.map(r => slides[Number(r.dataset.i)]).filter(Boolean); drawSlides(); }, { handle:'.slide-grip', always:true });
+      makeSortable(box, '.slide-row', (items) => { syncSlides(); slides = items.map(r => slides[Number(r.dataset.i)]).filter(Boolean); formDirty = true; drawSlides(); }, { handle:'.slide-grip', always:true });
       box.querySelectorAll('.slide-row').forEach(row => {
         const i = Number(row.dataset.i);
         row.querySelectorAll('.rt-toolbar button').forEach(b => b.addEventListener('mousedown', ev => { ev.preventDefault(); rtExec(b.dataset.rt); }));
@@ -2548,7 +2632,7 @@
     document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ _open:true, id:'s' + Date.now(), title:'', date:'', link:'', linkText:'', body:'', image:null }); drawSlides(); });
     document.getElementById('sSlides').addEventListener('click', (e) => {
       const edb = e.target.closest('[data-sed]');
-      if(edb){ syncSlides(); const idx = Number(edb.closest('.slide-row').dataset.i); const sl = slides[idx]; if(sl) openBodyEditor(sl, (html) => { sl.body = html; sl._open = true; drawSlides(); }); return; }
+      if(edb){ syncSlides(); const idx = Number(edb.closest('.slide-row').dataset.i); const sl = slides[idx]; if(sl) openBodyEditor(sl, (html) => { sl.body = html; sl._open = true; formDirty = true; drawSlides(); }); return; }
       const fb = e.target.closest('[data-sfold]');
       if(fb){ const sl = slides[Number(fb.closest('.slide-row').dataset.i)]; const folded = fb.classList.toggle('folded'); if(sl) sl._open = !folded; return; }
       const ib = e.target.closest('[data-simgdel]');
@@ -2703,7 +2787,7 @@
 
   document.getElementById('addCharBtn').addEventListener('click', () => openForm(null));
   document.getElementById('tplBtn').addEventListener('click', () => openTplMgr(null));
-  document.getElementById('formClose').addEventListener('click', () => formModal.classList.remove('active'));
+  document.getElementById('formClose').addEventListener('click', closeFormModal);
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-act]');
     if(!b) return;
