@@ -116,6 +116,8 @@
   const GH_REPO = 'ymkb';
   const GH_BRANCH = 'main';
   const CHAR_DIR = 'data/characters';
+  const ARCHIVE_DIR = 'data/archive';
+  const POST_DIR = 'data/posts';
   const TOKEN_KEY = 'ymkb_gh_token';
   const OWNERS = ['도원', '세잇', '해원', '호원'];
 
@@ -295,12 +297,25 @@
           map[isChar ? obj.name : obj.id] = obj;
         }
         cacheSet(key, map);
+      } else if(path.startsWith(POST_DIR + '/')){
+        const map = cacheGet('posts') || {};
+        Object.keys(map).forEach(k => { if(map[k]._path === path) delete map[k]; });
+        if(obj && obj.name){ obj._path = path; obj.id = obj.id || path.split('/').pop().replace(/\.json$/, ''); map[obj.id] = obj; }
+        cacheSet('posts', map);
+      } else if(path.startsWith(ARCHIVE_DIR + '/')){
+        const map = cacheGet('archive') || {};
+        Object.keys(map).forEach(k => { if(map[k]._path === path) delete map[k]; });
+        if(obj && obj.name){ obj._path = path; obj.id = obj.id || path.split('/').pop().replace(/\.json$/, ''); map[obj.id] = obj; }
+        cacheSet('archive', map);
       } else if(path === TEMPLATE_PATH){ if(Array.isArray(obj)) cacheSet('templates', obj); }
       else if(path === SITE_PATH){ if(obj && typeof obj === 'object') cacheSet('site', obj); }
       else if(path === 'data/classes.json'){ if(Array.isArray(obj)) cacheSet('classes', obj); }
     } catch(e){}
   }
   function fetchOwnCharacters(){ return fetchJsonDir(CHAR_DIR, 'chars', c => c.name); }
+  function fetchPosts(){ return fetchJsonDir(POST_DIR, 'posts', c => c.id); }
+  const postsP = fetchPosts();
+  function fetchArchive(){ return fetchJsonDir(ARCHIVE_DIR, 'archive', c => c.id); }
   function fetchGroupFiles(){ return fetchJsonDir(GROUP_DIR, 'groups', g => g.id); }
 
   function loadClasses(){
@@ -446,7 +461,8 @@
   const SIZE_PX = { 1:10, 2:13, 3:16, 4:18, 5:24, 6:32, 7:48 };
   function sizeKeyOf(n){
     let lv = parseInt(n.getAttribute('data-s'), 10);
-    if(!(lv >= 1 && lv <= 7)) lv = SIZE_WORDS[(n.style && n.style.fontSize) || ''] || parseInt(n.getAttribute('size'), 10) || 0;
+    if(lv >= 1 && lv <= 7) return String(lv);
+    lv = SIZE_WORDS[(n.style && n.style.fontSize) || ''] || parseInt(n.getAttribute('size'), 10) || 0;
     return (lv >= 1 && lv <= 7 && lv !== 3) ? String(lv) : '';
   }
   function colorKeyOf(n){
@@ -508,6 +524,16 @@
     });
   }
   function pickableColors(keep){ return sortColors(Object.keys(colorMap).filter(c => !hiddenColors.has(c) || (keep || []).includes(c))); }
+  if(Array.isArray(site.slides)){
+    const postsMap = (await postsP.catch(() => ({}))) || {};
+    site.slides = site.slides.map(sl => {
+      const pp = sl && postsMap[sl.id];
+      const m = Object.assign({}, sl);
+      if(pp){ m.body = pp.body || ''; if(pp.author) m.author = pp.author; }
+      m._origBody = m.body || '';
+      return m;
+    });
+  }
   if(!Array.isArray(site.slides) || !site.slides.length) site.slides = [DEFAULT_SLIDE];
   site.pages = site.pages || {};
 
@@ -2559,18 +2585,43 @@
     const sm = d.querySelector('summary'); const r = document.createRange(); r.selectNodeContents(sm);
     sel.removeAllRanges(); sel.addRange(r);
   });
+  // 브라우저마다 다르게 만드는 execCommand 대신, 선택한 글씨를 직접 span으로 감싼다.
+  function wrapSel(attr, val){
+    const sel = window.getSelection(); if(!sel.rangeCount) return false;
+    const r = sel.getRangeAt(0); if(r.collapsed) return false;
+    const sc = r.startContainer, so = r.startOffset, ec = r.endContainer, eo = r.endOffset;
+    const cc = r.commonAncestorContainer; const nodes = [];
+    if(cc.nodeType === 3) nodes.push(cc);
+    else { const tw = document.createTreeWalker(cc, NodeFilter.SHOW_TEXT); let t; while((t = tw.nextNode())){ if(r.intersectsNode(t)) nodes.push(t); } }
+    let first = null, last = null;
+    nodes.forEach(t => {
+      let a0 = t === sc ? so : 0, a1 = t === ec ? eo : t.length;
+      if(a1 <= a0 || !t.nodeValue.slice(a0, a1).trim()) return;
+      let mid = t; if(a0 > 0) mid = t.splitText(a0);
+      if(a1 - a0 < mid.length) mid.splitText(a1 - a0);
+      let sp;
+      const pr = mid.parentNode;
+      if(pr.nodeType === 1 && pr.tagName === 'SPAN' && pr.hasAttribute(attr) && pr.childNodes.length === 1){ sp = pr; sp.setAttribute(attr, val); }
+      else { sp = document.createElement('span'); sp.setAttribute(attr, val); pr.insertBefore(sp, mid); sp.appendChild(mid); }
+      first = first || sp; last = sp;
+    });
+    if(!first) return false;
+    const nr = document.createRange(); nr.setStartBefore(first); nr.setEndAfter(last);
+    sel.removeAllRanges(); sel.addRange(nr); edSelRange = nr.cloneRange();
+    return true;
+  }
   edTools.querySelectorAll('.ed-swatch').forEach(b => b.addEventListener('click', () => {
     if(!restoreSel(true)) return;
-    document.execCommand('styleWithCSS', false, true);
-    document.execCommand('foreColor', false, TEXT_COLORS[b.dataset.color]);
+    wrapSel('data-c', b.dataset.color);
   }));
   const stepSize = (d) => {
     if(!restoreSel(true)) return;
-    const sel = window.getSelection(); let el = sel.anchorNode; if(el && el.nodeType === 3) el = el.parentElement;
+    const sel = window.getSelection(); const rg = sel.getRangeAt(0);
+    let tn = null; { const root = rg.commonAncestorContainer.nodeType === 3 ? rg.commonAncestorContainer.parentNode : rg.commonAncestorContainer; const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let t; while((t = tw.nextNode())){ if(rg.intersectsNode(t) && t.nodeValue.trim()){ tn = t; break; } } }
+    const el = tn ? tn.parentElement : null;
     const px = parseFloat(getComputedStyle(el || edBody).fontSize) || 16;
     let cur = 3, best = 1e9; Object.keys(SIZE_PX).forEach(k => { const df = Math.abs(SIZE_PX[k] - px); if(df < best){ best = df; cur = +k; } });
-    document.execCommand('styleWithCSS', false, true);
-    document.execCommand('fontSize', false, String(Math.max(1, Math.min(7, cur + d))));
+    wrapSel('data-s', String(Math.max(1, Math.min(7, cur + d))));
   };
   document.getElementById('edSizeUp').addEventListener('click', () => stepSize(1));
   document.getElementById('edSizeDown').addEventListener('click', () => stepSize(-1));
@@ -2660,20 +2711,50 @@
   });
   document.addEventListener('keydown', (ev) => { if(ev.key === 'Escape' && editorModal.classList.contains('active')){ ev.stopImmediatePropagation(); document.getElementById('edClose').click(); } }, true);
 
+  /* ---------------- ARCHIVE (ETC 하단) ---------------- */
+  function renderArchive(map){
+    const page = document.getElementById('page-etc'); if(!page) return;
+    let sec = document.getElementById('archiveSec');
+    if(!sec){ sec = document.createElement('section'); sec.id = 'archiveSec'; sec.className = 'archive-sec'; page.appendChild(sec); }
+    const items = Object.values(map || {}).sort((a, b) => (b.at || 0) - (a.at || 0));
+    sec.innerHTML = `<h3 class="archive-title">ARCHIVE</h3>` + (items.length ? items.map((it, i) => `<div class="archive-item" data-i="${i}">
+      <div class="archive-main">${it.image ? `<img class="archive-thumb" src="${esc(rawUrl(it.image, it.imageV))}" alt="" onerror="window.__imgErr(this)">` : ''}<div class="archive-text"><div class="archive-name">${esc(it.title || '(제목 없음)')}</div><div class="archive-meta">${esc(it.date || '')}${it.author ? (it.date ? ' · ' : '') + esc(it.author) : ''}</div></div></div>
+      <div class="archive-actions edit-only"><button type="button" class="btn-sm" data-amain>메인으로 이동</button></div></div>`).join('') : '<p class="archive-empty">보관된 글이 없습니다.</p>');
+    sec.onclick = async (e) => {
+      const row = e.target.closest('.archive-item'); if(!row) return;
+      const it = items[Number(row.dataset.i)]; if(!it) return;
+      if(e.target.closest('[data-amain]')){
+        const btn = e.target.closest('[data-amain]'); btn.disabled = true; btn.textContent = '이동 중...';
+        const sl = { id:it.id, title:it.title || '', date:it.date || '', link:it.link || '', linkText:it.linkText || '', body:it.body || '', author:it.author || '', image:it.image || null, imageV:it.imageV || null };
+        try { if(sl.body) await ghPut(`${POST_DIR}/${sl.id}.json`, toBase64Text(JSON.stringify({ id:sl.id, name:sl.title || sl.id, title:sl.title, body:sl.body, author:sl.author }, null, 2) + '\n'), `Save post: ${sl.title}`); } catch(err){ alert('저장에 실패했어요: ' + err.message); btn.disabled = false; btn.textContent = '메인으로 이동'; return; }
+        const slMeta = Object.assign({}, sl); delete slMeta.body;
+        const ok = await jsonChange(SITE_PATH, () => ({}), (d) => { d.slides = (Array.isArray(d.slides) ? d.slides : []).filter(x => x.id !== slMeta.id); d.slides.push(slMeta); }, `Move to main: ${sl.title}`);
+        if(!ok){ btn.disabled = false; btn.textContent = '메인으로 이동'; return; }
+        try { await ghDelete(it._path || `${ARCHIVE_DIR}/${it.id}.json`, `Remove from archive: ${sl.title}`); } catch(err){ alert('보관함에서 지우지 못했어요: ' + err.message); }
+        reloadKeepingView(); return;
+      }
+      if(e.target.closest('.archive-actions')) return;
+      const url = safeUrl(it.link);
+      if(!isEmptyVal(it.body)) openSlideBox({ image: it.image ? rawUrl(it.image, it.imageV) : '', linkText: it.linkText }, url, String(it.body).trim());
+      else if(url) window.open(url, '_blank', 'noopener');
+    };
+  }
+  fetchArchive().then(renderArchive).catch(() => renderArchive({}));
+
   function openSiteForm(){
     pendingImage = null; removeImage = false;
     Object.keys(pendImgs).forEach(k => delete pendImgs[k]);
     let pendingLogo = null, removeLogo = false;
     let slides = site.slides.map(x => Object.assign({}, x));
     const slideHtml = (sl, i) => `<div class="slide-row" data-i="${i}">
-      <div class="slide-head"><span class="slide-grip" title="끌어서 순서 변경">&#8801;</span><span class="slide-name">${esc(sl.title || '(제목 없음)')}</span></div>
+      <div class="slide-head"><span class="slide-grip" title="끌어서 순서 변경">&#8801;</span><span class="slide-name">${esc(sl.title || '(제목 없음)')}${sl._toArchive ? ' [저장하면 ARCHIVE로 이동]' : ''}</span></div>
       <div class="slide-main"><div class="f-thumb wide">${sl.pendingUrl ? `<img src="${sl.pendingUrl}" alt="">` : (sl.image ? `<img src="${esc(rawUrl(sl.image, sl.imageV))}" alt="" onerror="window.__imgErr(this)">` : '')}</div>
       <div class="slide-fields">
         <input class="f-input" data-s="title" placeholder="슬라이드 제목" value="${esc(sl.title || '')}">
         <input class="f-input" data-s="date" placeholder="날짜 (선택)" value="${esc(sl.date || '')}">
         <div class="sns-row"><input class="f-input" data-s="linkText" placeholder="링크 표시 글자 (선택)" value="${esc(sl.linkText || '')}"><input class="f-input" data-s="link" placeholder="링크 주소 (선택)" value="${esc(sl.link || '')}"></div>
         <div class="body-line"><span class="body-state">${isEmptyVal(sl.body) ? '본문 없음' : '본문 있음'}${sl.author ? ' · ' + esc(sl.author) : ''}</span><button type="button" class="btn-sm" data-sed>에디터로 열기</button></div>
-        <input type="file" data-s="file" accept="image/*"><div class="slide-btns"><button type="button" class="btn-sm" data-simgdel>이미지 삭제</button><button type="button" class="btn-sm danger" data-sdel>슬라이드 삭제</button></div>
+        <input type="file" data-s="file" accept="image/*"><div class="slide-btns"><button type="button" class="btn-sm" data-sarch>${sl._toArchive ? 'ARCHIVE 이동 취소' : 'ARCHIVE로 이동'}</button><button type="button" class="btn-sm" data-simgdel>이미지 삭제</button><button type="button" class="btn-sm danger" data-sdel>슬라이드 삭제</button></div>
       </div></div></div>`;
     const syncSlides = () => {
       document.querySelectorAll('#sSlides .slide-row').forEach(row => {
@@ -2741,6 +2822,8 @@
       if(edb){ syncSlides(); const idx = Number(edb.closest('.slide-row').dataset.i); const sl = slides[idx]; if(sl) openBodyEditor(sl, (html, author) => { sl.body = html; sl.author = author || ''; sl._open = true; formDirty = true; drawSlides(); }); return; }
       const fb = e.target.closest('[data-sfold]');
       if(fb){ const sl = slides[Number(fb.closest('.slide-row').dataset.i)]; const folded = fb.classList.toggle('folded'); if(sl) sl._open = !folded; return; }
+      const ab = e.target.closest('[data-sarch]');
+      if(ab){ syncSlides(); const sl = slides[Number(ab.closest('.slide-row').dataset.i)]; if(sl){ sl._toArchive = !sl._toArchive; formDirty = true; } drawSlides(); return; }
       const ib = e.target.closest('[data-simgdel]');
       if(ib){ syncSlides(); const sl = slides[Number(ib.closest('.slide-row').dataset.i)]; if(sl){ sl.image = null; sl.imageV = null; sl.pending = null; sl.pendingUrl = null; } drawSlides(); return; }
       const b = e.target.closest('[data-sdel]'); if(!b) return;
@@ -2799,8 +2882,19 @@
               out.body = out.body.split(`pending:${id}`).join(bp);
             }
           }
-          next.slides.push(out);
+          if(!sl._toArchive){
+            const pPath = `${POST_DIR}/${out.id}.json`;
+            if(out.body && out.body !== (sl._origBody || '')){
+              await ghPut(pPath, toBase64Text(JSON.stringify({ id:out.id, name:out.title || out.id, title:out.title, body:out.body, author:out.author }, null, 2) + '\n'), `Save post: ${out.title}`);
+            } else if(!out.body && sl._origBody){ await ghDelete(pPath, `Remove post: ${out.title}`); }
+          }
+          if(sl._toArchive){
+            const af = Object.assign({}, out, { name: out.title || out.id, at: Date.now() });
+            await ghPut(`${ARCHIVE_DIR}/${out.id}.json`, toBase64Text(JSON.stringify(af, null, 2) + '\n'), `Move to archive: ${out.title}`);
+          } else { const m = Object.assign({}, out); delete m.body; next.slides.push(m); }
         }
+        const keepIds = new Set(next.slides.map(x => x.id));
+        for(const old of site.slides){ if(old && old.id && !keepIds.has(old.id) && old._origBody){ try { await ghDelete(`${POST_DIR}/${old.id}.json`, 'Remove post'); } catch(e){} } }
         next.pages = site.pages || {}; // 학생회/기숙사/ETC 페이지 내용은 지금 만지지 않고 그대로 보존한다.
         const ok = await jsonChange(SITE_PATH, () => ({}), (d) => { const keepOrder = d.order, keepCouncil = d.council; Object.keys(d).forEach(key => delete d[key]); Object.assign(d, next); if(keepOrder) d.order = keepOrder; if(keepCouncil) d.council = keepCouncil; }, 'Update site settings');
         if(ok) reloadKeepingView(); else { btn.disabled = false; btn.textContent = '저장'; }
