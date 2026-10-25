@@ -759,7 +759,7 @@ body:has(#page-main.active) .fab-sns{ display:flex; }
 .body-fold{ background:none; border:none; padding:4px 0; cursor:pointer; font-family:inherit; font-size:12px; font-weight:600; color:var(--ink); display:flex; align-items:center; gap:7px; text-align:left; }
 .body-fold::before{ content:''; border-left:6px solid var(--ink); border-top:4px solid transparent; border-bottom:4px solid transparent; transform:rotate(90deg); transition:transform .15s; }
 .body-fold.folded::before{ transform:none; }
-.body-fold.folded + .rt-wrap{ display:none; }
+.body-line:has(.body-fold.folded) + .rt-wrap{ display:none; }
 
 /* 직각 디자인: 편집 모드 표시, 설정 아이콘, 그룹/캐릭터 수정·삭제 버튼만 둥글게 둔다 */
 *, *::before, *::after{ border-radius:0 !important; }
@@ -782,3 +782,19 @@ body:has(#page-main.active) .fab-sns{ display:flex; }
 .class-btn:last-child{ border-right:1px solid var(--line); }
 .class-btn:hover{ border-color:var(--line); transform:none; color:var(--accent); }
 @media (max-width:560px){ .class-btn{ padding:9px 0; font-size:14px; flex:0 0 92px; } .grade-buttons{ margin-left:0; } }
+
+/* 본문 에디터 (전체 화면) */
+.editor-overlay, .modal-overlay.editor-overlay{ background:#fff; z-index:500; flex-direction:column; align-items:stretch; justify-content:flex-start; }
+.editor-bar{ display:flex; align-items:center; gap:12px; padding:12px 18px; border-bottom:1px solid var(--line); }
+.editor-bar .ed-title{ flex:1; min-width:0; font-size:14px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.editor-tools{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 18px; border-bottom:1px solid var(--line); }
+.editor-tools .rt-toolbar{ margin:0; }
+.editor-tools .rt-toolbar button, .editor-tools .btn-sm{ padding:6px 12px; font-size:13px; }
+.editor-scroll{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+.editor-page{ max-width:760px; margin:0 auto; padding:34px 20px 140px; }
+.ed-body{ min-height:60vh; border:none; outline:none; padding:0; font-size:16px; line-height:1.9; }
+.ed-body img, .rich img{ display:block; max-width:100%; height:auto; margin:16px 0; }
+.ed-body img{ cursor:pointer; }
+.ed-body img.sel{ outline:2px solid var(--accent); outline-offset:2px; }
+.slide-box-text img{ display:block; max-width:100%; height:auto; margin:14px 0; }
+.body-line{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
