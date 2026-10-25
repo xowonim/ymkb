@@ -709,7 +709,7 @@ body{ min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; 
 .gd-trio{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:7px 16px; align-items:start; }
 .gd-trio .spec-row{ margin-bottom:0; min-width:0; }
 /* dorm */
-.dorm-body{ max-width:760px; }
+.dorm-body{ max-width:none; }
 .dorm-building + .dorm-building{ margin-top:60px; }
 .dorm-title{ font-size:19px; font-weight:700; margin:0 0 14px; color:var(--ink); }
 .dorm-floor{ margin-bottom:12px; }
@@ -772,14 +772,13 @@ body:has(#page-main.active) .fab-sns{ display:flex; }
 /* 편집 모드 표시/끄기 버튼은 둥글게 유지 */
 .edit-banner button, .menu-item span#editModeState.on{ border-radius:999px !important; }
 /* 기숙사 가운데 정렬 */
-.dorm-body{ margin:0 auto; }
 .dorm-rooms{ display:flex; flex-wrap:wrap; justify-content:center; }
 .dorm-room{ flex:0 0 calc((100% - 24px) / 3); }
 @media (max-width:700px){ .dorm-room{ flex:0 0 calc((100% - 8px) / 2); } }
 
 /* CLASS: 버튼 상자 없이 세로선으로만 구분 (선 색은 가로 구분선과 같게) */
-.grade-buttons{ gap:0; }
-.class-btn{ background:none; border:none; border-left:1px solid var(--line); padding:9px 12px; font-size:15px; }
+.grade-buttons{ gap:0; flex:0 0 auto; max-width:none; justify-content:flex-end; }
+.class-btn{ background:none; border:none; border-left:1px solid var(--line); padding:9px 0; font-size:15px; flex:0 0 88px; }
 .class-btn:last-child{ border-right:1px solid var(--line); }
 .class-btn:hover{ border-color:var(--line); transform:none; color:var(--accent); }
-@media (max-width:560px){ .class-btn{ padding:9px 8px; font-size:14px; } }
+@media (max-width:560px){ .class-btn{ padding:9px 0; font-size:14px; flex:0 0 72px; } .grade-buttons{ margin-left:0; } }
