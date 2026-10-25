@@ -812,3 +812,4 @@ body:has(#page-main.active) .fab-sns{ display:flex; }
 .alert-box p{ margin:0 0 20px; font-size:14px; font-weight:600; line-height:1.6; }
 .alert-btns{ display:flex; justify-content:center; gap:10px; }
 .alert-btns .btn-sm{ min-width:84px; padding:9px 14px; }
+.editor-tools .al-btn{ display:inline-flex; align-items:center; justify-content:center; padding:6px 10px; }
