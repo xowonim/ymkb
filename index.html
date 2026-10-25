@@ -24,7 +24,7 @@
 <title>YMKB</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
-<link rel="stylesheet" href="css/style.css?v=77">
+<link rel="stylesheet" href="css/style.css?v=79">
 </head>
 <body>
 
@@ -97,6 +97,16 @@
 </div>
 
 <!-- ================= GROUP DETAIL MODAL ================= -->
+<div class="modal-overlay editor-overlay" id="editorModal">
+  <div class="editor-bar">
+    <button type="button" class="btn-sm" id="edClose">닫기</button>
+    <span class="ed-title" id="edTitle"></span>
+    <button type="button" class="form-submit" id="edApply">적용</button>
+  </div>
+  <div class="editor-tools" id="edTools"></div>
+  <div class="editor-scroll"><div class="editor-page"><div class="rt-edit ed-body" id="edBody" contenteditable="true" data-ph="여기에 본문을 입력하세요"></div></div></div>
+  <input type="file" id="edFile" accept="image/*" hidden>
+</div>
 <div class="modal-overlay" id="slideModal">
   <div class="modal-box slide-box">
     <button class="modal-close" id="slideModalClose">&times;</button>
@@ -268,6 +278,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
-<script src="js/app.js?v=77"></script>
+<script src="js/app.js?v=79"></script>
 </body>
 </html>
