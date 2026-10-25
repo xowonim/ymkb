@@ -438,7 +438,17 @@
 
   // 에디터에서 넣은 사진은 '저장'을 눌러야 올라간다. 그 전까지는 이 브라우저 안에서만 들고 있는다.
   const pendImgs = {};
-  const RICH_OK = ['b','i','u','s','strike','del','strong','em','br','div','p','span','h3'];
+  const RICH_OK = ['b','i','u','s','strike','del','strong','em','br','div','p','span','h3','details','summary'];
+  const TEXT_COLORS = { red:'#d64545', green:'#2f9e5b', blue:'#3b6fd4', gray:'#9a9a9a', white:'#ffffff', black:'#1a1a1a' };
+  const TEXT_COLOR_LABEL = { red:'빨강', green:'초록', blue:'파랑', gray:'회색', white:'하양', black:'검정' };
+  const normColor = (c) => { const e = document.createElement('span'); e.style.color = c; return e.style.color; };
+  function colorKeyOf(n){
+    const dk = n.getAttribute('data-c'); if(dk && TEXT_COLORS[dk]) return dk;
+    const raw = (n.style && n.style.color) || n.getAttribute('color') || '';
+    if(!raw) return '';
+    const nc = normColor(raw);
+    return Object.keys(TEXT_COLORS).find(k => normColor(TEXT_COLORS[k]) === nc) || '';
+  }
   const rtToolbarHtml = () => '<div class="rt-toolbar"><button type="button" data-rt="bold" title="굵게"><b>B</b></button><button type="button" data-rt="italic" title="기울임"><i>I</i></button><button type="button" data-rt="underline" title="밑줄"><u>U</u></button><button type="button" data-rt="strikeThrough" title="취소선"><s>S</s></button><button type="button" data-rt="header" title="제목">H</button><button type="button" data-rt="removeFormat">서식 지우기</button></div>';
   function rtExec(cmd){
     if(cmd === 'header'){
@@ -551,6 +561,8 @@
             if(pid){ if(pendImgs[pid]) out += `<img src="pending:${pid}"${wa}>`; }
             else if(/^assets\/[\w\-.\/]+$/.test(ip) && !ip.includes('..')) out += `<img src="${ip}"${wa}>`;
           }
+          else if(t === 'hr') out += '<hr>';
+          else if(t === 'font' || t === 'span'){ const ck = colorKeyOf(n); out += ck ? `<span data-c="${ck}">${walk(n)}</span>` : walk(n); }
           else if(RICH_OK.includes(t)){
             let al = '';
             if(t === 'div' || t === 'p' || t === 'h3'){
@@ -579,7 +591,7 @@
     if(v === undefined || v === null) return true;
     if(Array.isArray(v)) return v.length === 0;
     if(typeof v === 'number') return false;
-    return String(v).replace(/<(?!img )[^>]*>/g, '').trim() === '';
+    return String(v).replace(/<(?!img |hr>)[^>]*>/g, '').trim() === '';
   }
 
   /* ---------------- 그룹 파일 (data/groups/*.json): 기존 그룹을 덮어쓰거나 새 그룹을 추가 ---------------- */
@@ -2457,7 +2469,7 @@
   const editorModal = document.getElementById('editorModal');
   const edBody = document.getElementById('edBody');
   let edDone = null, edStart = '', edRange = null;
-  document.getElementById('edTools').innerHTML = rtToolbarHtml() + '<button type="button" class="btn-sm al-btn" data-al="left" title="왼쪽 정렬" aria-label="왼쪽 정렬"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M1 2h14M1 5.5h9M1 9h14M1 12.5h9"/></svg></button><button type="button" class="btn-sm al-btn" data-al="center" title="가운데 정렬" aria-label="가운데 정렬"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M1 2h14M3.5 5.5h9M1 9h14M3.5 12.5h9"/></svg></button><button type="button" class="btn-sm al-btn" data-al="right" title="오른쪽 정렬" aria-label="오른쪽 정렬"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M1 2h14M6 5.5h9M1 9h14M6 12.5h9"/></svg></button><button type="button" class="btn-sm" id="edImgBtn">이미지 삽입</button><button type="button" class="btn-sm danger" id="edImgDel" style="display:none">선택한 이미지 삭제</button>';
+  document.getElementById('edTools').innerHTML = rtToolbarHtml() + '<button type="button" class="btn-sm al-btn" data-al="left" title="왼쪽 정렬" aria-label="왼쪽 정렬"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M1 2h14M1 5.5h9M1 9h14M1 12.5h9"/></svg></button><button type="button" class="btn-sm al-btn" data-al="center" title="가운데 정렬" aria-label="가운데 정렬"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M1 2h14M3.5 5.5h9M1 9h14M3.5 12.5h9"/></svg></button><button type="button" class="btn-sm al-btn" data-al="right" title="오른쪽 정렬" aria-label="오른쪽 정렬"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M1 2h14M6 5.5h9M1 9h14M6 12.5h9"/></svg></button><button type="button" class="btn-sm" id="edImgBtn">이미지 삽입</button><button type="button" class="btn-sm danger" id="edImgDel" style="display:none">선택한 이미지 삭제</button>' + '<button type="button" class="btn-sm al-btn" id="edFold" title="접은글" aria-label="접은글"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 2l4 2.5L2 7z" fill="currentColor"/><path d="M9 3.5h6M2 11h13" stroke-linecap="square"/></svg></button><button type="button" class="btn-sm al-btn" id="edHr" title="가로줄" aria-label="가로줄"><svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 7h14" stroke-linecap="square"/></svg></button>' + '<span class="ed-colors">' + Object.keys(TEXT_COLORS).map(k => `<button type="button" class="ed-swatch" data-color="${k}" title="${TEXT_COLOR_LABEL[k]}" aria-label="${TEXT_COLOR_LABEL[k]}" style="background:${TEXT_COLORS[k]}"></button>`).join('') + '</span>';
   const edTools = document.getElementById('edTools');
   edTools.querySelectorAll('.rt-toolbar button').forEach(b => b.addEventListener('mousedown', (ev) => { ev.preventDefault(); edBody.focus(); rtExec(b.dataset.rt); }));
   const edPage = edBody.parentElement;
@@ -2504,11 +2516,55 @@
     const sel = window.getSelection();
     if(sel && sel.rangeCount && edBody.contains(sel.anchorNode)) edRange = sel.getRangeAt(0).cloneRange();
   });
+  // 접은글, 가로줄, 글씨 색
+  edTools.querySelectorAll('#edFold, #edHr, .ed-swatch').forEach(b => b.addEventListener('mousedown', (ev) => ev.preventDefault()));
+  document.getElementById('edHr').addEventListener('click', () => { edBody.focus(); document.execCommand('insertHorizontalRule'); });
+  document.getElementById('edFold').addEventListener('click', () => {
+    edBody.focus();
+    const sel = window.getSelection();
+    if((!sel.rangeCount || !edBody.contains(sel.anchorNode)) && edRange){ sel.removeAllRanges(); sel.addRange(edRange); }
+    let n = sel.rangeCount ? sel.anchorNode : null;
+    while(n && n.parentNode !== edBody) n = n.parentNode;
+    const d = document.createElement('details'); d.open = true;
+    d.innerHTML = '<summary>접은글 제목</summary><div>내용을 입력하세요</div>';
+    const tail = document.createElement('div'); tail.innerHTML = '<br>';
+    if(n && n !== edBody){ n.after(d); } else { edBody.appendChild(d); }
+    d.after(tail);
+    const sm = d.querySelector('summary'); const r = document.createRange(); r.selectNodeContents(sm);
+    sel.removeAllRanges(); sel.addRange(r);
+  });
+  edTools.querySelectorAll('.ed-swatch').forEach(b => b.addEventListener('click', () => {
+    edBody.focus();
+    if(edRange){ const sel = window.getSelection(); if(!sel.rangeCount || !edBody.contains(sel.anchorNode)){ sel.removeAllRanges(); sel.addRange(edRange); } }
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('foreColor', false, TEXT_COLORS[b.dataset.color]);
+  }));
+  edBody.addEventListener('click', (e) => { if(e.target.closest('summary')) e.preventDefault(); });
+  // 줄에 --- 또는 — 만 적고 엔터를 치면 가로줄로 바꾼다.
+  edBody.addEventListener('keydown', (e) => {
+    if(e.key !== 'Enter' || e.isComposing) return;
+    const sel = window.getSelection(); if(!sel.rangeCount) return;
+    let n = sel.anchorNode; while(n && n.parentNode !== edBody) n = n.parentNode;
+    if(!n || n === edBody) return;
+    if(!/^(-{3,}|—+|–+|_{3,})$/.test((n.textContent || '').trim())) return;
+    e.preventDefault();
+    const hr = document.createElement('hr'), nd = document.createElement('div'); nd.innerHTML = '<br>';
+    n.replaceWith(hr); hr.after(nd);
+    const r = document.createRange(); r.setStart(nd, 0); r.collapse(true); sel.removeAllRanges(); sel.addRange(r);
+  });
+  // 작성자 (글을 분류하는 용도)
+  let edAuthor = '';
+  const authorBox = document.getElementById('edAuthor');
+  authorBox.innerHTML = '<span class="ed-author-label">작성자</span>' + OWNERS.map(o => `<button type="button" class="btn-sm ed-author-btn" data-o="${o}">${o}</button>`).join('');
+  const paintAuthor = () => authorBox.querySelectorAll('.ed-author-btn').forEach(b => b.classList.toggle('on', b.dataset.o === edAuthor));
+  authorBox.addEventListener('click', (e) => { const b = e.target.closest('.ed-author-btn'); if(!b) return; edAuthor = edAuthor === b.dataset.o ? '' : b.dataset.o; paintAuthor(); });
   function openBodyEditor(sl, done){
     edDone = done;
     document.getElementById('edTitle').textContent = sl.title || '(제목 없음)';
     edBody.innerHTML = sl.body ? toRich(sl.body) : '';
-    edStart = cleanHtml(edBody.innerHTML);
+    edBody.querySelectorAll('details').forEach(d => { d.open = true; });
+    edAuthor = sl.author || ''; paintAuthor();
+    edStart = cleanHtml(edBody.innerHTML) + '|' + edAuthor;
     edRange = null;
     document.getElementById('edImgDel').style.display = 'none';
     editorModal.classList.add('active'); placeHandles();
@@ -2516,13 +2572,13 @@
   }
   function closeBodyEditor(){ editorModal.classList.remove('active'); edDone = null; }
   document.getElementById('edClose').addEventListener('click', () => {
-    if(cleanHtml(edBody.innerHTML) !== edStart){ askDiscard(closeBodyEditor); return; }
+    if(cleanHtml(edBody.innerHTML) + '|' + edAuthor !== edStart){ askDiscard(closeBodyEditor); return; }
     closeBodyEditor();
   });
   document.getElementById('edApply').addEventListener('click', () => {
     const html = cleanHtml(edBody.innerHTML);
     const cb = edDone; closeBodyEditor();
-    if(cb) cb(isEmptyVal(html) && !/<img /.test(html) ? '' : html);
+    if(cb) cb(isEmptyVal(html) && !/<img |<hr>/.test(html) ? '' : html, edAuthor);
   });
   edBody.addEventListener('click', (e) => {
     edBody.querySelectorAll('img.sel').forEach(i => i.classList.remove('sel'));
@@ -2580,7 +2636,7 @@
         <input class="f-input" data-s="title" placeholder="슬라이드 제목" value="${esc(sl.title || '')}">
         <input class="f-input" data-s="date" placeholder="날짜 (선택)" value="${esc(sl.date || '')}">
         <div class="sns-row"><input class="f-input" data-s="linkText" placeholder="링크 표시 글자 (선택)" value="${esc(sl.linkText || '')}"><input class="f-input" data-s="link" placeholder="링크 주소 (선택)" value="${esc(sl.link || '')}"></div>
-        <div class="body-line"><span class="body-state">${isEmptyVal(sl.body) ? '본문 없음' : '본문 있음'}</span><button type="button" class="btn-sm" data-sed>에디터로 열기</button></div>
+        <div class="body-line"><span class="body-state">${isEmptyVal(sl.body) ? '본문 없음' : '본문 있음'}${sl.author ? ' · ' + esc(sl.author) : ''}</span><button type="button" class="btn-sm" data-sed>에디터로 열기</button></div>
         <input type="file" data-s="file" accept="image/*"><div class="slide-btns"><button type="button" class="btn-sm" data-simgdel>이미지 삭제</button><button type="button" class="btn-sm danger" data-sdel>슬라이드 삭제</button></div>
       </div></div></div>`;
     const syncSlides = () => {
@@ -2646,7 +2702,7 @@
     document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ _open:true, id:'s' + Date.now(), title:'', date:'', link:'', linkText:'', body:'', image:null }); drawSlides(); });
     document.getElementById('sSlides').addEventListener('click', (e) => {
       const edb = e.target.closest('[data-sed]');
-      if(edb){ syncSlides(); const idx = Number(edb.closest('.slide-row').dataset.i); const sl = slides[idx]; if(sl) openBodyEditor(sl, (html) => { sl.body = html; sl._open = true; formDirty = true; drawSlides(); }); return; }
+      if(edb){ syncSlides(); const idx = Number(edb.closest('.slide-row').dataset.i); const sl = slides[idx]; if(sl) openBodyEditor(sl, (html, author) => { sl.body = html; sl.author = author || ''; sl._open = true; formDirty = true; drawSlides(); }); return; }
       const fb = e.target.closest('[data-sfold]');
       if(fb){ const sl = slides[Number(fb.closest('.slide-row').dataset.i)]; const folded = fb.classList.toggle('folded'); if(sl) sl._open = !folded; return; }
       const ib = e.target.closest('[data-simgdel]');
@@ -2691,7 +2747,7 @@
         }
         for(let i = 0; i < slides.length; i++){
           const sl = slides[i];
-          const out = { id:sl.id || ('s' + Date.now() + i), title:sl.title || '', date:sl.date || '', link:sl.link || '', linkText:sl.linkText || '', body:isEmptyVal(sl.body) ? '' : String(sl.body).trim(), image:sl.image || null, imageV:sl.imageV || null };
+          const out = { id:sl.id || ('s' + Date.now() + i), title:sl.title || '', date:sl.date || '', link:sl.link || '', linkText:sl.linkText || '', body:isEmptyVal(sl.body) ? '' : String(sl.body).trim(), author:sl.author || '', image:sl.image || null, imageV:sl.imageV || null };
           if(sl.pending){
             const ip = `assets/ymkb_slide_${out.id}.${sl.pending.ext}`;
             await ghPut(ip, await blobToBase64(sl.pending.blob), `Update slide image: ${out.title}`);
