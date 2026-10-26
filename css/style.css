@@ -837,7 +837,8 @@ body:has(#page-main.active) .fab-sns{ display:flex; }
 .ed-body details, .slide-box-text details{ border:1px solid var(--line); padding:0 14px; margin:14px 0; }
 .ed-body summary, .slide-box-text summary{ cursor:pointer; padding:11px 0; font-weight:600; }
 .ed-body details[open] > summary, .slide-box-text details[open] > summary{ border-bottom:1px solid var(--line); margin-bottom:10px; }
-.ed-body details > div, .slide-box-text details > div{ padding-bottom:10px; }
+.ed-body details > div:last-child, .slide-box-text details > div:last-child{ padding-bottom:10px; }
+.ed-body details > div, .slide-box-text details > div{ padding-bottom:0; }
 
 /* 글씨 크기 (7단계, 보통 = 3단계) */
 [data-s="1"]{ font-size:0.625rem; }
