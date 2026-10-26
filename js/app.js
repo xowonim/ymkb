@@ -261,8 +261,8 @@
       if(!paths.length) return v;
       const single = { templates:'data/templates.json', site:'data/site.json', classes:'data/classes.json' };
       if(single[key]){ const r = m[single[key]]; return r && r.obj ? JSON.parse(JSON.stringify(r.obj)) : v; }
-      if(key === 'chars' || key === 'groups'){
-        const dir = key === 'chars' ? 'data/characters' : 'data/groups';
+      if(key === 'chars' || key === 'groups' || key === 'archive' || key === 'posts'){
+        const dir = key === 'chars' ? 'data/characters' : key === 'groups' ? 'data/groups' : key === 'archive' ? 'data/archive' : 'data/posts';
         const out = Object.assign({}, v);
         paths.filter(p => p.startsWith(dir + '/')).forEach(p => {
           Object.keys(out).forEach(k => { if(out[k] && out[k]._path === p) delete out[k]; });
@@ -1564,11 +1564,11 @@
       <h2 class="form-title">토큰 설정</h2>
       <p class="form-hint">토큰은 사이트에서 저장할 때 쓰는 열쇠예요. 이 기기에서 한 번만 등록하면 돼요.<br>이 브라우저에만 보관되고 깃허브에는 올라가지 않아요.</p>
       <ol class="form-hint steps">
-        <li>먼저 저장소 주인(호원)에게 ${GH_OWNER}/${GH_REPO} 저장소 초대를 받아 주세요. 메일의 Accept invitation을 눌러 수락하면 돼요.</li>
-        <li><a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">여기</a>를 눌러 새 토큰(classic)을 만들어 주세요.</li>
-        <li>Note에는 ymkb라고 적고, Expiration은 No expiration(또는 90 days)을 골라 주세요.</li>
-        <li>아래 목록에서 public_repo 칸 하나만 체크해 주세요. 저장소가 비공개라면 repo를 체크해 주세요.</li>
-        <li>맨 아래 Generate token을 누르고, 나온 ghp_로 시작하는 글자를 복사해 주세요. 이 화면을 벗어나면 다시 볼 수 없어요.</li>
+        <li>먼저 호원에게 ${GH_OWNER}/${GH_REPO} 저장소 초대 메일을 받아 주세요.<br>메일의 Accept invitation을 눌러 수락하면 돼요.</li>
+        <li><a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener" style="text-decoration:underline">여기</a>를 눌러 새 토큰(classic)을 만들어 주세요.</li>
+        <li>Note에는 ymkb라고 적고, Expiration은 No expiration(또는 90 days)을<br>골라 주세요.</li>
+        <li>아래 목록에서 public_repo 칸 하나만 체크해 주세요.</li>
+        <li>맨 아래 Generate token을 누르고, 나온 ghp_로 시작하는 글자를 복사해 주세요.<br>이 화면을 벗어나면 다시 볼 수 없어요.</li>
         <li>아래 칸에 붙여넣고 저장을 눌러 주세요.</li>
       </ol>
       <input class="f-input" id="tokenInput" type="password" placeholder="${has ? '등록된 토큰이 있어요 (새로 바꾸려면 입력)' : '토큰 붙여넣기'}" autocomplete="off">
@@ -2456,7 +2456,7 @@
 
   /* ----- 학급 추가 / 수정 / 삭제 (data/classes.json) ----- */
   function rosterRowHtml(r){
-    return `<div class="tpl-row roster-row"><span class="slide-grip" title="끌어서 순서 변경">&#8801;</span><input class="f-input" data-r="name" autocomplete="off" placeholder="학생 이름" value="${esc(r.name || '')}"><button type="button" class="x-btn" data-rdel title="삭제" aria-label="삭제">&times;</button></div>`;
+    return `<div class="tpl-row roster-row"><span class="slide-grip" title="끌어서 순서 변경">&#8942;&#8942;</span><input class="f-input" data-r="name" autocomplete="off" placeholder="학생 이름" value="${esc(r.name || '')}"><button type="button" class="x-btn" data-rdel title="삭제" aria-label="삭제">&times;</button></div>`;
   }
   function openClassForm(sec){
     const grade = sec ? classes.find(g => g.sections.includes(sec)).grade : (classes[0] ? classes[0].grade : '');
@@ -2725,6 +2725,9 @@
   document.getElementById('esThumbDel').addEventListener('click', (e) => { e.preventDefault(); edThumb = { image:null, imageV:null, pending:null, pendingUrl:null }; paintThumb(); });
   document.getElementById('esLoc').addEventListener('click', (e) => { const b = e.target.closest('.es-opt'); if(!b) return; edLoc = b.dataset.v; paintSave(); });
   document.getElementById('esVis').addEventListener('click', (e) => { const b = e.target.closest('.es-opt'); if(!b) return; edVis = b.dataset.v; paintSave(); if(edVis === 'private') document.getElementById('esPw').focus(); });
+  { const pwEl = document.getElementById('esPw'); const clean = () => { const v = pwEl.value.replace(/[^A-Za-z0-9]/g, ''); if(v !== pwEl.value) pwEl.value = v; };
+    pwEl.setAttribute('inputmode', 'latin'); pwEl.setAttribute('autocapitalize', 'off'); pwEl.setAttribute('autocorrect', 'off'); pwEl.setAttribute('lang', 'en');
+    ['input', 'compositionend', 'change'].forEach(ev => pwEl.addEventListener(ev, clean)); }
   document.getElementById('esCancel').addEventListener('click', () => esModal.classList.remove('active'));
   document.getElementById('edApply').addEventListener('click', () => {
     document.getElementById('esErr').textContent = '';
@@ -2739,6 +2742,7 @@
     let pwHash = '';
     if(edVis === 'private'){
       const pw = document.getElementById('esPw').value;
+      if(pw && /[^A-Za-z0-9]/.test(pw)){ err.textContent = '비밀번호는 영어와 숫자만 쓸 수 있습니다.'; return; }
       if(pw) pwHash = await hashPw(pw);
       else if(edPwHash) pwHash = edPwHash;
       else { err.textContent = '비밀번호를 입력해 주세요.'; return; }
@@ -2895,7 +2899,7 @@
     let pendingLogo = null, removeLogo = false;
     let slides = site.slides.map(x => Object.assign({}, x));
     const slideHtml = (sl, i) => `<div class="slide-row" data-i="${i}">
-      <div class="slide-head"><span class="slide-grip" title="끌어서 순서 변경">&#8801;</span><span class="slide-name">${esc(sl.title || '(제목 없음)')}${sl._toArchive ? ' [저장하면 아카이브로 이동]' : ''}${sl.vis === 'private' ? ' [일부공개]' : ''}</span></div>
+      <div class="slide-head"><span class="slide-grip" title="끌어서 순서 변경">&#8942;&#8942;</span><span class="slide-name">${esc(sl.title || '(제목 없음)')}${sl._toArchive ? ' [저장하면 아카이브로 이동]' : ''}${sl.vis === 'private' ? ' [일부공개]' : ''}</span></div>
       <div class="slide-main"><div class="f-thumb wide">${sl.pendingUrl ? `<img src="${sl.pendingUrl}" alt="">` : (sl.image ? `<img src="${esc(rawUrl(sl.image, sl.imageV))}" alt="" onerror="window.__imgErr(this)">` : '')}</div>
       <div class="slide-fields">
         <input class="f-input" data-s="date" placeholder="작성 날짜" value="${esc(sl.date || '')}">
@@ -2961,7 +2965,7 @@
     document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ _open:true, id:'s' + Date.now(), title:'', date:'', link:'', linkText:'', body:'', image:null }); drawSlides(); });
     document.getElementById('sSlides').addEventListener('click', (e) => {
       const edb = e.target.closest('[data-sed]');
-      if(edb){ syncSlides(); const idx = Number(edb.closest('.slide-row').dataset.i); const sl = slides[idx]; if(sl) openBodyEditor(Object.assign({}, sl, { loc: sl._toArchive ? 'archive' : 'notice' }), (html, author, o) => { sl.body = html; sl.author = author || ''; sl.title = o.title; sl._toArchive = o.loc === 'archive'; sl.vis = o.vis; sl.pwHash = o.pwHash; if(o.thumb){ sl.image = o.thumb.image; sl.imageV = o.thumb.imageV; sl.pending = o.thumb.pending; sl.pendingUrl = o.thumb.pendingUrl; } sl._open = true; formDirty = true; drawSlides(); }); return; }
+      if(edb){ syncSlides(); const idx = Number(edb.closest('.slide-row').dataset.i); const sl = slides[idx]; if(sl) openBodyEditor(Object.assign({}, sl, { loc: sl._toArchive ? 'archive' : 'notice' }), (html, author, o) => { sl.body = html; sl.author = author || ''; sl.title = o.title; sl._toArchive = o.loc === 'archive'; sl.vis = o.vis; sl.pwHash = o.pwHash; if(o.thumb){ sl.image = o.thumb.image; sl.imageV = o.thumb.imageV; sl.pending = o.thumb.pending; sl.pendingUrl = o.thumb.pendingUrl; } sl._open = true; formDirty = true; drawSlides(); setTimeout(() => { const fs = document.getElementById('formSave'); if(fs && !fs.disabled) fs.click(); }, 50); }); return; }
       const fb = e.target.closest('[data-sfold]');
       if(fb){ const sl = slides[Number(fb.closest('.slide-row').dataset.i)]; const folded = fb.classList.toggle('folded'); if(sl) sl._open = !folded; return; }
       const ib = e.target.closest('[data-simgdel]');
