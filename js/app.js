@@ -15,6 +15,38 @@
   }));
   document.getElementById('headerHome').addEventListener('click', () => goPage('main'));
 
+  /* ---------------- 일부공개 글 비밀번호 ---------------- */
+  async function hashPw(pw){
+    const text = 'ymkb:' + String(pw);
+    try {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+      return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch(e){ return 'plain:' + String(pw); }
+  }
+  let pwModal = null, pwOk = null, pwHashNow = '';
+  function askPassword(hash, onOk){
+    if(!pwModal){
+      pwModal = document.createElement('div');
+      pwModal.className = 'modal-overlay alert-overlay';
+      pwModal.innerHTML = '<div class="alert-box"><p>비밀번호를 입력해 주세요.</p><input class="f-input pw-input" id="pwInput" type="password" autocomplete="off"><p class="form-error" id="pwErr"></p><div class="alert-btns"><button type="button" class="btn-sm" id="pwNo">취소</button><button type="button" class="btn-sm" id="pwYes">확인</button></div></div>';
+      document.body.appendChild(pwModal);
+      const close = () => { pwModal.classList.remove('active'); pwOk = null; };
+      const submit = async () => {
+        const v = document.getElementById('pwInput').value;
+        if(await hashPw(v) === pwHashNow){ const cb = pwOk; close(); if(cb) cb(); }
+        else { document.getElementById('pwErr').textContent = '비밀번호가 일치하지 않습니다.'; }
+      };
+      document.getElementById('pwNo').addEventListener('click', close);
+      document.getElementById('pwYes').addEventListener('click', submit);
+      document.getElementById('pwInput').addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); submit(); } });
+      pwModal.addEventListener('click', (e) => { if(e.target === pwModal) close(); });
+    }
+    pwHashNow = hash; pwOk = onOk;
+    document.getElementById('pwInput').value = ''; document.getElementById('pwErr').textContent = '';
+    pwModal.classList.add('active');
+    setTimeout(() => { try { document.getElementById('pwInput').focus(); } catch(e){} }, 50);
+  }
+
   /* ---------------- CAROUSEL ---------------- */
   function openSlideBox(s, url, body){
     const box = document.getElementById('slideBoxBody');
@@ -49,8 +81,8 @@
       const sUrl = safeUrl(s.link), sBody = isEmptyVal(s.body) ? '' : String(s.body).trim();
       if(sBody || sUrl) el.classList.add('clickable');
       el.addEventListener('click', () => {
-        if(sBody){ openSlideBox(s, sUrl, sBody); }
-        else if(sUrl){ window.open(sUrl, '_blank', 'noopener'); }
+        const go = () => { if(sBody){ openSlideBox(s, sUrl, sBody); } else if(sUrl){ window.open(sUrl, '_blank', 'noopener'); } };
+        if((sBody || sUrl) && s.vis === 'private' && s.pwHash) askPassword(s.pwHash, go); else go();
       });
       el.innerHTML = `<div class="slide-overlay">${s.date ? `<div class="date">${esc(s.date)}</div>` : ''}<div class="title">${esc(s.title)}</div></div>`;
       stage.appendChild(el);
@@ -572,7 +604,7 @@
       if(pg.title) box.querySelector('h2').textContent = pg.title;
       if(!isEmptyVal(pg.body)) box.innerHTML = `<h2>${esc(pg.title || label)}</h2><div class="profile-text rich page-body">${toRich(pg.body)}</div>`;
     });
-    initCarousel(site.slides.map(sl => ({ date:sl.date || '', title:sl.title || '', gradient:SLIDE_GRADIENT, image:sl.image ? rawUrl(sl.image, sl.imageV) : null, link:sl.link || '', linkText:sl.linkText || '', body:sl.body || '' })));
+    initCarousel(site.slides.map(sl => ({ date:sl.date || '', title:sl.title || '', gradient:SLIDE_GRADIENT, image:sl.image ? rawUrl(sl.image, sl.imageV) : null, link:sl.link || '', linkText:sl.linkText || '', body:sl.body || '', vis:sl.vis || '', pwHash:sl.pwHash || '' })));
   })();
 
   /* 값 정리용 유틸: 리치 텍스트는 허용한 태그만 남기고 속성은 모두 지운다. */
@@ -791,7 +823,7 @@
 
   /* ---------------- GROUP LIST ---------------- */
   const gallery = document.getElementById('groupGallery');
-  document.getElementById('groupCountLabel').textContent = '';
+  document.getElementById('groupCountLabel').textContent = `(${groups.length})`;
 
   groups.forEach((g) => {
     const card = document.createElement('div');
@@ -2215,7 +2247,7 @@
       </div>
       <div class="f-group">DISCOGRAPHY</div>
       <div id="gDisco"></div>
-      <button type="button" class="text-btn" id="gAddDisco">+ 음원 추가</button>
+      <button type="button" class="add-btn" id="gAddDisco">+ 음원 추가</button>
       <p class="form-error" id="formError"></p>
       <div class="form-actions"><span></span><button type="button" class="form-submit" id="formSave">저장</button></div>`;
     formModal.classList.add('active');
@@ -2424,7 +2456,7 @@
 
   /* ----- 학급 추가 / 수정 / 삭제 (data/classes.json) ----- */
   function rosterRowHtml(r){
-    return `<div class="tpl-row roster-row"><input class="f-input" data-r="name" autocomplete="off" placeholder="학생 이름" value="${esc(r.name || '')}"><button type="button" class="x-btn" data-rdel title="삭제" aria-label="삭제">&times;</button></div>`;
+    return `<div class="tpl-row roster-row"><span class="slide-grip" title="끌어서 순서 변경">&#8801;</span><input class="f-input" data-r="name" autocomplete="off" placeholder="학생 이름" value="${esc(r.name || '')}"><button type="button" class="x-btn" data-rdel title="삭제" aria-label="삭제">&times;</button></div>`;
   }
   function openClassForm(sec){
     const grade = sec ? classes.find(g => g.sections.includes(sec)).grade : (classes[0] ? classes[0].grade : '');
@@ -2436,10 +2468,11 @@
       ${fInput('담당 교사', 'cTeacher', sec ? sec.teacher : '')}
       <div class="f-group">학생 명단</div>
       <div id="cRoster">${(sec ? sec.roster : []).map(rosterRowHtml).join('')}</div>
-      <button type="button" class="text-btn" id="cAddRow">+ 학생 추가</button>
+      <button type="button" class="add-btn" id="cAddRow">+ 학생 추가</button>
       <p class="form-error" id="formError"></p>
       <div class="form-actions"><span></span><button type="button" class="form-submit" id="formSave">저장</button></div>`;
     formModal.classList.add('active');
+    makeSortable(document.getElementById('cRoster'), '.roster-row', () => {}, { always:true, handle:'.slide-grip' });
     document.getElementById('cAddRow').addEventListener('click', () => document.getElementById('cRoster').insertAdjacentHTML('beforeend', rosterRowHtml({})));
     document.getElementById('cRoster').addEventListener('click', (e) => { const b = e.target.closest('[data-rdel]'); if(b) b.closest('.tpl-row').remove(); });
     document.getElementById('formSave').addEventListener('click', async () => {
@@ -2651,13 +2684,15 @@
   authorBox.innerHTML = '<span class="ed-author-label">작성자</span>' + OWNERS.map(o => `<button type="button" class="btn-sm ed-author-btn" data-o="${o}">${o}</button>`).join('');
   const paintAuthor = () => authorBox.querySelectorAll('.ed-author-btn').forEach(b => b.classList.toggle('on', b.dataset.o === edAuthor));
   authorBox.addEventListener('click', (e) => { const b = e.target.closest('.ed-author-btn'); if(!b) return; edAuthor = edAuthor === b.dataset.o ? '' : b.dataset.o; paintAuthor(); });
+  let edLoc = 'notice', edVis = 'public', edPwHash = '';
   function openBodyEditor(sl, done){
     edDone = done;
-    document.getElementById('edTitle').textContent = sl.title || '(제목 없음)';
+    document.getElementById('edTitle').value = sl.title || '';
+    edLoc = sl.loc === 'archive' ? 'archive' : 'notice'; edVis = sl.vis === 'private' ? 'private' : 'public'; edPwHash = sl.pwHash || '';
     edBody.innerHTML = sl.body ? toRich(sl.body) : '';
     edBody.querySelectorAll('details').forEach(d => { d.open = true; });
     edAuthor = sl.author || ''; paintAuthor();
-    edStart = cleanHtml(edBody.innerHTML) + '|' + edAuthor;
+    edStart = cleanHtml(edBody.innerHTML) + '|' + edAuthor + '|' + document.getElementById('edTitle').value;
     edRange = null;
     document.getElementById('edImgDel').style.display = 'none';
     editorModal.classList.add('active'); placeHandles();
@@ -2665,13 +2700,45 @@
   }
   function closeBodyEditor(){ editorModal.classList.remove('active'); edDone = null; }
   document.getElementById('edClose').addEventListener('click', () => {
-    if(cleanHtml(edBody.innerHTML) + '|' + edAuthor !== edStart){ askDiscard(closeBodyEditor); return; }
+    if(cleanHtml(edBody.innerHTML) + '|' + edAuthor + '|' + document.getElementById('edTitle').value !== edStart){ askDiscard(closeBodyEditor); return; }
     closeBodyEditor();
   });
+  // 저장 버튼: 저장 위치와 공개 형태를 고르는 창을 띄운다.
+  const esModal = document.getElementById('edSaveModal');
+  const paintSave = () => {
+    document.querySelectorAll('#esLoc .es-opt').forEach(b => b.classList.toggle('on', b.dataset.v === edLoc));
+    document.querySelectorAll('#esVis .es-opt').forEach(b => b.classList.toggle('on', b.dataset.v === edVis));
+    document.getElementById('esPw').style.display = edVis === 'private' ? '' : 'none';
+  };
+  document.getElementById('esLoc').addEventListener('click', (e) => { const b = e.target.closest('.es-opt'); if(!b) return; edLoc = b.dataset.v; paintSave(); });
+  document.getElementById('esVis').addEventListener('click', (e) => { const b = e.target.closest('.es-opt'); if(!b) return; edVis = b.dataset.v; paintSave(); if(edVis === 'private') document.getElementById('esPw').focus(); });
+  document.getElementById('esCancel').addEventListener('click', () => esModal.classList.remove('active'));
   document.getElementById('edApply').addEventListener('click', () => {
-    const html = cleanHtml(edBody.innerHTML);
-    const cb = edDone; closeBodyEditor();
-    if(cb) cb(isEmptyVal(html) && !/<img |<hr>/.test(html) ? '' : html, edAuthor);
+    document.getElementById('esErr').textContent = '';
+    document.getElementById('esPw').value = '';
+    document.getElementById('esPw').placeholder = edPwHash ? '비밀번호 (바꿀 때만 입력)' : '비밀번호';
+    paintSave(); esModal.classList.add('active');
+  });
+  document.getElementById('esGo').addEventListener('click', async () => {
+    const err = document.getElementById('esErr'); err.textContent = '';
+    const title = document.getElementById('edTitle').value.trim();
+    if(!title){ err.textContent = '제목을 입력해 주세요.'; return; }
+    let pwHash = '';
+    if(edVis === 'private'){
+      const pw = document.getElementById('esPw').value;
+      if(pw) pwHash = await hashPw(pw);
+      else if(edPwHash) pwHash = edPwHash;
+      else { err.textContent = '비밀번호를 입력해 주세요.'; return; }
+    }
+    const html0 = cleanHtml(edBody.innerHTML);
+    const html = isEmptyVal(html0) && !/<img |<hr>/.test(html0) ? '' : html0;
+    const btn = document.getElementById('esGo'); btn.disabled = true; btn.textContent = '업로드 중...';
+    try {
+      const cb = edDone;
+      if(cb) await cb(html, edAuthor, { title, loc:edLoc, vis:edVis, pwHash });
+      esModal.classList.remove('active'); closeBodyEditor();
+    } catch(e){ err.textContent = '저장에 실패했어요: ' + e.message; }
+    btn.disabled = false; btn.textContent = '업로드';
   });
   edBody.addEventListener('click', (e) => {
     edBody.querySelectorAll('img.sel').forEach(i => i.classList.remove('sel'));
@@ -2717,33 +2784,92 @@
   });
   document.addEventListener('keydown', (ev) => { if(ev.key === 'Escape' && editorModal.classList.contains('active')){ ev.stopImmediatePropagation(); document.getElementById('edClose').click(); } }, true);
 
-  /* ---------------- ARCHIVE (ETC 하단) ---------------- */
+  /* ---------------- ARCHIVE (ETC) ---------------- */
+  let archiveMap = {}, arcFilter = new Set(), arcFilterOpen = false;
+  const pad2s = (n) => String(n).padStart(2, '0');
+  const fmtYmd = (t) => { const d = new Date(t); return `${d.getFullYear()}.${pad2s(d.getMonth() + 1)}.${pad2s(d.getDate())}`; };
+  function postCover(it){
+    if(it.image) return rawUrl(it.image, it.imageV);
+    if(isEmptyVal(it.body)) return '';
+    const m = /<img[^>]+src="([^"]+)"/.exec(toRich(it.body));
+    return m ? m[1] : '';
+  }
+  function postExcerpt(it){
+    if(isEmptyVal(it.body)) return '';
+    const t = (new DOMParser().parseFromString(String(it.body).replace(/<\/(div|p|h3|summary)>/gi, ' ').replace(/<br\s*\/?>/gi, ' '), 'text/html').body.textContent || '').replace(/\s+/g, ' ').trim();
+    return t.length > 90 ? t.slice(0, 90) + '...' : t;
+  }
+  // 업로드 때까지 미뤄 둔 본문 이미지를 올리고, 본문 속 주소를 실제 파일 경로로 바꾼다.
+  async function resolvePendingImgs(body){
+    const ids = [...new Set([...String(body || '').matchAll(/pending:(\w+)/g)].map(m => m[1]))];
+    for(const id of ids){
+      const pi = pendImgs[id];
+      if(!pi){ body = body.split(`<img src="pending:${id}">`).join(''); continue; }
+      const bp = `assets/ymkb_post_${id}.${pi.ext}`;
+      await ghPut(bp, await blobToBase64(pi.blob), 'Add post image');
+      body = body.split(`pending:${id}`).join(bp);
+    }
+    return body;
+  }
+  // ETC에서 열린 에디터의 저장: 공지사항이면 site.json + posts 폴더, 아카이브면 archive 폴더에 바로 올린다.
+  async function savePostDirect(old, html, author, o){
+    if(!getToken()) throw new Error('먼저 토큰 설정에서 토큰을 등록해 주세요.');
+    const id = old ? old.id : 'p' + Date.now();
+    const body = await resolvePendingImgs(html);
+    const post = { id, title:o.title, date:(old && old.date) || fmtYmd(Date.now()), link:(old && old.link) || '', linkText:(old && old.linkText) || '', body, author:author || '', image:(old && old.image) || null, imageV:(old && old.imageV) || null };
+    if(o.vis === 'private' && o.pwHash){ post.vis = 'private'; post.pwHash = o.pwHash; }
+    const t = (obj) => toBase64Text(JSON.stringify(obj, null, 2) + '\n');
+    if(o.loc === 'archive'){
+      await ghPut(`${ARCHIVE_DIR}/${id}.json`, t(Object.assign({}, post, { name:post.title, at:(old && old.at) || Date.now() })), `Archive post: ${post.title}`);
+    } else {
+      if(body) await ghPut(`${POST_DIR}/${id}.json`, t({ id, name:post.title, title:post.title, body, author:post.author }), `Save post: ${post.title}`);
+      const meta = Object.assign({}, post); delete meta.body;
+      const ok = await jsonChange(SITE_PATH, () => ({}), (d) => { d.slides = (Array.isArray(d.slides) ? d.slides : []).filter(x => x.id !== id); d.slides.push(meta); }, `Add notice: ${post.title}`);
+      if(!ok) throw new Error('공지사항을 저장하지 못했어요.');
+      if(old && old._path) { try { await ghDelete(old._path, 'Remove from archive'); } catch(e){} }
+    }
+    if(old && o.loc === 'archive' && old._path && old._path !== `${ARCHIVE_DIR}/${id}.json`){ try { await ghDelete(old._path, 'Remove old archive file'); } catch(e){} }
+    reloadKeepingView();
+  }
+  function openArchiveEditor(old){
+    Object.keys(pendImgs).forEach(k => delete pendImgs[k]);
+    openBodyEditor(old ? Object.assign({}, old, { loc:'archive' }) : { title:'', body:'', author:'', loc:'archive' }, (html, author, o) => savePostDirect(old, html, author, o));
+  }
   function renderArchive(map){
+    if(map) archiveMap = map;
     const page = document.getElementById('page-etc'); if(!page) return;
     let sec = document.getElementById('archiveSec');
     if(!sec){ sec = document.createElement('section'); sec.id = 'archiveSec'; sec.className = 'archive-sec'; page.appendChild(sec); }
-    const items = Object.values(map || {}).sort((a, b) => (b.at || 0) - (a.at || 0));
-    sec.innerHTML = `<h3 class="archive-title">ARCHIVE</h3>` + (items.length ? `<div class="archive-grid">` + items.map((it, i) => `<div class="archive-item" data-i="${i}">
-      <div class="archive-img">${it.image ? `<img src="${esc(rawUrl(it.image, it.imageV))}" alt="" onerror="window.__imgErr(this)">` : ''}</div>
-      <div class="archive-text"><div class="archive-name">${esc(it.title || '(제목 없음)')}</div><div class="archive-meta">${esc(it.date || '')}${it.author ? (it.date ? ' · ' : '') + esc(it.author) : ''}</div></div>
-      <div class="archive-actions edit-only"><button type="button" class="btn-sm" data-amain>메인으로 이동</button></div></div>`).join('') + `</div>` : '<p class="archive-empty">보관된 글이 없습니다.</p>');
-    sec.onclick = async (e) => {
+    const all = Object.values(archiveMap || {}).sort((a, b) => (b.at || 0) - (a.at || 0));
+    const items = arcFilter.size ? all.filter(it => arcFilter.has(it.author)) : all;
+    const card = (it, i) => {
+      const priv = it.vis === 'private';
+      const cover = priv ? '' : postCover(it);
+      const date = esc(it.date || (it.at ? fmtYmd(it.at) : ''));
+      const text = priv ? '비밀번호를 입력해야 볼 수 있습니다.' : postExcerpt(it);
+      return `<div class="archive-item${cover ? ' has-img' : ''}" data-i="${i}">
+        ${cover ? `<div class="archive-img"><img src="${esc(cover)}" alt="" onerror="window.__imgErr(this)"></div>` : ''}
+        <div class="archive-text"><div class="archive-date">${date}${it.author ? ' · ' + esc(it.author) : ''}</div><div class="archive-name">${esc(it.title || '(제목 없음)')}</div>${cover ? '' : `<div class="archive-excerpt">${esc(text)}</div>`}</div>
+        <div class="archive-actions edit-only"><button type="button" class="btn-sm" data-aed>에디터로 열기</button></div></div>`;
+    };
+    sec.innerHTML = `<div class="archive-head"><h3 class="archive-title">ARCHIVE</h3>
+      <div class="archive-tools"><button type="button" class="btn-sm edit-only" id="arcOpenEd">에디터 열기</button><button type="button" class="btn-sm${arcFilter.size ? ' on' : ''}" id="arcFilterBtn">필터${arcFilter.size ? ' (' + arcFilter.size + ')' : ''}</button></div></div>
+      <div class="archive-filter"${arcFilterOpen ? '' : ' style="display:none"'}>${OWNERS.map(o => `<button type="button" class="es-opt${arcFilter.has(o) ? ' on' : ''}" data-ao="${esc(o)}">${esc(o)}</button>`).join('')}</div>`
+      + (items.length ? `<div class="archive-grid">${items.map(card).join('')}</div>` : '<p class="archive-empty">보관된 글이 없습니다.</p>');
+    sec.onclick = (e) => {
+      if(e.target.closest('#arcOpenEd')){ openArchiveEditor(null); return; }
+      if(e.target.closest('#arcFilterBtn')){ arcFilterOpen = !arcFilterOpen; renderArchive(); return; }
+      const ob = e.target.closest('[data-ao]');
+      if(ob){ const o = ob.dataset.ao; if(arcFilter.has(o)) arcFilter.delete(o); else arcFilter.add(o); renderArchive(); return; }
       const row = e.target.closest('.archive-item'); if(!row) return;
       const it = items[Number(row.dataset.i)]; if(!it) return;
-      if(e.target.closest('[data-amain]')){
-        const btn = e.target.closest('[data-amain]'); btn.disabled = true; btn.textContent = '이동 중...';
-        const sl = { id:it.id, title:it.title || '', date:it.date || '', link:it.link || '', linkText:it.linkText || '', body:it.body || '', author:it.author || '', image:it.image || null, imageV:it.imageV || null };
-        try { if(sl.body) await ghPut(`${POST_DIR}/${sl.id}.json`, toBase64Text(JSON.stringify({ id:sl.id, name:sl.title || sl.id, title:sl.title, body:sl.body, author:sl.author }, null, 2) + '\n'), `Save post: ${sl.title}`); } catch(err){ alert('저장에 실패했어요: ' + err.message); btn.disabled = false; btn.textContent = '메인으로 이동'; return; }
-        const slMeta = Object.assign({}, sl); delete slMeta.body;
-        const ok = await jsonChange(SITE_PATH, () => ({}), (d) => { d.slides = (Array.isArray(d.slides) ? d.slides : []).filter(x => x.id !== slMeta.id); d.slides.push(slMeta); }, `Move to main: ${sl.title}`);
-        if(!ok){ btn.disabled = false; btn.textContent = '메인으로 이동'; return; }
-        try { await ghDelete(it._path || `${ARCHIVE_DIR}/${it.id}.json`, `Remove from archive: ${sl.title}`); } catch(err){ alert('보관함에서 지우지 못했어요: ' + err.message); }
-        reloadKeepingView(); return;
-      }
-      if(e.target.closest('.archive-actions')) return;
+      if(e.target.closest('[data-aed]')){ openArchiveEditor(it); return; }
       const url = safeUrl(it.link);
-      if(!isEmptyVal(it.body)) openSlideBox({ image: it.image ? rawUrl(it.image, it.imageV) : '', linkText: it.linkText }, url, String(it.body).trim());
-      else if(url) window.open(url, '_blank', 'noopener');
+      const go = () => {
+        if(!isEmptyVal(it.body)) openSlideBox({ image:'', linkText:it.linkText }, url, String(it.body).trim());
+        else if(url) window.open(url, '_blank', 'noopener');
+      };
+      if(it.vis === 'private' && it.pwHash) askPassword(it.pwHash, go); else go();
     };
   }
   fetchArchive().then(renderArchive).catch(() => renderArchive({}));
@@ -2754,19 +2880,18 @@
     let pendingLogo = null, removeLogo = false;
     let slides = site.slides.map(x => Object.assign({}, x));
     const slideHtml = (sl, i) => `<div class="slide-row" data-i="${i}">
-      <div class="slide-head"><span class="slide-grip" title="끌어서 순서 변경">&#8801;</span><span class="slide-name">${esc(sl.title || '(제목 없음)')}${sl._toArchive ? ' [저장하면 ARCHIVE로 이동]' : ''}</span></div>
+      <div class="slide-head"><span class="slide-grip" title="끌어서 순서 변경">&#8801;</span><span class="slide-name">${esc(sl.title || '(제목 없음)')}${sl._toArchive ? ' [저장하면 아카이브로 이동]' : ''}${sl.vis === 'private' ? ' [일부공개]' : ''}</span></div>
       <div class="slide-main"><div class="f-thumb wide">${sl.pendingUrl ? `<img src="${sl.pendingUrl}" alt="">` : (sl.image ? `<img src="${esc(rawUrl(sl.image, sl.imageV))}" alt="" onerror="window.__imgErr(this)">` : '')}</div>
       <div class="slide-fields">
-        <input class="f-input" data-s="title" placeholder="슬라이드 제목" value="${esc(sl.title || '')}">
-        <input class="f-input" data-s="date" placeholder="날짜 (선택)" value="${esc(sl.date || '')}">
-        <div class="sns-row"><input class="f-input" data-s="linkText" placeholder="링크 표시 글자 (선택)" value="${esc(sl.linkText || '')}"><input class="f-input" data-s="link" placeholder="링크 주소 (선택)" value="${esc(sl.link || '')}"></div>
-        <div class="body-line"><span class="body-state">${isEmptyVal(sl.body) ? '본문 없음' : '본문 있음'}${sl.author ? ' · ' + esc(sl.author) : ''}</span><button type="button" class="btn-sm" data-sed>에디터로 열기</button></div>
-        <input type="file" data-s="file" accept="image/*"><div class="slide-btns"><button type="button" class="btn-sm" data-sarch>${sl._toArchive ? 'ARCHIVE 이동 취소' : 'ARCHIVE로 이동'}</button><button type="button" class="btn-sm" data-simgdel>이미지 삭제</button><button type="button" class="btn-sm danger" data-sdel>슬라이드 삭제</button></div>
+        <input class="f-input" data-s="date" placeholder="작성 날짜" value="${esc(sl.date || '')}">
+        <input class="f-input" data-s="link" placeholder="링크" value="${esc(sl.link || '')}">
+        <input class="f-input" data-s="linkText" placeholder="표시 문구" value="${esc(sl.linkText || '')}">
+        <div class="file-line"><input type="file" data-s="file" accept="image/*"><button type="button" class="btn-sm" data-sed>에디터로 열기</button></div>
+        <div class="slide-btns"><button type="button" class="btn-sm" data-simgdel>이미지 삭제</button><button type="button" class="btn-sm danger" data-sdel>슬라이드 삭제</button></div>
       </div></div></div>`;
     const syncSlides = () => {
       document.querySelectorAll('#sSlides .slide-row').forEach(row => {
         const sl = slides[Number(row.dataset.i)]; if(!sl) return;
-        sl.title = row.querySelector('[data-s=title]').value.trim();
         sl.date = row.querySelector('[data-s=date]').value.trim();
         sl.link = row.querySelector('[data-s=link]').value.trim();
         sl.linkText = row.querySelector('[data-s=linkText]').value.trim();
@@ -2802,9 +2927,9 @@
       <div class="f-row"><span>파비콘</span>
         <div class="f-image"><div class="f-thumb square" id="sFavThumb">${site.favicon ? `<img src="${esc(rawUrl(site.favicon, site.faviconV))}" alt="" onerror="window.__imgErr(this)">` : ''}</div><div class="f-inline"><input type="file" id="sFav" accept="image/*"><button type="button" class="btn-sm danger" id="sFavDel">삭제</button></div></div>
       </div>
-      <div class="f-group">메인 슬라이드</div>
+      <div class="f-group">공지사항</div>
       <div id="sSlides"></div>
-      <button type="button" class="text-btn" id="sAddSlide">+ 슬라이드 추가</button>
+      <button type="button" class="add-btn" id="sAddSlide">+ 슬라이드 추가</button>
       <p class="form-error" id="formError"></p>
       <div class="form-actions"><span></span><button type="button" class="form-submit" id="formSave">저장</button></div>`;
     formModal.classList.add('active');
@@ -2826,11 +2951,9 @@
     document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ _open:true, id:'s' + Date.now(), title:'', date:'', link:'', linkText:'', body:'', image:null }); drawSlides(); });
     document.getElementById('sSlides').addEventListener('click', (e) => {
       const edb = e.target.closest('[data-sed]');
-      if(edb){ syncSlides(); const idx = Number(edb.closest('.slide-row').dataset.i); const sl = slides[idx]; if(sl) openBodyEditor(sl, (html, author) => { sl.body = html; sl.author = author || ''; sl._open = true; formDirty = true; drawSlides(); }); return; }
+      if(edb){ syncSlides(); const idx = Number(edb.closest('.slide-row').dataset.i); const sl = slides[idx]; if(sl) openBodyEditor(Object.assign({}, sl, { loc: sl._toArchive ? 'archive' : 'notice' }), (html, author, o) => { sl.body = html; sl.author = author || ''; sl.title = o.title; sl._toArchive = o.loc === 'archive'; sl.vis = o.vis; sl.pwHash = o.pwHash; sl._open = true; formDirty = true; drawSlides(); }); return; }
       const fb = e.target.closest('[data-sfold]');
       if(fb){ const sl = slides[Number(fb.closest('.slide-row').dataset.i)]; const folded = fb.classList.toggle('folded'); if(sl) sl._open = !folded; return; }
-      const ab = e.target.closest('[data-sarch]');
-      if(ab){ syncSlides(); const sl = slides[Number(ab.closest('.slide-row').dataset.i)]; if(sl){ sl._toArchive = !sl._toArchive; formDirty = true; } drawSlides(); return; }
       const ib = e.target.closest('[data-simgdel]');
       if(ib){ syncSlides(); const sl = slides[Number(ib.closest('.slide-row').dataset.i)]; if(sl){ sl.image = null; sl.imageV = null; sl.pending = null; sl.pendingUrl = null; } drawSlides(); return; }
       const b = e.target.closest('[data-sdel]'); if(!b) return;
@@ -2874,6 +2997,7 @@
         for(let i = 0; i < slides.length; i++){
           const sl = slides[i];
           const out = { id:sl.id || ('s' + Date.now() + i), title:sl.title || '', date:sl.date || '', link:sl.link || '', linkText:sl.linkText || '', body:isEmptyVal(sl.body) ? '' : String(sl.body).trim(), author:sl.author || '', image:sl.image || null, imageV:sl.imageV || null };
+          if(sl.vis === 'private' && sl.pwHash){ out.vis = 'private'; out.pwHash = sl.pwHash; }
           if(sl.pending){
             const ip = `assets/ymkb_slide_${out.id}.${sl.pending.ext}`;
             await ghPut(ip, await blobToBase64(sl.pending.blob), `Update slide image: ${out.title}`);
@@ -2934,7 +3058,8 @@
     const lvl = getToken() ? (editModeOn() ? 2 : 1) : 0;
     menuModal.querySelectorAll('[data-need]').forEach(el => { el.style.display = lvl >= Number(el.dataset.need) ? '' : 'none'; });
   }
-  document.getElementById('menuBtn').addEventListener('click', () => { applyEditMode(); applyMenuLevel(); menuModal.classList.add('active'); });
+  let menuReturn = false;
+  document.getElementById('menuBtn').addEventListener('click', () => { menuReturn = false; applyEditMode(); applyMenuLevel(); menuModal.classList.add('active'); });
   document.getElementById('menuClose').addEventListener('click', () => menuModal.classList.remove('active'));
   menuModal.addEventListener('click', (e) => {
     if(e.target === menuModal){ menuModal.classList.remove('active'); return; }
@@ -2945,6 +3070,16 @@
       return;
     }
     menuModal.classList.remove('active');
+    menuReturn = true;
+    setTimeout(() => { if(!document.getElementById('formModal').classList.contains('active') && !document.getElementById('settingsModal').classList.contains('active')) menuReturn = false; }, 600);
+  });
+  // 설정에서 연 창을 닫으면(X) 다시 설정 창으로 돌아간다.
+  [document.getElementById('formModal'), document.getElementById('settingsModal')].forEach(m => {
+    new MutationObserver(() => {
+      if(!menuReturn || m.classList.contains('active')) return;
+      if(document.getElementById('formModal').classList.contains('active') || document.getElementById('settingsModal').classList.contains('active')) return;
+      menuReturn = false; applyEditMode(); applyMenuLevel(); menuModal.classList.add('active');
+    }).observe(m, { attributes:true, attributeFilter:['class'] });
   });
 
   function showOcStatus(){
@@ -2965,10 +3100,12 @@
       <div class="spec-row"><span class="spec-label" style="min-width:110px">마지막 업데이트</span><span class="spec-sep">|</span><span class="spec-value" id="ocLastUpdate">불러오는 중...</span></div>
       <hr class="soft-divider oc-hr">
       <div class="f-group oc-group">연결된 캐릭터</div>
-      ${rows}
+      <div id="ocRows">${rows}</div>
       ${ocSkipped.length ? `<div class="f-group">오너가 호원이 아니라 연동하지 않은 캐릭터</div><p class="form-hint">${ocSkipped.map(esc).join(', ')}</p>` : ''}
       ${unmatched.length ? `<div class="f-group">oc에는 있지만 ymkb에서 이름이 맞지 않는 캐릭터</div><p class="form-hint">${unmatched.map(esc).join(', ')}<br>ymkb의 이름을 oc와 똑같이 맞춰 주세요.</p>` : ''}`;
     formModal.classList.add('active');
+    { const rs = document.querySelectorAll('#ocRows .oc-row');
+      if(rs.length > 12){ const box = document.getElementById('ocRows'); box.classList.add('oc-scroll'); box.style.maxHeight = (rs[11].offsetTop + rs[11].offsetHeight - rs[0].offsetTop) + 'px'; } }
     // 캐릭터 파일별 마지막 저장 시각은 oc 저장소의 커밋 기록에서 가져온다.
     const dates = [];
     const lastEl = document.getElementById('ocLastUpdate');
