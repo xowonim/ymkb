@@ -754,7 +754,7 @@ body{ min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; 
 
 /* site form: folding + slide drag */
 .slide-head{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-.slide-grip{ cursor:grab; touch-action:none; font-size:20px; line-height:1; color:var(--muted); padding:2px 6px; user-select:none; }
+.slide-grip{ cursor:grab; touch-action:none; font-size:16px; line-height:1; color:var(--muted); width:22px; text-align:center; letter-spacing:-2px; user-select:none; flex:0 0 auto; }
 .slide-name{ flex:1; min-width:0; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .body-fold{ background:none; border:none; padding:4px 0; cursor:pointer; font-family:inherit; font-size:12px; font-weight:600; color:var(--ink); display:flex; align-items:center; gap:7px; text-align:left; }
 .body-fold::before{ content:''; border-left:6px solid var(--ink); border-top:4px solid transparent; border-bottom:4px solid transparent; transform:rotate(90deg); transition:transform .15s; }
@@ -960,3 +960,11 @@ body.edit-mode .archive-actions{ display:flex; }
 #esLoc{ flex-wrap:nowrap; }
 #esLoc .es-opt{ flex:1 1 0; }
 #formModal .tpl-tab, #formModal .tpl-btns button, #formModal .tpl-add button{ border-radius:6px !important; }
+
+.logo{ flex:0 0 70px; height:70px; }
+.header-row{ padding-left:10px; }
+.title-bar h1{ font-size:22px; }
+.carousel{ position:static; }
+.main-grid{ position:relative; }
+.fab-sns{ left:auto; right:6px; margin-left:0; }
+@media (max-width:900px){ .fab-sns{ right:auto; } }
