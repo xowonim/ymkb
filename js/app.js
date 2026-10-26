@@ -564,6 +564,7 @@
       fl.href = rawUrl(site.favicon, site.faviconV);
     }
     if(site.logo) document.querySelector('.logo').innerHTML = `<img src="${esc(rawUrl(site.logo, site.logoV))}" alt="" onerror="window.__imgErr(this)">`;
+    (function(){ const eb = document.getElementById('etcBody'), pg = site.pages.etc; if(eb && pg && !isEmptyVal(pg.body)){ eb.innerHTML = toRich(pg.body); eb.style.display = ''; } })();
     PAGE_KEYS.forEach(([k, label]) => {
       const box = document.querySelector(`#page-${k} .placeholder`);
       const pg = site.pages[k];
@@ -1881,7 +1882,7 @@
     return vals;
   }
 
-  const CLASS_FLAGS = ['회장', '부회장', '복학생', '편입생'];
+  const CLASS_FLAGS = ['회장', '부회장', '복학생', '편입생', '유급생'];
   function renderDynamic(tpl, values){
     const box = document.getElementById('fDynamic');
     const prev = document.getElementById('fClubHead');
@@ -1931,18 +1932,18 @@
       <div class="f-group">NAME</div>
       ${fInput('이름', 'fName', info ? info.name : '')}
 
-      <div class="f-group">GROUP · 카테고리 설정용 <span class="f-group-note">(프로필에 안 떠요!!)</span></div>
+      <div class="f-group">CATEGORY <span class="f-group-note">(프로필에 표시 X)</span></div>
+      <div class="f-sub">GROUP</div>
       <label class="f-row"><span>그룹명</span><input class="f-input" id="fGroup" list="fGroupNames" value="${esc(info ? info.group : '')}" autocomplete="off"></label>
       <datalist id="fGroupNames">${groups.map(g => g.name).sort((a, b) => a.localeCompare(b, 'ko')).map(n => `<option value="${esc(n)}">`).join('')}</datalist>
-      <div class="f-row"><span>역할</span><div class="f-checks">
+      <div class="f-row"><div class="f-role-line">
         <label class="f-check"><input type="checkbox" id="fRoleLeader" ${role0 === '리더' ? 'checked' : ''}><span>리더</span></label>
         <label class="f-check"><input type="checkbox" id="fRoleManager" ${role0 === '매니저' ? 'checked' : ''}><span>매니저</span></label>
+        <div class="f-inline f-role-color"><span class="gd-color-dot" id="fColorDot" style="background:${info && colorMap[info.color] ? colorMap[info.color] : 'transparent'}"></span><input class="f-input" id="fColor" list="fColorNames" placeholder="역할" value="${esc(info && info.color ? info.color : '')}" autocomplete="off"></div>
       </div></div>
-      <div class="f-row"><span>그룹 내 담당 컬러 (선택)</span>
-        <div class="f-inline"><span class="gd-color-dot" id="fColorDot" style="background:${info && colorMap[info.color] ? colorMap[info.color] : 'transparent'}"></span><input class="f-input" id="fColor" list="fColorNames" value="${esc(info && info.color ? info.color : '')}" autocomplete="off"></div></div>
       <datalist id="fColorNames">${colorNames.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
 
-      <div class="f-group">CLASS · 카테고리 설정용 <span class="f-group-note">(프로필에 안 떠요!!)</span></div>
+      <div class="f-sub">CLASS</div>
       <label class="f-row"><span>학급</span><input class="f-input" value="${esc(info && info.classId ? info.classId : '미지정')}" readonly></label>
       <div class="f-checks" id="fClassFlags">${CLASS_FLAGS.map(fl => `<label class="f-check"><input type="checkbox" data-cflag="${fl}" ${((info && info.classFlags) || []).includes(fl) ? 'checked' : ''}><span>${fl}</span></label>`).join('')}</div>
 
@@ -2724,9 +2725,10 @@
     let sec = document.getElementById('archiveSec');
     if(!sec){ sec = document.createElement('section'); sec.id = 'archiveSec'; sec.className = 'archive-sec'; page.appendChild(sec); }
     const items = Object.values(map || {}).sort((a, b) => (b.at || 0) - (a.at || 0));
-    sec.innerHTML = `<h3 class="archive-title">ARCHIVE</h3>` + (items.length ? items.map((it, i) => `<div class="archive-item" data-i="${i}">
-      <div class="archive-main">${it.image ? `<img class="archive-thumb" src="${esc(rawUrl(it.image, it.imageV))}" alt="" onerror="window.__imgErr(this)">` : ''}<div class="archive-text"><div class="archive-name">${esc(it.title || '(제목 없음)')}</div><div class="archive-meta">${esc(it.date || '')}${it.author ? (it.date ? ' · ' : '') + esc(it.author) : ''}</div></div></div>
-      <div class="archive-actions edit-only"><button type="button" class="btn-sm" data-amain>메인으로 이동</button></div></div>`).join('') : '<p class="archive-empty">보관된 글이 없습니다.</p>');
+    sec.innerHTML = `<h3 class="archive-title">ARCHIVE</h3>` + (items.length ? `<div class="archive-grid">` + items.map((it, i) => `<div class="archive-item" data-i="${i}">
+      <div class="archive-img">${it.image ? `<img src="${esc(rawUrl(it.image, it.imageV))}" alt="" onerror="window.__imgErr(this)">` : ''}</div>
+      <div class="archive-text"><div class="archive-name">${esc(it.title || '(제목 없음)')}</div><div class="archive-meta">${esc(it.date || '')}${it.author ? (it.date ? ' · ' : '') + esc(it.author) : ''}</div></div>
+      <div class="archive-actions edit-only"><button type="button" class="btn-sm" data-amain>메인으로 이동</button></div></div>`).join('') + `</div>` : '<p class="archive-empty">보관된 글이 없습니다.</p>');
     sec.onclick = async (e) => {
       const row = e.target.closest('.archive-item'); if(!row) return;
       const it = items[Number(row.dataset.i)]; if(!it) return;
