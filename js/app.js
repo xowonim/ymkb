@@ -2858,7 +2858,8 @@
     const page = document.getElementById('page-etc'); if(!page) return;
     let sec = document.getElementById('archiveSec');
     if(!sec){ sec = document.createElement('section'); sec.id = 'archiveSec'; sec.className = 'archive-sec'; page.appendChild(sec); }
-    const all = Object.values(archiveMap || {}).sort((a, b) => (b.at || 0) - (a.at || 0));
+    const dkey = (it) => { const m = String(it.date || '').match(/(\d{4})\D*(\d{1,2})\D*(\d{1,2})/); return m ? (+m[1]) * 10000 + (+m[2]) * 100 + (+m[3]) : 0; };
+    const all = Object.values(archiveMap || {}).sort((a, b) => (dkey(b) - dkey(a)) || ((b.at || 0) - (a.at || 0)));
     const items = arcFilter.size ? all.filter(it => arcFilter.has(it.author)) : all;
     const card = (it, i) => {
       const priv = it.vis === 'private';
