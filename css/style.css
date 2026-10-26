@@ -853,14 +853,24 @@ button{ color:var(--ink); }
 .rt-toolbar button, .editor-tools button, .editor-author button, .ed-swatch{ border-radius:8px !important; }
 .ed-swatch{ border-radius:6px !important; }
 
-/* ARCHIVE (ETC 하단) */
-.archive-sec{ max-width:760px; margin:40px auto 0; padding:0 4px; }
-.archive-title{ font-size:15px; letter-spacing:.14em; font-weight:700; padding-bottom:10px; border-bottom:1px solid var(--line); margin:0 0 4px; }
-.archive-item{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 0; border-bottom:1px solid var(--line); cursor:pointer; }
-.archive-main{ display:flex; align-items:center; gap:14px; min-width:0; }
-.archive-thumb{ width:88px; height:56px; object-fit:cover; flex:none; }
-.archive-name{ font-size:15px; font-weight:600; }
-.archive-meta{ font-size:12px; color:var(--muted,#888); margin-top:3px; }
-.archive-empty{ font-size:13px; color:var(--muted,#888); padding:18px 0; }
-.archive-actions{ display:none; flex:none; }
+/* ARCHIVE (ETC) */
+.archive-sec{ margin:8px 0 0; }
+.archive-title{ font-size:20px; letter-spacing:.1em; font-weight:700; padding-bottom:12px; border-bottom:1px solid var(--line); margin:0 0 20px; }
+.archive-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:22px; }
+.archive-item{ cursor:pointer; display:flex; flex-direction:column; gap:10px; }
+.archive-img{ aspect-ratio:16/10; background:var(--line); overflow:hidden; }
+.archive-img img{ width:100%; height:100%; object-fit:cover; display:block; }
+.archive-name{ font-size:17px; font-weight:700; line-height:1.4; }
+.archive-meta{ font-size:13px; color:var(--muted,#888); margin-top:4px; }
+.archive-empty{ font-size:14px; color:var(--muted,#888); padding:18px 0; }
+.archive-actions{ display:none; }
 body.edit-mode .archive-actions{ display:flex; }
+
+/* 캐릭터/그룹 입력 폼: 입력칸과 버튼만 살짝 둥글게, 이미지와 전체 박스는 직각 */
+.f-sub{ font-size:12px; font-weight:700; letter-spacing:0.06em; margin:14px 0 8px; color:var(--ink); }
+.f-role-line{ display:flex; align-items:center; gap:22px; flex-wrap:wrap; padding:4px 0; }
+.f-role-line .f-check{ margin:0; }
+.f-role-color{ flex:1 1 160px; min-width:150px; gap:10px; }
+#formModal:has(#fName) .f-input, #formModal:has(#gName) .f-input,
+#formModal:has(#fName) .btn-sm, #formModal:has(#gName) .btn-sm,
+#formModal:has(#fName) .form-submit, #formModal:has(#gName) .form-submit{ border-radius:6px !important; }
