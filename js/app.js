@@ -2596,6 +2596,32 @@
       } else { edBody.focus(); document.execCommand(v === 'left' ? 'justifyLeft' : v === 'center' ? 'justifyCenter' : 'justifyRight'); }
     });
   });
+  // 지금 커서/선택 위치에 적용된 서식을 툴바 버튼에 표시한다.
+  function updateFmtState(){
+    if(!editorModal.classList.contains('active')) return;
+    const sel = window.getSelection();
+    let n = null;
+    if(sel && sel.rangeCount){ const r0 = sel.getRangeAt(0); n = r0.startContainer; if(n.nodeType === 1 && !r0.collapsed && n.childNodes[r0.startOffset]) n = n.childNodes[r0.startOffset]; }
+    if(n && n.nodeType === 3) n = n.parentNode;
+    const inEd = n && edBody.contains(n);
+    const img = selImg();
+    const el = img || (inEd ? n : null);
+    const has = (q) => !!(el && el.closest && edBody.contains(el.closest(q)) && el.closest(q) !== edBody);
+    const set = (cmd, on) => { const b = edTools.querySelector(`[data-rt="${cmd}"]`); if(b) b.classList.toggle('on', !!on); };
+    set('bold', has('b, strong')); set('italic', has('i, em')); set('underline', has('u')); set('strikeThrough', has('s, strike, del')); set('header', has('h3'));
+    let al = 'left';
+    if(el){
+      let blk = el; while(blk && blk !== edBody && !/^(DIV|P|H3|LI|SUMMARY)$/.test(blk.tagName)) blk = blk.parentElement;
+      if(blk && blk !== edBody){ const ta = getComputedStyle(blk).textAlign; al = ta === 'center' ? 'center' : (ta === 'right' || ta === 'end') ? 'right' : 'left'; }
+    }
+    edTools.querySelectorAll('[data-al]').forEach(b => b.classList.toggle('on', !!el && b.dataset.al === al));
+    const cEl = el && el.closest ? el.closest('[data-c]') : null;
+    const cv = cEl && edBody.contains(cEl) ? cEl.getAttribute('data-c') : '';
+    edTools.querySelectorAll('.ed-swatch').forEach(b => b.classList.toggle('on', !!cv && b.dataset.color === cv));
+  }
+  ['selectionchange'].forEach(ev => document.addEventListener(ev, updateFmtState));
+  ['keyup', 'mouseup', 'touchend', 'input', 'click'].forEach(ev => edBody.addEventListener(ev, () => setTimeout(updateFmtState, 0)));
+  edTools.addEventListener('click', () => setTimeout(updateFmtState, 30));
   let edSelRange = null; // 마지막으로 드래그해 둔 글씨 범위 (버튼을 눌러도 선택이 풀리지 않게)
   document.addEventListener('selectionchange', () => {
     const sel = window.getSelection();
