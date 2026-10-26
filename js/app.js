@@ -2122,8 +2122,8 @@
         if(clean.length) fields[f.key] = clean; else delete fields[f.key];
       }
       await ghPut(`${CHAR_DIR}/${id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `${info ? 'Update' : 'Add'} character: ${name}`);
-      for(const gp of galDel){ if(!galKeep.has(gp)){ try { await ghDelete(gp, `Remove gallery image: ${name}`); } catch(e){} } }
-      if(prev.image && prev.image !== data.image){ try { await ghDelete(prev.image, `Replace image: ${name}`); } catch(e){} }
+      for(const gp of galDel){ if(!galKeep.has(gp)) await dropImage(gp, 'char:' + id, `Remove gallery image: ${name}`); }
+      if(prev.image && prev.image !== data.image) await dropImage(prev.image, 'char:' + id, `Replace image: ${name}`);
       reloadKeepingView({ profile:name });
     } catch(e){
       btn.disabled = false; btn.textContent = '저장';
@@ -2159,7 +2159,7 @@
         await ghPut(`${CHAR_DIR}/${id}.json`, toBase64Text(JSON.stringify({ id, name, file:id, deleted:true }, null, 2) + '\n'), `Delete character: ${name}`);
       } else if(cf){
         await ghDelete(cf._path, `Delete character: ${name}`);
-        if(cf.image){ try { await ghDelete(cf.image, `Delete image: ${name}`); } catch(e){} }
+        if(cf.image) await dropImage(cf.image, 'char:' + cf.id, `Delete image: ${name}`);
       } else { alert('지울 데이터를 찾지 못했어요.'); return; }
       reloadKeepingView();
     } catch(e){
@@ -2389,9 +2389,9 @@
       }
       data.discography = outDisco;
       await ghPut(`${GROUP_DIR}/${id}.json`, toBase64Text(JSON.stringify(data, null, 2) + '\n'), `${g ? 'Update' : 'Add'} group: ${name}`);
-      if(oldImage && oldImage !== data.image){ try { await ghDelete(oldImage, `Replace group image: ${name}`); } catch(e){} }
+      if(oldImage && oldImage !== data.image) await dropImage(oldImage, 'group:' + id, `Replace group image: ${name}`);
       const keep = new Set(outDisco.map(d => d.cover).filter(Boolean));
-      for(const c of oldCovers){ if(!keep.has(c)){ try { await ghDelete(c, 'Remove cover'); } catch(e){} } }
+      for(const c of oldCovers){ if(!keep.has(c)) await dropImage(c, 'group:' + id, 'Remove cover'); }
       reloadKeepingView();
     } catch(e){
       btn.disabled = false; btn.textContent = '저장';
@@ -2408,7 +2408,8 @@
         await ghPut(`${GROUP_DIR}/${g.id}.json`, toBase64Text(JSON.stringify({ id:g.id, name:g.name, deleted:true }, null, 2) + '\n'), `Delete group: ${g.name}`);
       } else if(g.file){
         await ghDelete(g.file._path, `Delete group: ${g.name}`);
-        if(g.file.image){ try { await ghDelete(g.file.image, `Delete group image: ${g.name}`); } catch(e){} }
+        if(g.file.image) await dropImage(g.file.image, 'group:' + g.id, `Delete group image: ${g.name}`);
+        for(const d of (Array.isArray(g.discography) ? g.discography : [])){ if(d && d.cover) await dropImage(d.cover, 'group:' + g.id, 'Remove cover'); }
       }
       reloadKeepingView();
     } catch(e){ alert('삭제에 실패했어요: ' + e.message); }
@@ -2803,6 +2804,22 @@
   });
   document.addEventListener('keydown', (ev) => { if(ev.key === 'Escape' && editorModal.classList.contains('active')){ ev.stopImmediatePropagation(); document.getElementById('edClose').click(); } }, true);
 
+  // 사이트 전체(메인 화면, 공지사항, 아카이브, 캐릭터, 그룹)에서 이 이미지를 쓰는 곳이 있는지 본다.
+  function assetUsed(path, ownerKey){
+    const corpus = [];
+    { const rest = Object.assign({}, site); delete rest.slides; corpus.push({ k:'site', o:rest }); }
+    (site.slides || []).forEach(x => corpus.push({ k:'slide:' + x.id, o:x }));
+    Object.values(archiveMap || {}).forEach(x => corpus.push({ k:'arc:' + x.id, o:x }));
+    Object.values(charFiles || {}).forEach(x => corpus.push({ k:'char:' + x.id, o:x }));
+    (groups || []).forEach(x => corpus.push({ k:'group:' + x.id, o:x }));
+    return corpus.some(e => e.k !== ownerKey && JSON.stringify(e.o).includes(path));
+  }
+  // 이미지를 지운다. 사이트 안 다른 곳에서 쓰고 있으면 남긴다.
+  async function dropImage(path, ownerKey, msg){
+    if(!path || !/^assets\//.test(String(path))) return;
+    if(assetUsed(String(path), ownerKey)) return;
+    try { await ghDelete(String(path), msg || 'Remove unused image'); } catch(e){ console.warn('이미지 삭제 실패', path, e); }
+  }
   // 글에 쓰인 이미지 파일 목록 (대표 이미지 + 본문 이미지)
   function assetsOf(it){
     const set = new Set();
@@ -3055,11 +3072,13 @@
           await ghPut(lp, await blobToBase64(pendingLogo.blob), 'Update logo');
           next.logo = lp; next.logoV = Date.now();
         }
+        if(site.logo && site.logo !== next.logo) await dropImage(site.logo, 'site', 'Remove old logo');
         if(pendingFav){
           const fp = `assets/ymkb_favicon.${pendingFav.ext}`;
           await ghPut(fp, await blobToBase64(pendingFav.blob), 'Update favicon');
           next.favicon = fp; next.faviconV = Date.now();
         }
+        if(site.favicon && site.favicon !== next.favicon) await dropImage(site.favicon, 'site', 'Remove old favicon');
         const archKeep = new Set();
         for(let i = 0; i < slides.length; i++){
           const sl = slides[i];
@@ -3086,6 +3105,7 @@
               await ghPut(pPath, toBase64Text(JSON.stringify({ id:out.id, name:out.title || out.id, title:out.title, body:out.body, author:out.author }, null, 2) + '\n'), `Save post: ${out.title}`);
             } else if(!out.body && sl._origBody){ await ghDelete(pPath, `Remove post: ${out.title}`); }
           }
+          { const oldS = (site.slides || []).find(x => x.id === out.id); if(oldS){ const nowA = assetsOf(out); for(const a of assetsOf(oldS)){ if(!nowA.has(a)) await dropImage(a, 'slide:' + out.id, 'Remove replaced image'); } } }
           if(sl._toArchive){
             assetsOf(out).forEach(a => archKeep.add(a));
             const af = Object.assign({}, out, { name: out.title || out.id, at: Date.now() });
