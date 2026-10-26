@@ -2803,6 +2803,46 @@
   });
   document.addEventListener('keydown', (ev) => { if(ev.key === 'Escape' && editorModal.classList.contains('active')){ ev.stopImmediatePropagation(); document.getElementById('edClose').click(); } }, true);
 
+  // 글에 쓰인 이미지 파일 목록 (대표 이미지 + 본문 이미지)
+  function assetsOf(it){
+    const set = new Set();
+    if(!it) return set;
+    if(it.image) set.add(String(it.image));
+    (String(it.body || '').match(/assets\/[^"'\s<>]+/g) || []).forEach(a => set.add(a));
+    if(it.cover) set.add(String(it.cover));
+    return set;
+  }
+  // 다른 글에서 아직 쓰는 이미지는 남기고, 아무도 안 쓰는 이미지만 깃허브에서 지운다.
+  async function purgeAssets(paths, exceptId, extraKeep){
+    const used = new Set(extraKeep || []);
+    Object.values(archiveMap || {}).forEach(x => { if(x && x.id !== exceptId) assetsOf(x).forEach(a => used.add(a)); });
+    (site.slides || []).forEach(x => { if(x && x.id !== exceptId) assetsOf(x).forEach(a => used.add(a)); });
+    const targets = new Set([...paths].filter(a => /^assets\//.test(a)));
+    // 어느 글에서도 쓰지 않는 예전 글 이미지(ymkb_post_, ymkb_slide_)도 함께 정리한다.
+    try {
+      const res = await ghGet(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/assets?ref=${GH_BRANCH}&t=${Date.now()}`);
+      if(res.ok){ (await res.json()).forEach(f => { if(f.type === 'file' && /^ymkb_(post|slide)_/.test(f.name)) targets.add('assets/' + f.name); }); }
+    } catch(e){}
+    for(const a of targets){
+      if(used.has(a)) continue; // 다른 글에서 쓰는 이미지는 남긴다
+      try { await ghDelete(a, 'Remove unused image'); } catch(e){ console.warn('이미지 삭제 실패', a, e); }
+    }
+  }
+  let cfModal = null, cfYes = null;
+  function askConfirm(msg, onYes){
+    if(!cfModal){
+      cfModal = document.createElement('div');
+      cfModal.className = 'modal-overlay alert-overlay';
+      cfModal.innerHTML = '<div class="alert-box"><p id="cfMsg" style="white-space:pre-line"></p><div class="alert-btns"><button type="button" class="btn-sm" id="cfNo">취소</button><button type="button" class="btn-sm danger" id="cfYes">삭제</button></div></div>';
+      document.body.appendChild(cfModal);
+      const close = () => { cfModal.classList.remove('active'); cfYes = null; };
+      document.getElementById('cfNo').addEventListener('click', close);
+      document.getElementById('cfYes').addEventListener('click', () => { const cb = cfYes; close(); if(cb) cb(); });
+      cfModal.addEventListener('click', (e) => { if(e.target === cfModal) close(); });
+    }
+    document.getElementById('cfMsg').textContent = msg; cfYes = onYes;
+    cfModal.classList.add('active');
+  }
   /* ---------------- ARCHIVE (ETC) ---------------- */
   let archiveMap = {}, arcFilter = new Set(), arcFilterOpen = false;
   const pad2s = (n) => String(n).padStart(2, '0');
@@ -2849,6 +2889,7 @@
       if(old && old._path) { try { await ghDelete(old._path, 'Remove from archive'); } catch(e){} }
     }
     if(old && o.loc === 'archive' && old._path && old._path !== `${ARCHIVE_DIR}/${id}.json`){ try { await ghDelete(old._path, 'Remove old archive file'); } catch(e){} }
+    if(old){ const now = assetsOf(post); const gone = [...assetsOf(old)].filter(a => !now.has(a)); if(gone.length) await purgeAssets(gone, id); }
     reloadKeepingView();
   }
   function openArchiveEditor(old){
@@ -2871,7 +2912,7 @@
       return `<div class="archive-item${cover ? ' has-img' : ''}" data-i="${i}">
         ${cover ? `<div class="archive-img"><img src="${esc(cover)}" alt="" onerror="window.__imgErr(this)"></div>` : ''}
         <div class="archive-text"><div class="archive-date">${date}${it.author ? ' · ' + esc(it.author) : ''}</div><div class="archive-name">${esc(it.title || '(제목 없음)')}</div>${cover && !priv ? '' : `<div class="archive-excerpt">${esc(text)}</div>`}</div>
-        <div class="archive-actions edit-only"><button type="button" class="btn-sm" data-aed>에디터로 열기</button></div></div>`;
+        <div class="archive-actions edit-only"><button type="button" class="btn-sm" data-aed>에디터로 열기</button><button type="button" class="btn-sm danger" data-adel>삭제</button></div></div>`;
     };
     sec.innerHTML = `<div class="archive-head"><h3 class="archive-title">ARCHIVE</h3>
       <div class="archive-tools"><button type="button" class="btn-sm edit-only" id="arcOpenEd">에디터 열기</button><button type="button" class="btn-sm${arcFilter.size ? ' on' : ''}" id="arcFilterBtn">필터${arcFilter.size ? ' (' + arcFilter.size + ')' : ''}</button></div></div>
@@ -2885,6 +2926,14 @@
       if(arcFilterOpen && !e.target.closest('.archive-filter-pop')){ arcFilterOpen = false; renderArchive(); }
       const row = e.target.closest('.archive-item'); if(!row) return;
       const it = items[Number(row.dataset.i)]; if(!it) return;
+      if(e.target.closest('[data-adel]')){
+        const doDel = () => askConfirm(`'${it.title || '(제목 없음)'}' 글을 삭제할까요?\n삭제하면 되돌릴 수 없습니다.`, async () => {
+          try { await ghDelete(it._path || `${ARCHIVE_DIR}/${it.id}.json`, `Delete archive post: ${it.title}`); await purgeAssets(assetsOf(it), it.id); reloadKeepingView(); }
+          catch(err){ alert('삭제에 실패했어요: ' + err.message); }
+        });
+        if(it.vis === 'private' && it.pwHash) askPassword(it.pwHash, doDel); else doDel();
+        return;
+      }
       if(e.target.closest('[data-aed]')){ if(it.vis === 'private' && it.pwHash) askPassword(it.pwHash, () => openArchiveEditor(it)); else openArchiveEditor(it); return; }
       const url = safeUrl(it.link);
       const go = () => {
@@ -3011,6 +3060,7 @@
           await ghPut(fp, await blobToBase64(pendingFav.blob), 'Update favicon');
           next.favicon = fp; next.faviconV = Date.now();
         }
+        const archKeep = new Set();
         for(let i = 0; i < slides.length; i++){
           const sl = slides[i];
           const out = { id:sl.id || ('s' + Date.now() + i), title:sl.title || '', date:sl.date || '', link:sl.link || '', linkText:sl.linkText || '', body:isEmptyVal(sl.body) ? '' : String(sl.body).trim(), author:sl.author || '', image:sl.image || null, imageV:sl.imageV || null };
@@ -3037,12 +3087,14 @@
             } else if(!out.body && sl._origBody){ await ghDelete(pPath, `Remove post: ${out.title}`); }
           }
           if(sl._toArchive){
+            assetsOf(out).forEach(a => archKeep.add(a));
             const af = Object.assign({}, out, { name: out.title || out.id, at: Date.now() });
             await ghPut(`${ARCHIVE_DIR}/${out.id}.json`, toBase64Text(JSON.stringify(af, null, 2) + '\n'), `Move to archive: ${out.title}`);
           } else { const m = Object.assign({}, out); delete m.body; next.slides.push(m); }
         }
         const keepIds = new Set(next.slides.map(x => x.id));
         for(const old of site.slides){ if(old && old.id && !keepIds.has(old.id) && old._origBody){ try { await ghDelete(`${POST_DIR}/${old.id}.json`, 'Remove post'); } catch(e){} } }
+        { const keepNow = new Set(archKeep); next.slides.forEach(x => assetsOf(x).forEach(a => keepNow.add(a))); slides.forEach(x => assetsOf(x).forEach(a => keepNow.add(a))); const archivedIds = new Set(slides.filter(x => x._toArchive).map(x => x.id)); for(const old of site.slides){ if(old && old.id && !keepIds.has(old.id) && !archivedIds.has(old.id)){ await purgeAssets([...assetsOf(old)], old.id, keepNow); } } }
         next.pages = site.pages || {}; // 학생회/기숙사/ETC 페이지 내용은 지금 만지지 않고 그대로 보존한다.
         const ok = await jsonChange(SITE_PATH, () => ({}), (d) => { const keepOrder = d.order, keepCouncil = d.council; Object.keys(d).forEach(key => delete d[key]); Object.assign(d, next); if(keepOrder) d.order = keepOrder; if(keepCouncil) d.council = keepCouncil; }, 'Update site settings');
         if(ok) reloadKeepingView(); else { btn.disabled = false; btn.textContent = '저장'; }
