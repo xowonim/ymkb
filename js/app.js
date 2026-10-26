@@ -15,6 +15,14 @@
   }));
   document.getElementById('headerHome').addEventListener('click', () => goPage('main'));
 
+  /* ---------------- 이미지 저장 막기 (편집 모드가 아닐 때) ---------------- */
+  (function(){
+    const guard = () => !document.body.classList.contains('edit-mode');
+    const isImg = (t) => t && t.closest && t.closest('img, .slide, .p-thumb, .hd-cover, .gal-cell, .archive-img, .lightbox, .f-thumb');
+    document.addEventListener('contextmenu', (e) => { if(guard() && isImg(e.target)) e.preventDefault(); });
+    document.addEventListener('dragstart', (e) => { if(guard() && e.target && e.target.tagName === 'IMG') e.preventDefault(); });
+  })();
+
   /* ---------------- 일부공개 글 비밀번호 ---------------- */
   async function hashPw(pw){
     const text = 'ymkb:' + String(pw);
