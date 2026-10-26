@@ -34,8 +34,8 @@ a{ color:inherit; text-decoration:none; }
   cursor:pointer;
 }
 .logo{
-  flex:0 0 80px;
-  height:80px;
+  flex:0 0 62px;
+  height:62px;
   border-radius:0;
   background:none;
   border:none;
@@ -544,7 +544,7 @@ body.edit-mode #clGallery .photo-card,
 body.edit-mode #clubList .photo-card,
 body.edit-mode #clubList .club-title{ cursor:grab; }
 .photo-card img{ -webkit-user-drag:none; user-select:none; }
-.dragging{ opacity:0.45; outline:2px dashed var(--accent); outline-offset:2px; }
+.dragging{ opacity:0.45; outline:2px solid var(--accent); outline-offset:2px; }
 body.sorting{ user-select:none; -webkit-user-select:none; cursor:grabbing; }
 .toast{ position:fixed; left:50%; bottom:78px; transform:translateX(-50%) translateY(10px); background:var(--accent); color:#fff; padding:9px 18px; border-radius:999px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:90; }
 .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
@@ -872,14 +872,14 @@ button{ color:var(--ink); }
 .nav-row{ padding-left:16px; }
 
 /* 추가 버튼 (눈에 띄게) */
-.add-btn{ display:block; width:100%; margin:6px 0 4px; padding:11px 12px; background:var(--surface); border:1px dashed var(--accent); color:var(--accent); font-family:inherit; font-size:13.5px; font-weight:700; cursor:pointer; border-radius:6px !important; }
+.add-btn{ display:block; width:100%; margin:6px 0 4px; padding:11px 12px; background:var(--surface); border:1px solid var(--accent); color:var(--accent); font-family:inherit; font-size:13.5px; font-weight:700; cursor:pointer; border-radius:6px !important; }
 .add-btn:hover{ background:var(--accent); color:#fff; }
 /* 날짜 칸 글씨 왼쪽 정렬 */
 input[type="date"].f-input{ text-align:left; -webkit-appearance:none; appearance:none; display:block; min-height:38px; }
 input[type="date"].f-input::-webkit-date-and-time-value{ text-align:left; }
 /* 클래스 목록 간격 */
-.grade-line{ padding:8px 0; }
-.class-btn{ padding:14px 0 !important; }
+.grade-line{ padding:14px 0 !important; }
+.class-btn{ padding:5px 0 !important; }
 /* 상세 창 제목과 담당 교사 사이 간격 */
 .gd-title{ margin-bottom:24px; }
 #clTeacherTag{ margin-bottom:0; }
@@ -900,7 +900,7 @@ body.edit-mode .archive-tools .edit-only{ display:inline-block; }
 .archive-filter{ display:flex; gap:8px; flex-wrap:wrap; margin:-6px 0 18px; justify-content:flex-end; }
 .archive-grid{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:22px; }
 @media (max-width:640px){ .archive-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; } }
-.archive-item{ cursor:pointer; background:#fff; border:1px solid var(--line); box-shadow:0 3px 12px rgba(40,30,60,0.10); padding:12px 12px 14px; display:flex; flex-direction:column; gap:12px; min-width:0; }
+.archive-item{ cursor:pointer; background:#fff; border:1px solid var(--line); box-shadow:none; padding:12px 12px 14px; display:flex; flex-direction:column; gap:12px; min-width:0; }
 .archive-img{ aspect-ratio:16/9; overflow:hidden; background:var(--line); display:flex; align-items:center; justify-content:center; }
 .archive-img img{ width:100%; height:100%; object-fit:cover; display:block; }
 .archive-text{ text-align:left; min-width:0; }
@@ -934,7 +934,29 @@ body.edit-mode .archive-actions{ display:flex; }
 /* 폼 / 설정 안의 입력칸과 버튼은 살짝 둥글게 (이미지와 큰 박스는 직각) */
 #formModal .f-input, #formModal .btn-sm, #formModal .form-submit, #formModal .add-btn,
 #settingsModal .f-input, #settingsModal .btn-sm, #settingsModal .form-submit,
-#menuModal .menu-item, .alert-box .btn-sm{ border-radius:6px !important; }
-#menuModal .menu-item{ border:1px solid var(--line); margin-bottom:8px; padding:12px 14px; }
+#menuModal .menu-item span#editModeState, .alert-box .btn-sm{ border-radius:6px !important; }
 #menuModal .menu-item span#editModeState.on{ border-radius:999px !important; }
 .oc-scroll{ overflow-y:auto; }
+
+#cropModal{ z-index:800 !important; }
+.archive-sec{ position:relative; }
+.archive-filter-pop{ position:absolute; right:0; top:46px; z-index:20; background:#fff; border:1px solid var(--line); box-shadow:0 8px 24px rgba(30,20,50,0.18); padding:8px 6px; min-width:150px; display:flex; flex-direction:column; }
+.af-row{ display:flex; align-items:center; gap:10px; padding:9px 12px; font-size:14px; cursor:pointer; }
+.af-row input{ width:16px; height:16px; accent-color:var(--accent); margin:0; }
+.es-thumb-row{ display:flex; gap:14px; align-items:flex-start; }
+.es-thumb{ width:128px; aspect-ratio:16/9; background:var(--surface-2); border:1px solid var(--line); overflow:hidden; flex:0 0 auto; }
+.es-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+.es-thumb-side{ display:flex; flex-direction:column; gap:8px; min-width:0; font-size:12px; }
+.es-thumb-side input[type=file]{ max-width:100%; font-size:12px; }
+.es-del{ color:#d64545; font-size:12.5px; }
+.archive-grid{ align-items:start; }
+
+/* 추가 버튼: 설정용 작은 버튼처럼, 왼쪽 정렬 */
+.add-btn{ display:inline-block; width:auto; margin:8px 0 4px; padding:6px 12px; background:var(--surface); border:1px solid var(--line); color:var(--ink); font-size:12px; font-weight:600; border-radius:6px !important; }
+.add-btn:hover{ background:var(--surface); border-color:var(--accent); color:var(--ink); }
+.f-group-note{ font-size:10px; }
+.slide-btns{ display:flex; justify-content:flex-end; gap:8px; }
+.archive-tools .btn-sm, .archive-tools button{ border-radius:6px !important; }
+#esLoc{ flex-wrap:nowrap; }
+#esLoc .es-opt{ flex:1 1 0; }
+#formModal .tpl-tab, #formModal .tpl-btns button, #formModal .tpl-add button{ border-radius:6px !important; }
