@@ -2614,6 +2614,11 @@
     if(!restoreSel(true)) return;
     wrapSel('data-c', b.dataset.color);
   }));
+  // 버튼에 손가락이 닿는 순간 선택 범위를 붙잡아 둔다 (태블릿에서 선택이 먼저 풀리는 경우 대비)
+  ['pointerdown', 'touchstart', 'mousedown'].forEach(ev => edTools.addEventListener(ev, () => {
+    const sel = window.getSelection();
+    if(sel && sel.rangeCount && !sel.isCollapsed && edBody.contains(sel.anchorNode)) edSelRange = sel.getRangeAt(0).cloneRange();
+  }, true));
   const stepSize = (d) => {
     if(!restoreSel(true)) return;
     const sel = window.getSelection(); const rg = sel.getRangeAt(0);
@@ -2621,24 +2626,26 @@
     const el = tn ? tn.parentElement : null;
     const px = parseFloat(getComputedStyle(el || edBody).fontSize) || 16;
     let cur = 3, best = 1e9; Object.keys(SIZE_PX).forEach(k => { const df = Math.abs(SIZE_PX[k] - px); if(df < best){ best = df; cur = +k; } });
-    wrapSel('data-s', String(Math.max(1, Math.min(7, cur + d))));
+    if(!wrapSel('data-s', String(Math.max(1, Math.min(7, cur + d))))) showToast('글씨 크기를 바꾸지 못했어요. 글씨를 다시 선택해 주세요.');
   };
   document.getElementById('edSizeUp').addEventListener('click', () => stepSize(1));
   document.getElementById('edSizeDown').addEventListener('click', () => stepSize(-1));
   edTools.querySelectorAll('#edSizeUp, #edSizeDown').forEach(b => b.addEventListener('mousedown', (ev) => ev.preventDefault()));
   edBody.addEventListener('click', (e) => { if(e.target.closest('summary')) e.preventDefault(); });
   // 줄에 --- 또는 — 만 적고 엔터를 치면 가로줄로 바꾼다.
-  edBody.addEventListener('keydown', (e) => {
-    if(e.key !== 'Enter' || e.isComposing) return;
+  const hrLine = /^(-{3,}|[—–―─━ー]+|_{3,}|\*{3,})$/;
+  const hrTry = (e) => {
     const sel = window.getSelection(); if(!sel.rangeCount) return;
     let n = sel.anchorNode; while(n && n.parentNode !== edBody) n = n.parentNode;
     if(!n || n === edBody) return;
-    if(!/^(-{3,}|—+|–+|_{3,})$/.test((n.textContent || '').trim())) return;
+    if(!hrLine.test((n.textContent || '').replace(/[\u200b\u00a0\s]/g, ''))) return;
     e.preventDefault();
     const hr = document.createElement('hr'), nd = document.createElement('div'); nd.innerHTML = '<br>';
     n.replaceWith(hr); hr.after(nd);
     const r = document.createRange(); r.setStart(nd, 0); r.collapse(true); sel.removeAllRanges(); sel.addRange(r);
-  });
+  };
+  edBody.addEventListener('keydown', (e) => { if(e.key === 'Enter') hrTry(e); });
+  edBody.addEventListener('beforeinput', (e) => { if(e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') hrTry(e); });
   // 작성자 (글을 분류하는 용도)
   let edAuthor = '';
   const authorBox = document.getElementById('edAuthor');
