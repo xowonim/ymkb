@@ -2685,10 +2685,12 @@
   const paintAuthor = () => authorBox.querySelectorAll('.ed-author-btn').forEach(b => b.classList.toggle('on', b.dataset.o === edAuthor));
   authorBox.addEventListener('click', (e) => { const b = e.target.closest('.ed-author-btn'); if(!b) return; edAuthor = edAuthor === b.dataset.o ? '' : b.dataset.o; paintAuthor(); });
   let edLoc = 'notice', edVis = 'public', edPwHash = '';
+  let edThumb = { image:null, imageV:null, pending:null, pendingUrl:null };
   function openBodyEditor(sl, done){
     edDone = done;
     document.getElementById('edTitle').value = sl.title || '';
     edLoc = sl.loc === 'archive' ? 'archive' : 'notice'; edVis = sl.vis === 'private' ? 'private' : 'public'; edPwHash = sl.pwHash || '';
+    edThumb = { image:sl.image || null, imageV:sl.imageV || null, pending:sl.pending || null, pendingUrl:sl.pendingUrl || null };
     edBody.innerHTML = sl.body ? toRich(sl.body) : '';
     edBody.querySelectorAll('details').forEach(d => { d.open = true; });
     edAuthor = sl.author || ''; paintAuthor();
@@ -2710,6 +2712,17 @@
     document.querySelectorAll('#esVis .es-opt').forEach(b => b.classList.toggle('on', b.dataset.v === edVis));
     document.getElementById('esPw').style.display = edVis === 'private' ? '' : 'none';
   };
+  const paintThumb = () => {
+    const box = document.getElementById('esThumb');
+    const src = edThumb.pendingUrl || (edThumb.image ? rawUrl(edThumb.image, edThumb.imageV) : '');
+    box.innerHTML = src ? `<img src="${esc(src)}" alt="">` : '';
+    document.getElementById('esThumbDel').style.display = src ? '' : 'none';
+  };
+  document.getElementById('esFile').addEventListener('change', (e) => {
+    const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+    openCrop(f, (blob, ext) => { edThumb.pending = { blob, ext }; edThumb.pendingUrl = URL.createObjectURL(blob); paintThumb(); }, { aspect:16 / 9, noOriginal:true });
+  });
+  document.getElementById('esThumbDel').addEventListener('click', (e) => { e.preventDefault(); edThumb = { image:null, imageV:null, pending:null, pendingUrl:null }; paintThumb(); });
   document.getElementById('esLoc').addEventListener('click', (e) => { const b = e.target.closest('.es-opt'); if(!b) return; edLoc = b.dataset.v; paintSave(); });
   document.getElementById('esVis').addEventListener('click', (e) => { const b = e.target.closest('.es-opt'); if(!b) return; edVis = b.dataset.v; paintSave(); if(edVis === 'private') document.getElementById('esPw').focus(); });
   document.getElementById('esCancel').addEventListener('click', () => esModal.classList.remove('active'));
@@ -2717,7 +2730,7 @@
     document.getElementById('esErr').textContent = '';
     document.getElementById('esPw').value = '';
     document.getElementById('esPw').placeholder = edPwHash ? '비밀번호 (바꿀 때만 입력)' : '비밀번호';
-    paintSave(); esModal.classList.add('active');
+    paintSave(); paintThumb(); esModal.classList.add('active');
   });
   document.getElementById('esGo').addEventListener('click', async () => {
     const err = document.getElementById('esErr'); err.textContent = '';
@@ -2735,7 +2748,7 @@
     const btn = document.getElementById('esGo'); btn.disabled = true; btn.textContent = '업로드 중...';
     try {
       const cb = edDone;
-      if(cb) await cb(html, edAuthor, { title, loc:edLoc, vis:edVis, pwHash });
+      if(cb) await cb(html, edAuthor, { title, loc:edLoc, vis:edVis, pwHash, thumb:edThumb });
       esModal.classList.remove('active'); closeBodyEditor();
     } catch(e){ err.textContent = '저장에 실패했어요: ' + e.message; }
     btn.disabled = false; btn.textContent = '업로드';
@@ -2816,7 +2829,8 @@
     if(!getToken()) throw new Error('먼저 토큰 설정에서 토큰을 등록해 주세요.');
     const id = old ? old.id : 'p' + Date.now();
     const body = await resolvePendingImgs(html);
-    const post = { id, title:o.title, date:(old && old.date) || fmtYmd(Date.now()), link:(old && old.link) || '', linkText:(old && old.linkText) || '', body, author:author || '', image:(old && old.image) || null, imageV:(old && old.imageV) || null };
+    const post = { id, title:o.title, date:(old && old.date) || fmtYmd(Date.now()), link:(old && old.link) || '', linkText:(old && old.linkText) || '', body, author:author || '', image:null, imageV:null };
+    { const th = o.thumb || {}; if(th.pending){ const ip = `assets/ymkb_slide_${id}.${th.pending.ext}`; await ghPut(ip, await blobToBase64(th.pending.blob), `Update thumbnail: ${o.title}`); post.image = ip; post.imageV = Date.now(); } else { post.image = th.image || null; post.imageV = th.imageV || null; } }
     if(o.vis === 'private' && o.pwHash){ post.vis = 'private'; post.pwHash = o.pwHash; }
     const t = (obj) => toBase64Text(JSON.stringify(obj, null, 2) + '\n');
     if(o.loc === 'archive'){
@@ -2844,23 +2858,24 @@
     const items = arcFilter.size ? all.filter(it => arcFilter.has(it.author)) : all;
     const card = (it, i) => {
       const priv = it.vis === 'private';
-      const cover = priv ? '' : postCover(it);
+      const cover = priv ? (it.image ? rawUrl(it.image, it.imageV) : '') : postCover(it);
       const date = esc(it.date || (it.at ? fmtYmd(it.at) : ''));
-      const text = priv ? '비밀번호를 입력해야 볼 수 있습니다.' : postExcerpt(it);
+      const text = priv ? '비밀글입니다.' : postExcerpt(it);
       return `<div class="archive-item${cover ? ' has-img' : ''}" data-i="${i}">
         ${cover ? `<div class="archive-img"><img src="${esc(cover)}" alt="" onerror="window.__imgErr(this)"></div>` : ''}
-        <div class="archive-text"><div class="archive-date">${date}${it.author ? ' · ' + esc(it.author) : ''}</div><div class="archive-name">${esc(it.title || '(제목 없음)')}</div>${cover ? '' : `<div class="archive-excerpt">${esc(text)}</div>`}</div>
+        <div class="archive-text"><div class="archive-date">${date}${it.author ? ' · ' + esc(it.author) : ''}</div><div class="archive-name">${esc(it.title || '(제목 없음)')}</div>${cover && !priv ? '' : `<div class="archive-excerpt">${esc(text)}</div>`}</div>
         <div class="archive-actions edit-only"><button type="button" class="btn-sm" data-aed>에디터로 열기</button></div></div>`;
     };
     sec.innerHTML = `<div class="archive-head"><h3 class="archive-title">ARCHIVE</h3>
       <div class="archive-tools"><button type="button" class="btn-sm edit-only" id="arcOpenEd">에디터 열기</button><button type="button" class="btn-sm${arcFilter.size ? ' on' : ''}" id="arcFilterBtn">필터${arcFilter.size ? ' (' + arcFilter.size + ')' : ''}</button></div></div>
-      <div class="archive-filter"${arcFilterOpen ? '' : ' style="display:none"'}>${OWNERS.map(o => `<button type="button" class="es-opt${arcFilter.has(o) ? ' on' : ''}" data-ao="${esc(o)}">${esc(o)}</button>`).join('')}</div>`
+      <div class="archive-filter-pop"${arcFilterOpen ? '' : ' style="display:none"'}>${OWNERS.map(o => `<label class="af-row"><input type="checkbox" data-ao="${esc(o)}"${arcFilter.has(o) ? ' checked' : ''}><span>${esc(o)}</span></label>`).join('')}</div>`
       + (items.length ? `<div class="archive-grid">${items.map(card).join('')}</div>` : '<p class="archive-empty">보관된 글이 없습니다.</p>');
     sec.onclick = (e) => {
       if(e.target.closest('#arcOpenEd')){ openArchiveEditor(null); return; }
       if(e.target.closest('#arcFilterBtn')){ arcFilterOpen = !arcFilterOpen; renderArchive(); return; }
       const ob = e.target.closest('[data-ao]');
-      if(ob){ const o = ob.dataset.ao; if(arcFilter.has(o)) arcFilter.delete(o); else arcFilter.add(o); renderArchive(); return; }
+      if(ob){ const o = ob.dataset.ao; if(ob.checked) arcFilter.add(o); else arcFilter.delete(o); renderArchive(); return; }
+      if(arcFilterOpen && !e.target.closest('.archive-filter-pop')){ arcFilterOpen = false; renderArchive(); }
       const row = e.target.closest('.archive-item'); if(!row) return;
       const it = items[Number(row.dataset.i)]; if(!it) return;
       if(e.target.closest('[data-aed]')){ openArchiveEditor(it); return; }
@@ -2886,8 +2901,7 @@
         <input class="f-input" data-s="date" placeholder="작성 날짜" value="${esc(sl.date || '')}">
         <input class="f-input" data-s="link" placeholder="링크" value="${esc(sl.link || '')}">
         <input class="f-input" data-s="linkText" placeholder="표시 문구" value="${esc(sl.linkText || '')}">
-        <div class="file-line"><input type="file" data-s="file" accept="image/*"><button type="button" class="btn-sm" data-sed>에디터로 열기</button></div>
-        <div class="slide-btns"><button type="button" class="btn-sm" data-simgdel>이미지 삭제</button><button type="button" class="btn-sm danger" data-sdel>슬라이드 삭제</button></div>
+        <div class="slide-btns"><button type="button" class="btn-sm" data-sed>에디터로 열기</button><button type="button" class="btn-sm danger" data-sdel>슬라이드 삭제</button></div>
       </div></div></div>`;
     const syncSlides = () => {
       document.querySelectorAll('#sSlides .slide-row').forEach(row => {
@@ -2905,10 +2919,6 @@
       box.querySelectorAll('.slide-row').forEach(row => {
         const i = Number(row.dataset.i);
         row.querySelectorAll('.rt-toolbar button').forEach(b => b.addEventListener('mousedown', ev => { ev.preventDefault(); rtExec(b.dataset.rt); }));
-        row.querySelector('[data-s=file]').addEventListener('change', (e) => {
-          const f = e.target.files[0]; if(!f) return;
-          openCrop(f, (blob, ext) => { syncSlides(); slides[i].pending = { blob, ext }; slides[i].pendingUrl = URL.createObjectURL(blob); drawSlides(); });
-        });
       });
     };
     document.getElementById('formBody').innerHTML = `
@@ -2951,7 +2961,7 @@
     document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ _open:true, id:'s' + Date.now(), title:'', date:'', link:'', linkText:'', body:'', image:null }); drawSlides(); });
     document.getElementById('sSlides').addEventListener('click', (e) => {
       const edb = e.target.closest('[data-sed]');
-      if(edb){ syncSlides(); const idx = Number(edb.closest('.slide-row').dataset.i); const sl = slides[idx]; if(sl) openBodyEditor(Object.assign({}, sl, { loc: sl._toArchive ? 'archive' : 'notice' }), (html, author, o) => { sl.body = html; sl.author = author || ''; sl.title = o.title; sl._toArchive = o.loc === 'archive'; sl.vis = o.vis; sl.pwHash = o.pwHash; sl._open = true; formDirty = true; drawSlides(); }); return; }
+      if(edb){ syncSlides(); const idx = Number(edb.closest('.slide-row').dataset.i); const sl = slides[idx]; if(sl) openBodyEditor(Object.assign({}, sl, { loc: sl._toArchive ? 'archive' : 'notice' }), (html, author, o) => { sl.body = html; sl.author = author || ''; sl.title = o.title; sl._toArchive = o.loc === 'archive'; sl.vis = o.vis; sl.pwHash = o.pwHash; if(o.thumb){ sl.image = o.thumb.image; sl.imageV = o.thumb.imageV; sl.pending = o.thumb.pending; sl.pendingUrl = o.thumb.pendingUrl; } sl._open = true; formDirty = true; drawSlides(); }); return; }
       const fb = e.target.closest('[data-sfold]');
       if(fb){ const sl = slides[Number(fb.closest('.slide-row').dataset.i)]; const folded = fb.classList.toggle('folded'); if(sl) sl._open = !folded; return; }
       const ib = e.target.closest('[data-simgdel]');
