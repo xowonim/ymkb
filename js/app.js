@@ -113,8 +113,6 @@
     const startAuto = () => { clearInterval(autoTimer); if(slidesData.length > 1) autoTimer = setInterval(() => setSlide(current + 1, 1), 5000); };
     document.getElementById('bannerPrev').addEventListener('click', () => { setSlide(current - 1, -1); startAuto(); });
     document.getElementById('bannerNext').addEventListener('click', () => { setSlide(current + 1, 1); startAuto(); });
-    stage.addEventListener('mouseenter', () => clearInterval(autoTimer));
-    stage.addEventListener('mouseleave', startAuto);
     startAuto();
   }
 
@@ -1101,7 +1099,7 @@
     const go = (i) => { cur = (i + list.length) % list.length; track.style.transform = `translateX(-${cur * 100}%)`; ticks.forEach((t, k) => t.classList.toggle('active', k === cur)); };
     const start = () => { if(list.length > 1 && !timer) timer = setInterval(() => go(cur + 1), 4000); };
     const stop = () => { clearInterval(timer); timer = null; };
-    box.addEventListener('mouseenter', stop); box.addEventListener('mouseleave', start);
+    
     ticks.forEach((t, k) => t.addEventListener('click', () => { stop(); go(k); start(); }));
     box.addEventListener('click', (e) => {
       const it = e.target.closest('.hd-item'); if(!it) return;
