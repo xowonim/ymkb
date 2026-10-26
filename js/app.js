@@ -1408,6 +1408,15 @@
     } catch(e){}
     window.location.reload();
   }
+  // 삭제가 끝나면 해당 항목을 화면에서 먼저 지우고, 데이터 정리를 위해 잠시 뒤 조용히 다시 불러온다.
+  function softDeleted(sels, msg){
+    try {
+      [groupModal, profileModal, classModal].forEach(m => m && m.classList.remove('active'));
+      sels.forEach(q => document.querySelectorAll(q).forEach(el => el.remove()));
+      showToast(msg, 2000);
+    } catch(e){}
+    setTimeout(() => reloadKeepingView(), 1200);
+  }
   let lastProfile = null;
   async function openProfile(name){
     const info = masterCharacters[name];
@@ -2176,7 +2185,7 @@
         await ghDelete(cf._path, `Delete character: ${name}`);
         if(cf.image) await dropImage(cf.image, 'char:' + cf.id, `Delete image: ${name}`);
       } else { alert('지울 데이터를 찾지 못했어요.'); return; }
-      reloadKeepingView();
+      softDeleted([`.photo-card[data-name="${CSS.escape(name)}"]`, `.council-item[data-name="${CSS.escape(name)}"]`], '캐릭터를 삭제했습니다.');
     } catch(e){
       alert('삭제에 실패했어요: ' + e.message);
     }
@@ -2426,7 +2435,7 @@
         if(g.file.image) await dropImage(g.file.image, 'group:' + g.id, `Delete group image: ${g.name}`);
         for(const d of (Array.isArray(g.discography) ? g.discography : [])){ if(d && d.cover) await dropImage(d.cover, 'group:' + g.id, 'Remove cover'); }
       }
-      reloadKeepingView();
+      softDeleted([`#groupGallery .photo-card[data-gid="${CSS.escape(g.id)}"]`], '그룹을 삭제했습니다.');
     } catch(e){ alert('삭제에 실패했어요: ' + e.message); }
   }
 
@@ -2542,7 +2551,7 @@
       data.forEach(gr => { gr.sections = gr.sections.filter(s => s.id !== sec.id); });
       for(let i = data.length - 1; i >= 0; i--) if(!data[i].sections.length) data.splice(i, 1);
     }, `Delete class: ${sec.id}`);
-    if(ok) reloadKeepingView();
+    if(ok) softDeleted([`.class-btn[data-class-id="${CSS.escape(sec.id)}"]`], '학급을 삭제했습니다.');
   }
   document.getElementById('clEdit').addEventListener('click', () => { if(currentSection) openClassForm(currentSection); });
   document.getElementById('clDelete').addEventListener('click', () => { if(currentSection) deleteClass(currentSection); });
@@ -2986,7 +2995,7 @@
       const it = items[Number(row.dataset.i)]; if(!it) return;
       if(e.target.closest('[data-adel]')){
         const doDel = () => askConfirm(`'${it.title || '(제목 없음)'}' 글을 삭제할까요?\n삭제하면 되돌릴 수 없습니다.`, async () => {
-          try { await ghDelete(it._path || `${ARCHIVE_DIR}/${it.id}.json`, `Delete archive post: ${it.title}`); await purgeAssets(assetsOf(it), it.id); reloadKeepingView(); }
+          try { await ghDelete(it._path || `${ARCHIVE_DIR}/${it.id}.json`, `Delete archive post: ${it.title}`); Object.keys(archiveMap).forEach(k => { if(archiveMap[k] === it || archiveMap[k].id === it.id) delete archiveMap[k]; }); renderArchive(); showToast('글을 삭제했습니다.', 2500); await purgeAssets(assetsOf(it), it.id); }
           catch(err){ alert('삭제에 실패했어요: ' + err.message); }
         });
         if(it.vis === 'private' && it.pwHash) askPassword(it.pwHash, doDel); else doDel();
