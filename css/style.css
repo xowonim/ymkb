@@ -968,3 +968,10 @@ body.edit-mode .archive-actions{ display:flex; }
 .main-grid{ position:relative; }
 .fab-sns{ left:auto; right:6px; margin-left:0; }
 @media (max-width:900px){ .fab-sns{ right:auto; } }
+
+/* 이미지 확대/자르기 창 버튼 */
+#cropModal .text-btn{ background:var(--surface); border:1px solid var(--line); color:var(--ink); padding:7px 13px; font-size:12px; font-weight:600; border-radius:6px !important; }
+#cropModal .text-btn:hover{ border-color:var(--accent); color:var(--ink); }
+#cropModal .form-submit{ border-radius:6px !important; }
+#cropModal .crop-controls{ display:flex; gap:8px; flex-wrap:wrap; }
+#cropModal .form-actions > span{ display:flex; gap:8px; align-items:center; }
