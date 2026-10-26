@@ -964,3 +964,9 @@ body.edit-mode .archive-actions{ display:flex; }
 
 /* 편집 모드가 아닐 때는 이미지 저장(꾹 누르기, 끌어가기, 선택)을 막는다 */
 body:not(.edit-mode) img{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; -webkit-user-drag:none; }
+
+/* 에디터: 현재 적용된 서식 표시 */
+.editor-tools .rt-toolbar button.on, .editor-tools .al-btn.on{ background:var(--accent); border-color:var(--accent); color:#fff; }
+.editor-tools .rt-toolbar button.on b, .editor-tools .rt-toolbar button.on i, .editor-tools .rt-toolbar button.on u, .editor-tools .rt-toolbar button.on s{ color:#fff; }
+.editor-tools .al-btn.on svg{ stroke:#fff; }
+.ed-swatch.on{ outline:2px solid var(--ink); outline-offset:2px; }
