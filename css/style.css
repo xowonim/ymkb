@@ -977,3 +977,9 @@ body.edit-mode .archive-actions{ display:flex; }
 #cropModal .form-actions > span{ display:flex; gap:8px; align-items:center; }
 .slide-box-text h3, .profile-text.rich h3{ scroll-margin-top:28px; }
 .es-opt:disabled{ opacity:0.4; cursor:default; }
+
+/* 프로필 템플릿 관리 */
+#tplModal .f-input, #tplModal .btn-sm, #tplModal .form-submit, #tplModal .tpl-tab, #tplModal select{ border-radius:6px !important; }
+/* 아카이브 카드 버튼 */
+.archive-actions{ gap:10px; }
+.archive-actions .btn-sm{ border-radius:6px !important; }
