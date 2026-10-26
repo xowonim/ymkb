@@ -8,6 +8,8 @@
   "author": "호원",
   "image": null,
   "imageV": null,
+  "vis": "private",
+  "pwHash": "1baaaf0c6612730675abe9d7a80b2c7eaede5341fc3c477a0612da14c699ed1b",
   "name": "테스트용",
   "at": 1792999945373
 }
