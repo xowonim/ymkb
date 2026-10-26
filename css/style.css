@@ -961,3 +961,6 @@ body.edit-mode .archive-actions{ display:flex; }
 
 /* 마우스오버 효과는 그룹 카드에만 남긴다 */
 #groupGallery .photo-card:hover .p-thumb{ transform:scale(1.05); }
+
+/* 편집 모드가 아닐 때는 이미지 저장(꾹 누르기, 끌어가기, 선택)을 막는다 */
+body:not(.edit-mode) img{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; -webkit-user-drag:none; }
