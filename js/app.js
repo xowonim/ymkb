@@ -2708,6 +2708,8 @@
   // 저장 버튼: 저장 위치와 공개 형태를 고르는 창을 띄운다.
   const esModal = document.getElementById('edSaveModal');
   const paintSave = () => {
+    if(edLoc === 'notice') edVis = 'public'; // 공지사항은 전체공개만 가능
+    document.querySelector('#esVis [data-v=private]').disabled = edLoc === 'notice';
     document.querySelectorAll('#esLoc .es-opt').forEach(b => b.classList.toggle('on', b.dataset.v === edLoc));
     document.querySelectorAll('#esVis .es-opt').forEach(b => b.classList.toggle('on', b.dataset.v === edVis));
     document.getElementById('esPw').style.display = edVis === 'private' ? '' : 'none';
@@ -2883,7 +2885,7 @@
       if(arcFilterOpen && !e.target.closest('.archive-filter-pop')){ arcFilterOpen = false; renderArchive(); }
       const row = e.target.closest('.archive-item'); if(!row) return;
       const it = items[Number(row.dataset.i)]; if(!it) return;
-      if(e.target.closest('[data-aed]')){ openArchiveEditor(it); return; }
+      if(e.target.closest('[data-aed]')){ if(it.vis === 'private' && it.pwHash) askPassword(it.pwHash, () => openArchiveEditor(it)); else openArchiveEditor(it); return; }
       const url = safeUrl(it.link);
       const go = () => {
         if(!isEmptyVal(it.body)) openSlideBox({ image:'', linkText:it.linkText }, url, String(it.body).trim());
@@ -2966,7 +2968,7 @@
     document.getElementById('sAddSlide').addEventListener('click', () => { syncSlides(); slides.push({ _open:true, id:'s' + Date.now(), title:'', date:'', link:'', linkText:'', body:'', image:null }); drawSlides(); });
     document.getElementById('sSlides').addEventListener('click', (e) => {
       const edb = e.target.closest('[data-sed]');
-      if(edb){ syncSlides(); const idx = Number(edb.closest('.slide-row').dataset.i); const sl = slides[idx]; if(sl) openBodyEditor(Object.assign({}, sl, { loc: sl._toArchive ? 'archive' : 'notice' }), (html, author, o) => { sl.body = html; sl.author = author || ''; sl.title = o.title; sl._toArchive = o.loc === 'archive'; sl.vis = o.vis; sl.pwHash = o.pwHash; if(o.thumb){ sl.image = o.thumb.image; sl.imageV = o.thumb.imageV; sl.pending = o.thumb.pending; sl.pendingUrl = o.thumb.pendingUrl; } sl._open = true; formDirty = true; drawSlides(); setTimeout(() => { const fs = document.getElementById('formSave'); if(fs && !fs.disabled) fs.click(); }, 50); }); return; }
+      if(edb){ syncSlides(); const idx = Number(edb.closest('.slide-row').dataset.i); const sl = slides[idx]; if(sl){ const openEd = () => openBodyEditor(Object.assign({}, sl, { loc: sl._toArchive ? 'archive' : 'notice' }), (html, author, o) => { sl.body = html; sl.author = author || ''; sl.title = o.title; sl._toArchive = o.loc === 'archive'; sl.vis = o.vis; sl.pwHash = o.pwHash; if(o.thumb){ sl.image = o.thumb.image; sl.imageV = o.thumb.imageV; sl.pending = o.thumb.pending; sl.pendingUrl = o.thumb.pendingUrl; } sl._open = true; formDirty = true; drawSlides(); setTimeout(() => { const fs = document.getElementById('formSave'); if(fs && !fs.disabled) fs.click(); }, 50); }); if(sl.vis === 'private' && sl.pwHash) askPassword(sl.pwHash, openEd); else openEd(); } return; }
       const fb = e.target.closest('[data-sfold]');
       if(fb){ const sl = slides[Number(fb.closest('.slide-row').dataset.i)]; const folded = fb.classList.toggle('folded'); if(sl) sl._open = !folded; return; }
       const ib = e.target.closest('[data-simgdel]');
