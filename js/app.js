@@ -1933,7 +1933,6 @@
       ${fInput('이름', 'fName', info ? info.name : '')}
 
       <div class="f-group">CATEGORY <span class="f-group-note">(프로필에 표시 X)</span></div>
-      <div class="f-sub">GROUP</div>
       <label class="f-row"><span>그룹명</span><input class="f-input" id="fGroup" list="fGroupNames" value="${esc(info ? info.group : '')}" autocomplete="off"></label>
       <datalist id="fGroupNames">${groups.map(g => g.name).sort((a, b) => a.localeCompare(b, 'ko')).map(n => `<option value="${esc(n)}">`).join('')}</datalist>
       <div class="f-row"><div class="f-role-line">
@@ -1943,7 +1942,6 @@
       </div></div>
       <datalist id="fColorNames">${colorNames.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
 
-      <div class="f-sub">CLASS</div>
       <label class="f-row"><span>학급</span><input class="f-input" value="${esc(info && info.classId ? info.classId : '미지정')}" readonly></label>
       <div class="f-checks" id="fClassFlags">${CLASS_FLAGS.map(fl => `<label class="f-check"><input type="checkbox" data-cflag="${fl}" ${((info && info.classFlags) || []).includes(fl) ? 'checked' : ''}><span>${fl}</span></label>`).join('')}</div>
 
