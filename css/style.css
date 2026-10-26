@@ -976,3 +976,4 @@ body.edit-mode .archive-actions{ display:flex; }
 #cropModal .crop-controls{ display:flex; gap:8px; flex-wrap:wrap; }
 #cropModal .form-actions > span{ display:flex; gap:8px; align-items:center; }
 .slide-box-text h3, .profile-text.rich h3{ scroll-margin-top:28px; }
+.es-opt:disabled{ opacity:0.4; cursor:default; }
