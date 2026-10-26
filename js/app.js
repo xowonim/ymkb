@@ -570,6 +570,11 @@
   site.pages = site.pages || {};
 
   const SNS_ICONS = {
+    x:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>',
+    ig:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>',
+    fb:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 21v-8h2.7l.5-3.2h-3.2V7.900c0-.900.400-1.700 1.800-1.700h1.500V3.400c-.3 0-1.300-.2-2.400-.2-2.500 0-4.100 1.500-4.100 4.200v2.400H7.500V13h2.800v8z"/></svg>',
+    tt:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16.500 3c.3 2.300 1.700 3.900 4 4.100v3.200c-1.500 0-2.900-.5-4-1.300v6.200a5.600 5.600 0 1 1-5.600-5.600c.3 0 .6 0 .9.1v3.300a2.400 2.400 0 1 0 1.500 2.200V3z"/></svg>',
+    sp:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9.500"/><path d="M7 9.500c3.500-1 7-.7 10 1M7.500 12.800c2.800-.8 5.600-.5 8 .9M8 15.800c2.200-.6 4.300-.4 6.200.7"/></svg>',
     yt:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M21.6 7.2s-.2-1.5-.8-2.1c-.8-.8-1.7-.8-2.1-.9C15.9 4 12 4 12 4s-3.9 0-6.7.2c-.4 0-1.3.1-2.1.9-.6.6-.8 2.1-.8 2.1S2.2 9 2.2 10.7v1.6c0 1.7.2 3.5.2 3.5s.2 1.5.8 2.1c.8.8 1.9.8 2.4.9C7.5 19 12 19 12 19s3.9 0 6.7-.2c.4 0 1.3-.1 2.1-.9.6-.6.8-2.1.8-2.1s.2-1.7.2-3.5v-1.6c0-1.7-.2-3.5-.2-3.5zM9.9 14.6V8.9l5.4 2.9-5.4 2.8z"/></svg>',
     sc:'<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2 15.5c0 1.9 1.6 3.5 3.5 3.5H18c2.2 0 4-1.8 4-4 0-1.9-1.4-3.5-3.2-3.9-.3-2.8-2.6-5-5.5-5-2 0-3.7 1.1-4.6 2.7-.2 0-.3-.1-.5-.1C6 8.7 4.4 10.2 4.2 12.1 2.9 12.5 2 13.9 2 15.5z"/></svg>',
     etc:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>'
@@ -585,8 +590,12 @@
     const snsList = snsOf(site);
     const side = document.querySelector('.side-col');
     if(side) side.innerHTML = snsList.map(x => {
-      const kind = /youtube|youtu\.be/i.test(x.url + x.name) ? 'yt' : /soundcloud/i.test(x.url + x.name) ? 'sc' : 'etc';
-      const icon = kind === 'yt' ? SNS_ICONS.yt : kind === 'sc' ? SNS_ICONS.sc : SNS_ICONS.etc;
+      const both = x.url + ' ' + x.name;
+      const kind = /youtube|youtu\.be|유튜브/i.test(both) ? 'yt' : /soundcloud|사운드클라우드/i.test(both) ? 'sc'
+        : (/(^|[\/.])(x|twitter)\.com/i.test(x.url) || /^\s*(x|twitter|트위터|엑스)\s*$/i.test(x.name)) ? 'x'
+        : /instagram|instagr\.am|인스타/i.test(both) ? 'ig' : /facebook|fb\.com|페이스북/i.test(both) ? 'fb'
+        : /tiktok|틱톡/i.test(both) ? 'tt' : /spotify|스포티파이/i.test(both) ? 'sp' : 'etc';
+      const icon = SNS_ICONS[kind] || SNS_ICONS.etc;
       return `<a class="link-row" href="${esc(safeUrl(x.url) || '#')}" target="_blank" rel="noopener noreferrer" title="${esc(x.name)}" aria-label="${esc(x.name)}"><div class="icon-box ${kind}">${icon}</div><span>${esc(x.name)}</span></a>`;
     }).join('');
     document.querySelector('footer').textContent = site.footer;
@@ -823,7 +832,7 @@
 
   /* ---------------- GROUP LIST ---------------- */
   const gallery = document.getElementById('groupGallery');
-  document.getElementById('groupCountLabel').textContent = `(${groups.length})`;
+  document.getElementById('groupCountLabel').textContent = '';
 
   groups.forEach((g) => {
     const card = document.createElement('div');
