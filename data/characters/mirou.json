@@ -8,9 +8,12 @@
   "owner": "호원",
   "template": "t_howon",
   "clubHead": false,
-  "classFlags": [],
+  "classFlags": [
+    "유급생"
+  ],
   "image": null,
   "imageV": null,
+  "noImage": false,
   "fields": {
     "f_1790459852228": "",
     "f_1790459909805": "",
