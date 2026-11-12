@@ -2,7 +2,7 @@
   "id": "tsicro",
   "name": "Tsicro",
   "concept": "퇴마사",
-  "genre": "Rock",
+  "genre": "J-Rock",
   "fandom": "",
   "colors": [
     "네이비",
@@ -10,5 +10,6 @@
   ],
   "intro": "",
   "image": "ymkb_group_tsicro.jpg",
-  "imageV": 1792432866871
+  "imageV": 1792432866871,
+  "discography": []
 }
