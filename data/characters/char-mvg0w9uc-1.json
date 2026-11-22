@@ -5,12 +5,13 @@
   "group": "",
   "role": "",
   "color": null,
-  "owner": "",
-  "template": "",
+  "owner": "세잇",
+  "template": "t_seit",
   "clubHead": false,
   "classFlags": [],
-  "image": null,
-  "imageV": null,
+  "image": "assets/ymkb_icon_char-mvg0w9uc-1.png",
+  "imageV": 1795368815304,
+  "noImage": false,
   "fields": {
     "f_1790477497994": "中-A"
   }
