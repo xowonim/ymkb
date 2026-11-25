@@ -1,0 +1,16 @@
+{
+  "id": "shiryu",
+  "name": "사쿠라 시류",
+  "file": "shiryu",
+  "group": "FIEND",
+  "role": "",
+  "color": null,
+  "owner": "세잇",
+  "template": "t_seit",
+  "clubHead": false,
+  "classFlags": [],
+  "image": null,
+  "imageV": null,
+  "noImage": false,
+  "fields": {}
+}
